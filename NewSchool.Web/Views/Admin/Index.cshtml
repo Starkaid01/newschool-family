@@ -1,0 +1,229 @@
+@model NewSchool.Web.Models.AdminDashboardViewModel
+@{
+    ViewData["Title"] = "Admin";
+}
+
+<section class="page-hero compact">
+    <div>
+        <div class="eyebrow">Admin</div>
+        <h1>Painel operacional do produto</h1>
+        <p class="muted">Aqui voce enxerga o negocio: familias ativas, criancas em uso, minutos entregues e intensidade de adocao do ensino domiciliar.</p>
+    </div>
+</section>
+
+@Html.AntiForgeryToken()
+
+@if (TempData["AutomationStatus"] is string automationStatus)
+{
+    <section class="panel">
+        <strong>Automacao executada.</strong>
+        <p class="muted">@automationStatus</p>
+    </section>
+}
+
+<section class="stats-grid">
+    <article class="stat-card"><span>Familias</span><strong>@Model.TotalParents</strong></article>
+    <article class="stat-card"><span>Criancas</span><strong>@Model.TotalChildren</strong></article>
+    <article class="stat-card"><span>Assinantes ativos</span><strong>@Model.ActiveSubscribers</strong></article>
+    <article class="stat-card"><span>Inativos</span><strong>@Model.InactiveParents</strong></article>
+    <article class="stat-card"><span>Cancelados</span><strong>@Model.CanceledParents</strong></article>
+    <article class="stat-card"><span>MRR estimado</span><strong>R$ @Model.EstimatedMrr.ToString("0.00")</strong></article>
+    <article class="stat-card"><span>Conversao</span><strong>@Model.ConversionRate.ToString("0.0")%</strong></article>
+    <article class="stat-card"><span>Retencao</span><strong>@Model.RetentionRate.ToString("0.0")%</strong></article>
+    <article class="stat-card"><span>Churn</span><strong>@Model.ChurnRate.ToString("0.0")%</strong></article>
+    <article class="stat-card"><span>Novos esta semana</span><strong>@Model.NewParentsThisWeek</strong></article>
+    <article class="stat-card"><span>Trial acabando</span><strong>@Model.TrialsEndingSoon</strong></article>
+    <article class="stat-card"><span>Pagamento pendente</span><strong>@Model.PastDueParents</strong></article>
+    <article class="stat-card"><span>Em risco</span><strong>@Model.HighRiskParents</strong></article>
+    <article class="stat-card"><span>Risco pedagogico</span><strong>@Model.PedagogicalRiskParents</strong></article>
+    <article class="stat-card"><span>Ciclos fora da rota</span><strong>@Model.OffTrackGoalCycles</strong></article>
+    <article class="stat-card"><span>Planos hoje</span><strong>@Model.PlansGeneratedToday</strong></article>
+    <article class="stat-card"><span>Sessoes semana</span><strong>@Model.SessionsLoggedThisWeek</strong></article>
+    <article class="stat-card"><span>Minutos semana</span><strong>@Model.MinutesDeliveredThisWeek</strong></article>
+</section>
+
+<section class="panel">
+    <div class="card-topline">
+        <div>
+            <div class="eyebrow">Automacoes</div>
+            <h2>Recuperacao de receita</h2>
+        </div>
+        <span class="chip warning">Stripe + email + risco pedagogico</span>
+    </div>
+    <p class="muted">A plataforma agora tenta recuperar receita em quatro frentes: trial acabando, assinatura com pagamento pendente, familia que esfriou o uso e criancas com metas do mes entrando em risco.</p>
+    <form asp-action="RunRecoveryAutomation" method="post">
+        @Html.AntiForgeryToken()
+        <button class="btn-primary" type="submit">Rodar automacao agora</button>
+    </form>
+</section>
+
+<section class="section-grid">
+    <article class="panel">
+        <div class="eyebrow">Leitura comercial</div>
+        <h2>Saude do funil</h2>
+        <p><strong>Conversao:</strong> porcentagem de familias cadastradas que viraram assinantes ativos.</p>
+        <p><strong>Retencao:</strong> familias ainda em rota de assinatura, sem cancelamento.</p>
+        <p><strong>Churn:</strong> familias que cancelaram e precisam de reativacao.</p>
+    </article>
+    <article class="panel">
+        <div class="eyebrow">Leitura de produto</div>
+        <h2>Sinais de uso</h2>
+        <p><strong>Planos hoje:</strong> quantas rotinas foram geradas.</p>
+        <p><strong>Sessoes semana:</strong> quantas vezes as familias registraram aprendizagem.</p>
+        <p><strong>Minutos semana:</strong> intensidade real de uso do ensino domiciliar dentro da plataforma.</p>
+    </article>
+</section>
+
+@if (Model.TrackPerformance.Count > 0)
+{
+    <section class="panel">
+        <div class="card-topline">
+            <div>
+                <div class="eyebrow">Performance por trilha</div>
+                <h2>Qual promessa comercial mais converte e retém</h2>
+            </div>
+            <span class="chip success">@Model.TrackPerformance.Count trilha(s)</span>
+        </div>
+        <table class="table-modern">
+            <thead>
+                <tr>
+                    <th>Trilha</th>
+                    <th>Leads</th>
+                    <th>Assinantes</th>
+                    <th>Retidas</th>
+                    <th>Conversao</th>
+                    <th>Retencao</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var track in Model.TrackPerformance)
+                {
+                    <tr>
+                        <td>@track.TrackLabel</td>
+                        <td>@track.Leads</td>
+                        <td>@track.Subscribers</td>
+                        <td>@track.RetainedFamilies</td>
+                        <td>@track.ConversionRate.ToString("0.0")%</td>
+                        <td>@track.RetentionRate.ToString("0.0")%</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </section>
+}
+
+<section class="panel">
+    <div class="card-topline">
+        <h2>Filtros operacionais</h2>
+        <span class="chip neutral">Retencao e conversao</span>
+    </div>
+    <form method="get" class="filter-grid">
+        <div>
+            <label for="subscription">Assinatura</label>
+            <select id="subscription" name="subscription" class="input">
+                <option value="">Todas</option>
+                <option value="active" selected="@(Model.SelectedSubscription == "active")">Ativas</option>
+                <option value="inactive" selected="@(Model.SelectedSubscription == "inactive")">Inativas</option>
+                <option value="trial_expired" selected="@(Model.SelectedSubscription == "trial_expired")">Trial expirado</option>
+                <option value="canceled" selected="@(Model.SelectedSubscription == "canceled")">Canceladas</option>
+            </select>
+        </div>
+        <div>
+            <label for="activity">Atividade</label>
+            <select id="activity" name="activity" class="input">
+                <option value="">Todas</option>
+                <option value="active" selected="@(Model.SelectedActivity == "active")">Ativas nesta semana</option>
+                <option value="inactive" selected="@(Model.SelectedActivity == "inactive")">Sem atividade recente</option>
+            </select>
+        </div>
+        <div>
+            <label for="risk">Risco de churn</label>
+            <select id="risk" name="risk" class="input">
+                <option value="">Todos</option>
+                <option value="low" selected="@(Model.SelectedRisk == "low")">Baixo</option>
+                <option value="high" selected="@(Model.SelectedRisk == "high")">Alto</option>
+            </select>
+        </div>
+        <div class="filter-actions">
+            <button class="btn-primary" type="submit">Aplicar filtros</button>
+        </div>
+    </form>
+</section>
+
+<section class="panel">
+    <div class="card-topline">
+        <h2>Usuarios parent</h2>
+        <span class="chip neutral">Gestao rapida</span>
+    </div>
+    <table class="table-modern">
+        <thead>
+            <tr>
+                <th>Responsavel</th>
+                <th>Email</th>
+                <th>Origem</th>
+                <th>Assinatura</th>
+                <th>Atividade</th>
+                <th>Risco</th>
+                <th>Pedagogico</th>
+                <th>Criancas</th>
+                <th>Sessoes</th>
+                <th>Minutos</th>
+                <th>Campanhas</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var user in Model.Parents)
+            {
+                <tr>
+                    <td>@user.FullName</td>
+                    <td>@user.Email</td>
+                    <td><span class="chip neutral">@user.AcquisitionTrackLabel</span></td>
+                    <td><span class="chip @(user.SubscriptionStatus == "active" ? "success" : user.SubscriptionStatus == "canceled" ? "warning" : "neutral")">@user.SubscriptionStatus</span></td>
+                    <td><span class="chip @user.ActivityChipClass">@user.ActivityLabel</span></td>
+                    <td><span class="chip @user.ChurnRiskChipClass">@user.ChurnRiskLabel</span></td>
+                    <td>
+                        <span class="chip @user.PedagogicalRiskChipClass">@user.PedagogicalRiskLabel</span>
+                        <div class="small-meta">@user.OffTrackGoals meta(s) em risco</div>
+                    </td>
+                    <td>@user.ChildrenCount</td>
+                    <td>@user.SessionsCount</td>
+                    <td>@user.MinutesCompleted</td>
+                    <td>
+                        <div class="campaign-actions">
+                            <form asp-action="SendCampaign" method="post">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="userId" value="@user.Id" />
+                                <input type="hidden" name="campaign" value="Welcome" />
+                                <button class="btn-secondary btn-small" type="submit">Boas-vindas</button>
+                            </form>
+                            <form asp-action="SendCampaign" method="post">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="userId" value="@user.Id" />
+                                <input type="hidden" name="campaign" value="TrialEnding" />
+                                <button class="btn-secondary btn-small" type="submit">Trial</button>
+                            </form>
+                            <form asp-action="SendCampaign" method="post">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="userId" value="@user.Id" />
+                                <input type="hidden" name="campaign" value="PaymentFailed" />
+                                <button class="btn-secondary btn-small" type="submit">Pagamento</button>
+                            </form>
+                            <form asp-action="SendCampaign" method="post">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="userId" value="@user.Id" />
+                                <input type="hidden" name="campaign" value="Reactivation" />
+                                <button class="btn-secondary btn-small" type="submit">Reativacao</button>
+                            </form>
+                            <form asp-action="SendCampaign" method="post">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="userId" value="@user.Id" />
+                                <input type="hidden" name="campaign" value="ChildProgressRisk" />
+                                <button class="btn-secondary btn-small" type="submit">Meta em risco</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</section>

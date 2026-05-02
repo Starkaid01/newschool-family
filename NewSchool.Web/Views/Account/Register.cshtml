@@ -1,0 +1,81 @@
+@model NewSchool.Web.Models.RegisterViewModel
+@{
+    ViewData["Title"] = "Criar conta";
+}
+
+<section class="auth-shell">
+    <div class="auth-premium-grid">
+        <div class="auth-card premium-intro">
+            <div class="eyebrow">Comecar agora</div>
+            <h1>Entre para a plataforma que guia a rotina e prova a evolucao da crianca.</h1>
+            <p class="muted">O NewSchool organiza a rotina, explica o que fazer, registra o progresso, define metas e ajuda a familia a ensinar com mais seguranca dos 3 aos 14 anos.</p>
+
+            <div class="timeline">
+                <article class="timeline-item">
+                    <strong>1. Crie a conta</strong>
+                    <div>Entre em poucos minutos e acesse o painel da familia.</div>
+                </article>
+                <article class="timeline-item">
+                    <strong>2. Cadastre a crianca</strong>
+                    <div>O sistema ajusta a didatica automaticamente pela idade e pelo diagnostico inicial.</div>
+                </article>
+                <article class="timeline-item">
+                    <strong>3. Assine e comece</strong>
+                    <div>Libere a rotina premium, os registros, a Central de Evolucao e os relatorios pedagogicos.</div>
+                </article>
+            </div>
+
+            <div class="demo-box">
+                Feito para familias que precisam de orientacao clara, prova de progresso e paz mental.
+            </div>
+        </div>
+
+        <div class="auth-card">
+            <div class="eyebrow">Criar conta</div>
+            <h2>Sua familia pode comecar hoje</h2>
+
+            @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+            {
+                <div class="alert-soft danger">@Model.ErrorMessage</div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(Model.IntendedTrack))
+            {
+                <div class="demo-box">Voce esta entrando por uma oferta focada. Depois do cadastro, vamos abrir o fluxo com a trilha certa ja preselecionada.</div>
+            }
+
+            <form method="post" class="stack-form">
+                @Html.AntiForgeryToken()
+                <input asp-for="IntendedTrack" type="hidden" />
+
+                <label asp-for="FullName"></label>
+                <input asp-for="FullName" class="input" placeholder="Seu nome completo" />
+                <span asp-validation-for="FullName" class="text-danger"></span>
+
+                <label asp-for="Email"></label>
+                <input asp-for="Email" class="input" placeholder="voce@familia.com" />
+                <span asp-validation-for="Email" class="text-danger"></span>
+
+                <label asp-for="Password"></label>
+                <input asp-for="Password" class="input" placeholder="Crie uma senha segura" />
+                <span asp-validation-for="Password" class="text-danger"></span>
+
+                <label asp-for="ConfirmPassword"></label>
+                <input asp-for="ConfirmPassword" class="input" placeholder="Repita a senha" />
+                <span asp-validation-for="ConfirmPassword" class="text-danger"></span>
+
+                <label asp-for="ReferralCode"></label>
+                <input asp-for="ReferralCode" class="input" placeholder="Opcional: codigo de convite de outra familia" />
+                <span asp-validation-for="ReferralCode" class="text-danger"></span>
+
+                <button class="btn-primary" type="submit">Criar minha conta</button>
+            </form>
+
+            <p class="muted">Ja tem conta? <a asp-action="Login">Entrar agora</a></p>
+        </div>
+    </div>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

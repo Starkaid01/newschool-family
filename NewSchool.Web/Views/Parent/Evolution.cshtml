@@ -1,0 +1,261 @@
+@model NewSchool.Web.Models.ChildEvolutionCenterViewModel
+@{
+    ViewData["Title"] = "Central de evolucao";
+}
+
+<section class="page-hero compact evolution-hero">
+    <div>
+        <div class="eyebrow">Central de evolucao</div>
+        <h1>@Model.FullName</h1>
+        <p class="muted">@Model.Age anos • @Model.MonthLabel • @Model.FamilyGoalTrackLabel • Acompanhamento que transforma rotina em prova de progresso.</p>
+    </div>
+    <div class="stack-inline">
+        <a class="btn-secondary" href="@Model.AchievementShareUrl" target="_blank" rel="noopener noreferrer">Cartao de conquista</a>
+        <a class="btn-primary" href="@Model.PortfolioUrl" target="_blank" rel="noopener noreferrer">Portfolio premium / PDF</a>
+        <a class="btn-primary" href="@Model.ReportUrl" target="_blank" rel="noopener noreferrer">Relatorio mensal / PDF</a>
+        <a class="btn-secondary" href="@Model.RoutineUrl">Voltar para a rotina</a>
+    </div>
+</section>
+
+<section class="panel evolution-promise">
+    <div class="card-topline">
+        <div>
+            <div class="eyebrow">Promessa do produto</div>
+            <h2>@Model.PromiseHeadline</h2>
+        </div>
+        <span class="chip success">@Model.GoalsOnTrack meta(s) em rota</span>
+    </div>
+    <p><strong>Diagnostico:</strong> @Model.DiagnosisSummary</p>
+    <p><strong>Mensagem para os pais:</strong> @Model.ReassuranceSummary</p>
+</section>
+
+@if (Model.RecoveryPlan is not null)
+{
+    <section class="panel recovery-banner">
+        <div class="card-topline">
+            <div>
+                <div class="eyebrow">Intervencao automatica</div>
+                <h2>Plano de retomada de 7 dias ativo</h2>
+            </div>
+            <span class="chip warning">@Model.RecoveryPlan.CompletedDays de @Model.RecoveryPlan.TotalDays dias</span>
+        </div>
+        <p>@Model.RecoveryPlan.Summary</p>
+        <a class="btn-primary" href="@Model.RecoveryPlan.Url">Abrir plano de retomada</a>
+    </section>
+}
+
+@if (Model.CelebrationBadges.Count > 0)
+{
+    <section class="panel">
+        <div class="card-topline">
+            <div>
+                <div class="eyebrow">Conquistas</div>
+                <h2>Marcos que a familia pode guardar e mostrar</h2>
+            </div>
+            <span class="chip success">@Model.CelebrationBadges.Count badge(s)</span>
+        </div>
+        <div class="card-grid">
+            @foreach (var badge in Model.CelebrationBadges)
+            {
+                <article class="step-card">
+                    <strong>@badge.Title</strong>
+                    <p class="muted">@badge.Description</p>
+                    <div class="small-meta">Registrada em @badge.EarnedAt.ToLocalTime().ToString("dd/MM/yyyy")</div>
+                </article>
+            }
+        </div>
+    </section>
+}
+
+@if (Model.Consistency is not null)
+{
+    <section class="panel">
+        <div class="card-topline">
+            <div>
+                <div class="eyebrow">Consistencia da crianca</div>
+                <h2>Ritmo que sustenta a evolucao</h2>
+            </div>
+            <span class="chip success">streak de @Model.Consistency.CurrentStreakDays dia(s)</span>
+        </div>
+        <p class="muted">@Model.FullName tem @Model.Consistency.ActiveDaysThisMonth dias ativos neste mes, com consistencia de @Model.Consistency.ConsistencyPercent%.</p>
+        <div class="consistency-calendar">
+            @foreach (var day in Model.Consistency.CalendarDays)
+            {
+                <div class="calendar-cell @(day.IsActive ? "active" : string.Empty) @(day.IsToday ? "today" : string.Empty)"
+                     title="@day.Date.ToString("dd/MM") • @day.SessionsCount sessao(oes)">
+                    @day.Date.Day
+                </div>
+            }
+        </div>
+    </section>
+}
+
+<section class="stats-grid">
+    <article class="stat-card">
+        <span>Sessoes no mes</span>
+        <strong>@Model.SessionsThisMonth</strong>
+    </article>
+    <article class="stat-card">
+        <span>Minutos acumulados</span>
+        <strong>@Model.MinutesThisMonth</strong>
+    </article>
+    <article class="stat-card">
+        <span>Evidencias anexadas</span>
+        <strong>@Model.EvidenceCountThisMonth</strong>
+    </article>
+    <article class="stat-card">
+        <span>Metas em rota</span>
+        <strong>@Model.GoalsOnTrack</strong>
+    </article>
+</section>
+
+<section class="panel">
+    <div class="card-topline">
+        <h2>Diagnostico por area</h2>
+        <span class="chip neutral">Linha de base + progresso atual</span>
+    </div>
+    <div class="evolution-diagnostic-grid">
+        @foreach (var item in Model.Diagnostics)
+        {
+            <article class="step-card evolution-diagnostic-card">
+                <div class="card-topline">
+                    <strong>@item.DomainLabel</strong>
+                    <span class="chip @item.StatusChipClass">@item.StatusLabel</span>
+                </div>
+                <div class="small-meta">Inicial @item.InitialPercent% • Atual @item.CurrentPercent%</div>
+                <div class="progress-track progress-track-lg">
+                    <div class="progress-fill neutral" style="width:@item.InitialPercent%"></div>
+                </div>
+                <div class="progress-track progress-track-lg evolution-progress-current">
+                    <div class="progress-fill @item.StatusChipClass" style="width:@item.CurrentPercent%"></div>
+                </div>
+                <p class="small-meta">Evolucao: @(item.DeltaPercent >= 0 ? "+" : string.Empty)@item.DeltaPercent pontos</p>
+                <p class="muted">@item.Summary</p>
+            </article>
+        }
+    </div>
+</section>
+
+<section class="section-grid">
+    <article class="panel">
+        <div class="card-topline">
+            <h2>Metas mensais automaticas</h2>
+            <span class="chip neutral">@Model.MonthLabel</span>
+        </div>
+        <div class="timeline">
+            @foreach (var goal in Model.MonthlyGoals)
+            {
+                <article class="timeline-item">
+                    <div class="card-topline">
+                        <div>
+                            <strong>@goal.SkillName</strong>
+                            <div class="small-meta">@goal.DomainLabel</div>
+                        </div>
+                        <span class="chip @goal.StatusChipClass">@goal.StatusLabel</span>
+                    </div>
+                    <p class="muted">@goal.WhyItMatters</p>
+                    <div class="small-meta">Atual @goal.CurrentPercent% • Meta @goal.TargetPercent%</div>
+                    <div class="progress-track progress-track-lg">
+                        <div class="progress-fill @goal.StatusChipClass" style="width:@goal.ProgressPercent%"></div>
+                    </div>
+                </article>
+            }
+        </div>
+    </article>
+
+    <article class="panel">
+        <div class="card-topline">
+            <h2>Conquistas que vendem confianca</h2>
+            <span class="chip success">Portifolio automatico</span>
+        </div>
+        <div class="timeline">
+            @foreach (var achievement in Model.Achievements)
+            {
+                <article class="timeline-item">
+                    <strong>@achievement.Title</strong>
+                    <div>@achievement.Description</div>
+                </article>
+            }
+        </div>
+    </article>
+</section>
+
+<section class="panel">
+    <div class="card-topline">
+        <h2>Evidencias do portifolio</h2>
+        <span class="chip neutral">Fotos e videos da rotina</span>
+    </div>
+    @if (Model.EvidenceItems.Count == 0)
+    {
+        <p class="muted">Assim que a familia anexar fotos ou videos nas sessoes, as melhores evidencias vao aparecer aqui.</p>
+    }
+    else
+    {
+        <div class="evidence-grid">
+            @foreach (var item in Model.EvidenceItems)
+            {
+                <article class="step-card">
+                    <strong>@item.LoggedAt.ToLocalTime().ToString("dd/MM/yyyy") • @item.Title</strong>
+                    <p class="muted">@item.Description</p>
+                    @if (item.HasMedia)
+                    {
+                        <a href="@item.MediaUrl" target="_blank" rel="noopener noreferrer" class="media-thumb-link">
+                            @if (item.IsVideo)
+                            {
+                                <video class="media-thumb" muted preload="metadata">
+                                    <source src="@item.MediaUrl" type="@item.MediaContentType" />
+                                </video>
+                            }
+                            else if (item.IsImage)
+                            {
+                                <img class="media-thumb" src="@item.MediaUrl" alt="Evidencia da crianca" />
+                            }
+                        </a>
+                    }
+                </article>
+            }
+        </div>
+    }
+</section>
+
+@if (Model.History.Count > 0)
+{
+    <section class="panel">
+        <div class="card-topline">
+            <h2>Historico mensal persistido</h2>
+            <span class="chip success">Prova de evolucao</span>
+        </div>
+        <div class="evolution-history-grid">
+            @foreach (var item in Model.History)
+            {
+                <article class="step-card">
+                    <div class="card-topline">
+                        <strong>@item.MonthLabel</strong>
+                        <span class="chip @(item.DeltaFromPrevious >= 0 ? "success" : "warning")">
+                            @(item.DeltaFromPrevious >= 0 ? "+" : string.Empty)@item.DeltaFromPrevious
+                        </span>
+                    </div>
+                    <div class="small-meta">Score geral @item.OverallScore% • @item.SessionsCount sessao(oes)</div>
+                    <p class="small-meta"><span class="label-soft">Ponto forte:</span> @item.StrongestArea</p>
+                    <p class="small-meta"><span class="label-soft">Atencao:</span> @item.AttentionArea</p>
+                    <p class="muted">@item.Summary</p>
+                </article>
+            }
+        </div>
+    </section>
+}
+
+<section class="panel">
+    <div class="card-topline">
+        <h2>Proximo ciclo recomendado</h2>
+        <a class="btn-secondary" href="@Model.CurriculumUrl">Abrir curriculo estruturado</a>
+    </div>
+    <div class="timeline">
+        @foreach (var item in Model.NextCycleRecommendations)
+        {
+            <article class="timeline-item">
+                <div>@item</div>
+            </article>
+        }
+    </div>
+</section>

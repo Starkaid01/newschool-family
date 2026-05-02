@@ -1,0 +1,143 @@
+@model NewSchool.Web.Models.ChildDossierViewModel
+@{
+    ViewData["Title"] = "Dossie pedagogico";
+}
+
+<section class="page-hero compact">
+    <div>
+        <div class="eyebrow">Dossie pedagogico</div>
+        <h1>@Model.FullName</h1>
+        <p class="muted">@Model.Age anos • @Model.SupportProfileLabel • Consolidado de rotina, adaptacao, evidencias e progresso.</p>
+    </div>
+    <div class="stack-inline">
+        <button class="btn-secondary" type="button" onclick="window.print()">Imprimir / PDF</button>
+        <a class="btn-secondary" href="@Model.TeaProfileUrl">Perfil TEA</a>
+        <a class="btn-secondary" href="@Model.AdaptiveRoutineUrl">Rotina adaptativa</a>
+        <a class="btn-primary" href="@Model.ChildUrl">Voltar para a rotina</a>
+    </div>
+</section>
+
+<section class="stats-grid">
+    <article class="stat-card">
+        <span>Sessoes</span>
+        <strong>@Model.TotalSessions</strong>
+    </article>
+    <article class="stat-card">
+        <span>Minutos</span>
+        <strong>@Model.TotalMinutes</strong>
+    </article>
+    <article class="stat-card">
+        <span>Evidencias</span>
+        <strong>@Model.EvidenceCount</strong>
+    </article>
+    <article class="stat-card">
+        <span>Observacoes adaptativas</span>
+        <strong>@Model.ObservationCount</strong>
+    </article>
+</section>
+
+<section class="section-grid">
+    <article class="panel">
+        <div class="card-topline">
+            <div>
+                <div class="eyebrow">Contexto atual</div>
+                <h2>Meta e barreiras</h2>
+            </div>
+            <span class="chip @Model.Snapshot.SupportIntensityChipClass">@Model.Snapshot.SupportIntensityLabel</span>
+        </div>
+        <p><strong>Meta principal:</strong> @Model.ParentPrimaryGoal</p>
+        <p><strong>Barreira atual:</strong> @Model.SchoolBarrierSummary</p>
+        <p><strong>Resumo documental:</strong> @Model.DocumentationSummary</p>
+        <div class="recommendation-box">
+            <strong>Leitura adaptativa atual</strong>
+            <p>@Model.Snapshot.TomorrowAdjustment</p>
+        </div>
+    </article>
+
+    <article class="panel">
+        <div class="card-topline">
+            <div>
+                <div class="eyebrow">Semana atual</div>
+                <h2>O que melhorou e o que revisar</h2>
+            </div>
+            <a class="btn-secondary" href="@Model.CurriculumUrl">Abrir curriculo</a>
+        </div>
+        <p><strong>O que melhorou:</strong> @Model.WeeklyImproved</p>
+        <p><strong>O que revisar:</strong> @Model.WeeklyReview</p>
+        <p><strong>O que avancar:</strong> @Model.WeeklyAdvance</p>
+    </article>
+</section>
+
+<section class="panel">
+    <div class="card-topline">
+        <h2>Habilidades prioritarias</h2>
+        <span class="chip neutral">@Model.PrioritySkills.Count habilidade(s)</span>
+    </div>
+    <div class="curriculum-skill-grid">
+        @foreach (var skill in Model.PrioritySkills)
+        {
+            <article class="step-card curriculum-skill-card">
+                <div class="card-topline curriculum-skill-titleline">
+                    <strong>@skill.SkillName</strong>
+                    <span class="chip @skill.StatusChipClass">@skill.StatusLabel</span>
+                </div>
+                <div class="small-meta">@skill.DomainLabel • @skill.FunctionalTrackLabel • @skill.SupportSourceLabel</div>
+                <div class="progress-track progress-track-lg">
+                    <div class="progress-fill @skill.StatusChipClass" style="width:@skill.ProgressPercent%"></div>
+                </div>
+                <p class="muted">@skill.Recommendation</p>
+            </article>
+        }
+    </div>
+</section>
+
+<section class="section-grid">
+    <article class="panel">
+        <div class="card-topline">
+            <h2>Evidencias recentes</h2>
+            <span class="chip neutral">@Model.EvidenceTimeline.Count item(ns)</span>
+        </div>
+        <div class="timeline">
+            @foreach (var evidence in Model.EvidenceTimeline)
+            {
+                <article class="timeline-item">
+                    <div class="card-topline">
+                        <strong>@evidence.LoggedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</strong>
+                        <span class="chip neutral">@evidence.Theme</span>
+                    </div>
+                    <p>@evidence.Summary</p>
+                    @if (evidence.HasMedia)
+                    {
+                        <a href="@evidence.MediaUrl" target="_blank" rel="noopener noreferrer" class="media-thumb-link">
+                            @if (evidence.IsVideo)
+                            {
+                                <video class="media-thumb" muted preload="metadata">
+                                    <source src="@evidence.MediaUrl" type="@evidence.MediaContentType" />
+                                </video>
+                            }
+                            else if (evidence.IsImage)
+                            {
+                                <img class="media-thumb" src="@evidence.MediaUrl" alt="Evidencia" />
+                            }
+                        </a>
+                    }
+                </article>
+            }
+        </div>
+    </article>
+
+    <article class="panel">
+        <div class="card-topline">
+            <h2>Checklist do dossie</h2>
+            <span class="chip success">Organizacao</span>
+        </div>
+        <div class="timeline">
+            @foreach (var item in Model.RecommendedDocuments)
+            {
+                <article class="timeline-item">
+                    <strong>@item</strong>
+                </article>
+            }
+        </div>
+    </article>
+</section>

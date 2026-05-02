@@ -1,0 +1,136 @@
+@using System.Linq
+@model NewSchool.Web.Models.TeachingGuideViewModel
+@{
+    ViewData["Title"] = $"Imprimir - {Model.FullName}";
+    var printableGroups = Model.PrintableActivities.GroupBy(x => x.SubjectLabel).ToList();
+}
+
+<section class="print-shell teach-print-shell">
+    <article class="print-report teach-print-report">
+        <div class="panel no-print">
+            <div class="card-topline">
+                <div>
+                    <div class="eyebrow">Versao imprimivel</div>
+                    <h1>Portugues e Matematica de hoje para @Model.FullName</h1>
+                </div>
+                <div class="stack-inline">
+                    <button class="btn-primary" type="button" onclick="window.print()">Imprimir agora</button>
+                    <a class="btn-secondary" href="@Model.ChildUrl">Voltar para a crianca</a>
+                </div>
+            </div>
+            <p class="muted">Imprima esta pagina e use como fechamento da rotina. Primeiro faca junto, depois leve para o papel.</p>
+            @if (Model.Age <= 5)
+            {
+                <div class="alert-soft neutral">
+                    Para 4 e 5 anos, o adulto le tudo em voz alta. A crianca responde desenhando, apontando, escolhendo ou falando.
+                </div>
+            }
+        </div>
+
+        <section class="panel teach-print-header">
+            <div class="card-topline">
+                <div>
+                    <div class="eyebrow">Ficha do dia</div>
+                    <h2>@Model.FullName</h2>
+                </div>
+                <span class="chip neutral">@Model.TodayLabel</span>
+            </div>
+            <p><strong>Tema:</strong> @Model.Theme</p>
+            <p><strong>Foco de Portugues:</strong> @Model.Curriculum.CurrentFocus</p>
+            <p><strong>Lembrete para o adulto:</strong> @Model.DailyRecommendation</p>
+        </section>
+
+        @foreach (var group in printableGroups)
+        {
+            <section class="panel teach-print-subject-group">
+                <div class="card-topline">
+                    <div>
+                        <div class="eyebrow">@group.Key</div>
+                        <h2>@group.First().StageLabel</h2>
+                    </div>
+                    <span class="chip neutral">@group.Count() atividade(s)</span>
+                </div>
+
+                @foreach (var activity in group)
+                {
+                    <section class="teach-print-activity">
+                        <div class="card-topline">
+                            <div>
+                                <div class="eyebrow">Atividade imprimivel</div>
+                                <h3>@activity.Title</h3>
+                            </div>
+                            <span class="chip neutral">@activity.Subtitle</span>
+                        </div>
+                        <p><strong>Como aplicar:</strong> @activity.Instructions</p>
+
+                        @if (!string.IsNullOrWhiteSpace(activity.SampleText))
+                        {
+                            <div class="teach-print-textbox">
+                                @activity.SampleText
+                            </div>
+                        }
+
+                        @if (activity.WordBank.Count > 0)
+                        {
+                            <div class="teach-print-wordbank">
+                                <strong>Banco de apoio</strong>
+                                <div class="stack-inline">
+                                    @foreach (var word in activity.WordBank)
+                                    {
+                                        <span class="chip neutral">@word</span>
+                                    }
+                                </div>
+                            </div>
+                        }
+
+                        @if (activity.Questions.Count > 0)
+                        {
+                            <div class="teach-print-questions">
+                                <strong>Como conduzir na folha</strong>
+                                <ul>
+                                    @foreach (var question in activity.Questions)
+                                    {
+                                        <li>@question</li>
+                                    }
+                                </ul>
+                            </div>
+                        }
+
+                        <div class="teach-print-prompt">
+                            <strong>Comando para a crianca</strong>
+                            <p>@activity.Prompt</p>
+                        </div>
+
+                        @if (activity.ShowDrawingBox)
+                        {
+                            <div class="small-meta teach-print-space-label">Espaco grande para desenhar</div>
+                            <div class="teach-drawing-box"></div>
+                        }
+
+                        @if (activity.WritingLines > 0)
+                        {
+                            <div class="teach-print-lines">
+                                @for (var i = 0; i < activity.WritingLines; i++)
+                                {
+                                    <div class="teach-print-line"></div>
+                                }
+                            </div>
+                        }
+
+                        <p class="small-meta"><strong>Dica de apoio:</strong> @activity.SupportTip</p>
+                    </section>
+                }
+            </section>
+        }
+
+        <section class="panel teach-print-footer">
+            <h2>Registro rapido para o adulto</h2>
+            <div class="teach-print-lines">
+                <div class="teach-print-line"></div>
+                <div class="teach-print-line"></div>
+                <div class="teach-print-line"></div>
+            </div>
+            <p class="small-meta">Guarde foto, video curto ou esta folha finalizada no registro do dia.</p>
+        </section>
+    </article>
+</section>

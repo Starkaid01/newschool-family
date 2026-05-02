@@ -1,0 +1,79 @@
+@model NewSchool.Web.Models.TeaTrackHubViewModel
+@{
+    ViewData["Title"] = "Trilhas TEA";
+}
+
+<section class="page-hero compact">
+    <div>
+        <div class="eyebrow">Central TEA</div>
+        <h1>@Model.FullName</h1>
+        <p class="muted">@Model.Age anos • @Model.SupportProfileLabel • @Model.FamilyGoalTrackLabel • @Model.TeachingMethodologyLabel • @Model.LearningProfileLabel • @Model.GuidanceStyleLabel</p>
+    </div>
+    <div class="stack-inline">
+        <a class="btn-secondary" href="@Model.CurriculumUrl">Curriculo estruturado</a>
+        <a class="btn-primary" href="@Model.ChildUrl">Voltar para a rotina</a>
+    </div>
+</section>
+
+<section class="panel tea-track-nav-panel">
+    <div class="card-topline">
+        <div>
+            <div class="eyebrow">Dominios funcionais</div>
+            <h2>Escolha por onde a familia quer entrar</h2>
+        </div>
+        <span class="chip neutral">@Model.Tracks.Count trilha(s)</span>
+    </div>
+    <p class="muted">Esta central separa a camada TEA por funcao. Cada trilha mostra progresso, registros e o caminho pedagogico daquela necessidade.</p>
+</section>
+
+<section class="tea-track-grid">
+    @foreach (var track in Model.Tracks)
+    {
+        <article class="panel tea-track-card tea-track-card-@track.Track.ToString().ToLowerInvariant()">
+            <div class="card-topline">
+                <div>
+                    <div class="eyebrow">Trilha funcional</div>
+                    <h2>@track.Label</h2>
+                </div>
+                <span class="chip @track.ChipClass">@track.Label</span>
+            </div>
+            <p class="tea-track-summary">@track.Summary</p>
+            <p class="muted">@track.Description</p>
+
+            <div class="tea-track-metrics">
+                <div class="tea-track-metric">
+                    <span>Dominio medio</span>
+                    <strong>@track.ProgressPercent%</strong>
+                </div>
+                <div class="tea-track-metric">
+                    <span>Skills praticadas</span>
+                    <strong>@track.PracticedSkills/@track.TotalSkills</strong>
+                </div>
+                <div class="tea-track-metric">
+                    <span>Fortes</span>
+                    <strong>@track.StrongSkills</strong>
+                </div>
+                <div class="tea-track-metric">
+                    <span>Fracas</span>
+                    <strong>@track.WeakSkills</strong>
+                </div>
+            </div>
+
+            <div class="progress-track progress-track-lg">
+                <div class="progress-fill @track.StatusChipClass" style="width:@track.ProgressPercent%"></div>
+            </div>
+
+            <div class="stack-inline">
+                <span class="chip @track.StatusChipClass">@track.StatusLabel</span>
+                <span class="chip neutral">Pronto para abrir detalhamento</span>
+            </div>
+
+            <div class="recommendation-box">
+                <strong>Proxima acao sugerida</strong>
+                <p>@track.NextAction</p>
+            </div>
+
+            <a class="btn-primary" href="@track.Url">Entrar em @track.Label</a>
+        </article>
+    }
+</section>

@@ -1,0 +1,207 @@
+@model NewSchool.Web.Models.TomorrowPlanPreviewViewModel
+@{
+    ViewData["Title"] = $"Preview de amanhã • {Model.FullName}";
+    var currentUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
+}
+
+<section class="page-hero compact">
+    <div>
+        <div class="eyebrow">Preview de amanhã</div>
+        <h1>@Model.FullName</h1>
+        <p class="muted">@Model.DateLabel • @Model.Age anos • @Model.SupportProfileLabel • @Model.FamilyGoalTrackLabel</p>
+        <p class="muted">@Model.Summary</p>
+    </div>
+    <div class="stack-inline">
+        <a class="btn-secondary" href="@Model.FavoritesUrl">Favoritos</a>
+        @if (Model.HasTeaTracks)
+        {
+            <a class="btn-secondary" href="@Model.TeaTracksUrl">Trilhas TEA</a>
+        }
+        <a class="btn-secondary" href="@Model.CurriculumUrl">Curriculo estruturado</a>
+        <a class="btn-primary" href="@Model.ChildUrl">Voltar para a rotina</a>
+    </div>
+</section>
+
+<section class="stats-grid">
+    <article class="stat-card curriculum-stat-card curriculum-stat-card-sessions">
+        <span>Blocos preparados</span>
+        <strong>@Model.BlockCount</strong>
+    </article>
+    <article class="stat-card curriculum-stat-card curriculum-stat-card-minutes">
+        <span>Tempo estimado</span>
+        <strong>@Model.TotalMinutes min</strong>
+    </article>
+    <article class="stat-card curriculum-stat-card curriculum-stat-card-evidence">
+        <span>Atividades puxadas</span>
+        <strong>@Model.PinnedActivities.Count</strong>
+    </article>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(Model.ActionMessage))
+{
+    <section class="alert-soft @Model.ActionMessageStyle">
+        @Model.ActionMessage
+    </section>
+}
+
+@if (Model.HasTeaTracks)
+{
+    <section class="panel tea-track-nav-panel">
+        <div class="card-topline">
+            <div>
+                <div class="eyebrow">Navegacao funcional TEA</div>
+                <h2>Ajustar amanhã por trilha</h2>
+            </div>
+            <span class="chip neutral">Preview conectado</span>
+        </div>
+        <p class="muted">Se você quiser puxar outra atividade ou forçar foco manual em um domínio TEA, entre diretamente pela trilha correspondente.</p>
+        <div class="tea-track-nav">
+            @foreach (var track in Model.TeaTrackQuickLinks)
+            {
+                <a class="chip @track.ChipClass tea-track-link" href="@track.Url">@track.Label</a>
+            }
+        </div>
+    </section>
+}
+
+@if (Model.IsRecoveryPlan)
+{
+    <section class="panel recovery-banner">
+        <div class="card-topline">
+            <div>
+                <div class="eyebrow">Modo retomada</div>
+                <h2>Amanhã está em ritmo de recuperação</h2>
+            </div>
+            <span class="chip warning">Recuperacao ativa</span>
+        </div>
+        <p>@Model.RecoveryHeadline</p>
+    </section>
+}
+
+<section class="panel highlight">
+    <div class="card-topline">
+        <div>
+            <div class="eyebrow">Leitura do plano</div>
+            <h2>@Model.Theme</h2>
+        </div>
+        <form method="post" asp-action="GeneratePlan" class="tea-track-inline-form">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="childId" value="@Model.ChildId" />
+            <input type="hidden" name="returnUrl" value="@currentUrl" />
+            <button class="btn-secondary btn-small" type="submit">Atualizar preview</button>
+        </form>
+    </div>
+    <p>@Model.ParentSummary</p>
+    <div class="child-story">@Model.ChildNarrative</div>
+</section>
+
+<section class="two-panel">
+    <div class="panel">
+        <div class="card-topline">
+            <h2>Diretivas aplicadas</h2>
+            <span class="chip neutral">@Model.Directives.Count regra(s)</span>
+        </div>
+        <div class="stack-inline wrap-inline preview-directive-list">
+            @foreach (var directive in Model.Directives)
+            {
+                <span class="chip @directive.ChipClass">@directive.Label</span>
+            }
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="card-topline">
+            <h2>Atividades puxadas para amanhã</h2>
+            <span class="chip success">@Model.PinnedActivities.Count</span>
+        </div>
+        @if (Model.PinnedActivities.Count == 0)
+        {
+            <p class="muted">Nenhuma atividade favorita foi puxada manualmente. Amanhã segue o fluxo automático da plataforma.</p>
+        }
+        else
+        {
+            <div class="stack-inline wrap-inline preview-directive-list">
+                @foreach (var activity in Model.PinnedActivities)
+                {
+                    <span class="chip neutral">@activity</span>
+                }
+            </div>
+        }
+    </div>
+</section>
+
+<section class="plan-grid">
+    @foreach (var block in Model.Blocks)
+    {
+        <article class="panel tomorrow-preview-card @(block.IsPinnedActivity ? "preview-pinned-card" : string.Empty)">
+            <div class="card-topline">
+                <div>
+                    <h3>@block.Title</h3>
+                    <p class="small-meta">@block.DomainLabel • @block.SkillName</p>
+                </div>
+                <div class="stack-inline">
+                    <span class="chip @block.SupportSourceChipClass">@block.SupportSourceLabel</span>
+                    <span class="chip @block.FunctionalTrackChipClass">@block.FunctionalTrackLabel</span>
+                    <span class="chip @block.FocusChipClass">@block.FocusLabel</span>
+                    <span class="chip @block.OriginChipClass">@block.OriginLabel</span>
+                    <span class="chip neutral">@block.DurationMinutes min</span>
+                </div>
+            </div>
+
+            @if (block.IsFavorite)
+            {
+                <div class="recommendation-box">
+                    <strong>Favorita da crianca</strong>
+                    <p>Esta atividade ja funcionou bem antes e entrou no radar da família como repertório confiável.</p>
+                </div>
+            }
+
+            <p><strong>O que fazer:</strong> @block.Goal</p>
+            <p><strong>Como conduzir:</strong> @block.ParentGuide</p>
+            <p><strong>Missao da crianca:</strong> @block.ChildPrompt</p>
+            <p><strong>Materiais:</strong> @block.Materials</p>
+            <p><strong>Quando considerar pronta:</strong> @block.EvidencePrompt</p>
+
+            @if (block.LessonPacket is not null || block.CurrentSystemUnit is not null || block.RecommendedPrintable is not null)
+            {
+                <div class="guided-lesson-meta-grid">
+                    @if (block.LessonPacket is not null)
+                    {
+                        <article class="child-card-note nested-surface">
+                            <strong>@block.LessonPacket.CurriculumPlacement</strong>
+                            <p>@block.CurriculumOriginSummary</p>
+                            <p><strong>Entrega da lição:</strong> @block.LessonPacket.PracticeTask</p>
+                        </article>
+                    }
+                    else if (block.CurrentSystemUnit is not null)
+                    {
+                        <article class="child-card-note nested-surface">
+                            <strong>@block.CurrentSystemUnit.UnitLabel • @block.CurrentSystemUnit.Title</strong>
+                            <p>@block.CurriculumOriginSummary</p>
+                            <p><strong>Missão da unidade:</strong> @block.CurrentSystemUnit.TaskPrompt</p>
+                        </article>
+                    }
+
+                    @if (block.RecommendedPrintable is not null)
+                    {
+                        <article class="child-card-note nested-surface">
+                            <strong>Folha para imprimir desta lição</strong>
+                            <p><strong>@block.RecommendedPrintable.Title</strong></p>
+                            @if (!string.IsNullOrWhiteSpace(block.RecommendedPrintable.Description))
+                            {
+                                <p>@block.RecommendedPrintable.Description</p>
+                            }
+                            <p>@block.PrintableReason</p>
+                            <a class="btn-secondary btn-small" href="@block.RecommendedPrintable.AccessUrl">@block.RecommendedPrintable.AccessLabel</a>
+                        </article>
+                    }
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(block.TrackUrl))
+            {
+                <a class="btn-secondary btn-small" href="@block.TrackUrl">Abrir trilha relacionada</a>
+            }
+        </article>
+    }
+</section>

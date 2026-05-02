@@ -1,0 +1,45 @@
+@model NewSchool.Web.Models.FamilyLibraryReaderViewModel
+@{
+    ViewData["Title"] = $"{Model.Title} - Imprimível";
+}
+
+<section class="family-library-shell family-library-print-shell">
+    <section class="family-library-reader-top family-library-print-toolbar">
+        <a class="btn-secondary" href="@Model.BackPrintablesUrl">Voltar aos imprimíveis</a>
+        <button class="btn-primary" type="button" onclick="window.print()">Imprimir agora</button>
+    </section>
+
+    <section class="family-library-reader-header">
+        <div>
+            <span class="app-kicker">@Model.EducationStage</span>
+            <h1>@Model.Title</h1>
+            <p>@Model.Description</p>
+            <div class="family-library-book-meta">
+                <span>@Model.Category</span>
+                <span>@Model.CollectionLabel</span>
+                <span>@Model.PageCount página(s)</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="family-library-print-pages">
+        @foreach (var pageItem in Model.Pages)
+        {
+            <article class="family-library-reader-card family-library-print-page">
+                <div class="family-library-page-header">
+                    <span class="app-kicker">Pág. @pageItem.PageNumber</span>
+                </div>
+
+                @if (pageItem.HasImage)
+                {
+                    <img class="family-library-page-image" src="@pageItem.ImageUrl" alt="Ilustração da página @pageItem.PageNumber de @Model.Title" />
+                }
+
+                @if (pageItem.HasText)
+                {
+                    <div class="family-library-page-text">@pageItem.TextContent</div>
+                }
+            </article>
+        }
+    </section>
+</section>

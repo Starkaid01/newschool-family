@@ -1,0 +1,135 @@
+@model NewSchool.Web.Models.ChildFavoritesViewModel
+@{
+    ViewData["Title"] = $"Favoritos de {Model.FullName}";
+    var currentUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
+}
+
+<section class="page-hero compact">
+    <div>
+        <div class="eyebrow">Favoritos da crianca</div>
+        <h1>@Model.FullName</h1>
+        <p class="muted">@Model.Age anos • @Model.SupportProfileLabel • @Model.FamilyGoalTrackLabel • @Model.TeachingMethodologyLabel • @Model.LearningProfileLabel • @Model.GuidanceStyleLabel</p>
+        <p class="muted">Guarde aqui as atividades que funcionam melhor para esta crianca e use esse acervo para montar amanha com mais intencao.</p>
+    </div>
+    <div class="stack-inline">
+        <a class="btn-secondary" href="@Model.TomorrowPreviewUrl">Preview de amanha</a>
+        @if (Model.HasTeaTracks)
+        {
+            <a class="btn-secondary" href="@Model.TeaTracksUrl">Trilhas TEA</a>
+        }
+        <a class="btn-secondary" href="@Model.CurriculumUrl">Curriculo estruturado</a>
+        <a class="btn-primary" href="@Model.ChildUrl">Voltar para a rotina</a>
+    </div>
+</section>
+
+<section class="stats-grid">
+    <article class="stat-card curriculum-stat-card curriculum-stat-card-sessions">
+        <span>Favoritas salvas</span>
+        <strong>@Model.FavoriteCount</strong>
+    </article>
+    <article class="stat-card curriculum-stat-card curriculum-stat-card-minutes">
+        <span>No plano de amanha</span>
+        <strong>@Model.QueuedForTomorrowCount</strong>
+    </article>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(Model.ActionMessage))
+{
+    <section class="alert-soft @Model.ActionMessageStyle">
+        @Model.ActionMessage
+    </section>
+}
+
+@if (Model.Groups.Count == 0)
+{
+    <section class="panel">
+        <div class="card-topline">
+            <div>
+                <div class="eyebrow">Ainda vazio</div>
+                <h2>Nenhuma atividade favorita salva</h2>
+            </div>
+            <span class="chip neutral">Sem favoritos</span>
+        </div>
+        <p class="muted">Use os botoes de favoritar dentro das trilhas TEA para construir um repertorio proprio da crianca. Assim fica mais rapido decidir o que repetir, o que puxar para amanha e o que manter como carta na manga.</p>
+        @if (Model.HasTeaTracks)
+        {
+            <a class="btn-primary" href="@Model.TeaTracksUrl">Abrir trilhas TEA</a>
+        }
+    </section>
+}
+else
+{
+    <div class="favorites-group-grid">
+        @foreach (var group in Model.Groups)
+        {
+            <section class="panel favorites-group-panel">
+                <div class="card-topline">
+                    <div>
+                        <div class="eyebrow">Trilha favorita</div>
+                        <h2>@group.TrackLabel</h2>
+                    </div>
+                    <div class="stack-inline">
+                        <span class="chip @group.TrackChipClass">@group.Activities.Count atividade(s)</span>
+                        @if (!string.IsNullOrWhiteSpace(group.TrackUrl))
+                        {
+                            <a class="btn-secondary btn-small" href="@group.TrackUrl">Abrir trilha</a>
+                        }
+                    </div>
+                </div>
+                <p class="muted">@group.SupportSummary</p>
+
+                <div class="tea-track-activity-grid">
+                    @foreach (var activity in group.Activities)
+                    {
+                        <article class="panel tea-track-activity-card favorite-activity-card">
+                            <div class="card-topline">
+                                <div>
+                                    <strong>@activity.Title</strong>
+                                    <div class="small-meta">@activity.DomainLabel • @activity.SkillName</div>
+                                </div>
+                                <div class="stack-inline">
+                                    <span class="chip @activity.SupportSourceChipClass">@activity.SupportSourceLabel</span>
+                                    <span class="chip @activity.RecommendationChipClass">@activity.RecommendationLabel</span>
+                                </div>
+                            </div>
+                            <div class="stack-inline wrap-inline skill-context-row">
+                                <span class="chip @activity.TrackChipClass">@activity.TrackLabel</span>
+                                @if (activity.IsQueuedForTomorrow)
+                                {
+                                    <span class="chip success">No plano de amanha</span>
+                                }
+                            </div>
+                            <div class="progress-track progress-track-lg">
+                                <div class="progress-fill @activity.RecommendationChipClass" style="width:@activity.ProgressPercent%"></div>
+                            </div>
+                            <div class="small-meta">Dominio atual nesta habilidade: @activity.ProgressPercent%</div>
+                            <p><strong>Meta:</strong> @activity.Goal</p>
+                            <p><strong>Como conduzir:</strong> @activity.ParentGuide</p>
+                            <p><strong>Missao da crianca:</strong> @activity.ChildMission</p>
+                            <p><strong>Materiais:</strong> @activity.Materials</p>
+                            <p><strong>Registro sugerido:</strong> @activity.EvidencePrompt</p>
+                            <div class="tea-track-action-row">
+                                <form asp-action="ToggleFavoriteActivity" method="post" class="tea-track-inline-form">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@Model.ChildId" />
+                                    <input type="hidden" name="track" value="@activity.Track" />
+                                    <input type="hidden" name="templateId" value="@activity.TemplateId" />
+                                    <input type="hidden" name="returnUrl" value="@currentUrl" />
+                                    <button type="submit" class="btn-secondary btn-small">Remover favorito</button>
+                                </form>
+                                <form asp-action="QueueTrackActivityForTomorrow" method="post" class="tea-track-inline-form">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@Model.ChildId" />
+                                    <input type="hidden" name="track" value="@activity.Track" />
+                                    <input type="hidden" name="templateId" value="@activity.TemplateId" />
+                                    <input type="hidden" name="returnUrl" value="@currentUrl" />
+                                    <button type="submit" class="btn-primary btn-small" @(activity.IsQueuedForTomorrow ? "disabled" : null)>@(activity.IsQueuedForTomorrow ? "Ja esta em amanha" : "Levar para amanha")</button>
+                                </form>
+                            </div>
+                        </article>
+                    }
+                </div>
+            </section>
+        }
+    </div>
+}

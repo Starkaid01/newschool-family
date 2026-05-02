@@ -1,0 +1,72 @@
+@model NewSchool.Web.Models.TrackOfferViewModel
+@{
+    ViewData["Title"] = Model.TrackLabel;
+    ViewData["MetaDescription"] = Model.Lead;
+}
+
+<section class="hero-home track-offer-hero">
+    <div class="hero-copy">
+        <div class="eyebrow">@Model.Eyebrow</div>
+        <h1>@Model.Headline</h1>
+        <p class="hero-lead">@Model.Lead</p>
+        <div class="actions-row">
+            <a class="btn-primary" href="@Model.RegisterUrl">Entrar nessa trilha</a>
+            <a class="btn-secondary" href="@Model.SecondaryUrl">Ver plataforma completa</a>
+        </div>
+        <div class="hero-proof">
+            <span class="chip success">@Model.TrackLabel</span>
+            <span class="chip neutral">Promessa especifica</span>
+            <span class="chip neutral">Onboarding ja contextualizado</span>
+        </div>
+    </div>
+
+    <div class="panel premium-banner">
+        <div class="eyebrow">O que essa oferta vende</div>
+        <h2>@Model.Promise</h2>
+        <p class="muted">@Model.SocialProof</p>
+        <div class="timeline">
+            @foreach (var block in Model.ProofBlocks)
+            {
+                <article class="timeline-item">
+                    <strong>@block</strong>
+                </article>
+            }
+        </div>
+    </div>
+</section>
+
+@await Component.InvokeAsync("AdBanner", new
+{
+    zone = "track-offer-inline",
+    label = "Espaco reservado para parceiro desta trilha",
+    description = "Preparado para anuncios futuros sem mexer na estrutura principal da oferta.",
+    variant = "inline"
+})
+
+<section class="section-grid">
+    <article class="panel">
+        <div class="eyebrow">O que a crianca ganha</div>
+        <h3>Resultados que a familia consegue enxergar</h3>
+        <ul class="feature-list">
+            @foreach (var item in Model.Outcomes)
+            {
+                <li>@item</li>
+            }
+        </ul>
+    </article>
+    <article class="panel">
+        <div class="eyebrow">O que o adulto sente</div>
+        <h3>Mais seguranca para conduzir</h3>
+        <ul class="feature-list">
+            @foreach (var item in Model.ParentWins)
+            {
+                <li>@item</li>
+            }
+        </ul>
+    </article>
+    <article class="panel premium-banner">
+        <div class="eyebrow">Fechamento de oferta</div>
+        <h3>@Model.ConversionHook</h3>
+        <a class="btn-primary" href="@Model.RegisterUrl">Criar conta nessa trilha</a>
+    </article>
+</section>

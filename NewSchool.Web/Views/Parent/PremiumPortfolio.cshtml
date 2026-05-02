@@ -1,0 +1,240 @@
+@model NewSchool.Web.Models.PremiumPortfolioViewModel
+@{
+    Layout = null;
+    ViewData["Title"] = "Portfolio premium";
+}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Portfolio premium - @Model.FullName</title>
+    <style>
+        :root {
+            --ink: #1c252b;
+            --muted: #5d6870;
+            --line: #e7dfd2;
+            --sand: #f4efe6;
+            --paper: #fffdf8;
+            --brand: #b85c38;
+            --accent: #254441;
+            --gold: #c88c2e;
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: Georgia, 'Times New Roman', serif; color: var(--ink); background: var(--sand); }
+        .book { max-width: 980px; margin: 24px auto; background: var(--paper); box-shadow: 0 20px 60px rgba(28, 37, 43, 0.08); }
+        .page { padding: 42px 44px; page-break-after: always; }
+        .page:last-child { page-break-after: auto; }
+        .cover {
+            min-height: 100vh;
+            display: grid;
+            grid-template-columns: 1.05fr 0.95fr;
+            gap: 28px;
+            align-items: stretch;
+            background:
+                radial-gradient(circle at top left, rgba(184,92,56,0.14), transparent 35%),
+                radial-gradient(circle at bottom right, rgba(37,68,65,0.14), transparent 35%),
+                linear-gradient(145deg, #f8f3ea, #fffdf8);
+        }
+        .cover-copy { display: flex; flex-direction: column; justify-content: space-between; }
+        .eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: .18em; color: var(--brand); font-weight: 700; margin-bottom: 14px; }
+        h1 { font-size: 3.4rem; line-height: 1.02; margin: 0 0 18px; }
+        h2 { font-size: 1.8rem; margin: 0 0 16px; }
+        h3 { font-size: 1.15rem; margin: 0 0 10px; }
+        p { line-height: 1.7; margin: 0 0 14px; }
+        .muted { color: var(--muted); }
+        .hero-note { padding: 18px 20px; border-radius: 24px; background: rgba(255,255,255,.74); border: 1px solid var(--line); }
+        .cover-media {
+            border-radius: 28px;
+            overflow: hidden;
+            background: #ede5d8;
+            border: 1px solid rgba(28, 37, 43, 0.08);
+            min-height: 420px;
+            display: flex;
+            align-items: stretch;
+            justify-content: center;
+        }
+        .cover-media img, .cover-media video { width: 100%; height: 100%; object-fit: cover; }
+        .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 24px; }
+        .stat { padding: 18px; border-radius: 20px; border: 1px solid var(--line); background: rgba(255,255,255,.78); }
+        .stat strong { display: block; font-size: 2rem; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .card { padding: 22px; border-radius: 24px; border: 1px solid var(--line); background: rgba(255,255,255,.8); }
+        .quote { font-size: 1.25rem; line-height: 1.7; color: var(--accent); }
+        .badge-list, .timeline, .gallery { display: grid; gap: 16px; }
+        .badge-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+        .badge { padding: 18px; border-radius: 22px; background: linear-gradient(135deg, rgba(200,140,46,.14), rgba(184,92,56,.08)); border: 1px solid rgba(200,140,46,.24); }
+        .goal { padding: 18px; border-bottom: 1px solid var(--line); }
+        .goal:last-child { border-bottom: none; }
+        .gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .gallery-item { border-radius: 22px; overflow: hidden; border: 1px solid var(--line); background: rgba(255,255,255,.82); }
+        .gallery-item img, .gallery-item video { width: 100%; height: 240px; object-fit: cover; display: block; background: #e8e0d3; }
+        .gallery-copy { padding: 16px 18px; }
+        .history { display: grid; gap: 14px; }
+        .history-item { padding: 16px 18px; border-left: 5px solid var(--brand); border-radius: 0 18px 18px 0; background: rgba(255,255,255,.8); border-top: 1px solid var(--line); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+        .footer-note { margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: .95rem; }
+        .print-actions { position: sticky; top: 0; display: flex; justify-content: flex-end; padding: 14px 20px 0; background: transparent; }
+        .print-btn { border: none; border-radius: 999px; padding: 12px 18px; background: var(--accent); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+        @@media print {
+            body { background: #fff; }
+            .book { margin: 0; max-width: none; box-shadow: none; }
+            .print-actions { display: none; }
+            .cover { min-height: auto; }
+        }
+        @@media (max-width: 860px) {
+            .cover, .grid-2, .gallery, .badge-grid, .stats { grid-template-columns: 1fr; }
+            .page { padding: 28px 22px; }
+            h1 { font-size: 2.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="print-actions">
+        <button class="print-btn" type="button" onclick="window.print()">Imprimir / PDF</button>
+    </div>
+    <main class="book">
+        <section class="page cover">
+            <div class="cover-copy">
+                <div>
+                    <div class="eyebrow">Portfolio premium guardavel</div>
+                    <h1>@Model.CoverTitle</h1>
+                    <p class="muted">@Model.MonthLabel • @Model.Age anos</p>
+                    <p class="hero-note">@Model.CoverSubtitle</p>
+                </div>
+                <div>
+                    <div class="stats">
+                        <div class="stat"><strong>@Model.SessionsThisMonth</strong><span class="muted">sessoes no mes</span></div>
+                        <div class="stat"><strong>@Model.MinutesThisMonth</strong><span class="muted">minutos guiados</span></div>
+                        <div class="stat"><strong>@Model.EvidenceCountThisMonth</strong><span class="muted">evidencias</span></div>
+                    </div>
+                    <div class="footer-note">@Model.PedagogicalSignature</div>
+                </div>
+            </div>
+            <div class="cover-media">
+                @if (Model.CoverEvidence?.HasMedia == true)
+                {
+                    @if (Model.CoverEvidence.IsImage)
+                    {
+                        <img src="@Model.CoverEvidence.MediaUrl" alt="Capa do portfolio" />
+                    }
+                    else if (Model.CoverEvidence.IsVideo)
+                    {
+                        <video controls preload="metadata">
+                            <source src="@Model.CoverEvidence.MediaUrl" type="@Model.CoverEvidence.MediaContentType" />
+                        </video>
+                    }
+                }
+            </div>
+        </section>
+
+        <section class="page">
+            <div class="eyebrow">Carta para a familia</div>
+            <div class="grid-2">
+                <article class="card">
+                    <h2>O que este mes representa</h2>
+                    <p class="quote">@Model.ParentLetter</p>
+                </article>
+                <article class="card">
+                    <h2>Conquistas principais</h2>
+                    <div class="timeline">
+                        @foreach (var item in Model.Achievements)
+                        {
+                            <div>
+                                <h3>@item.Title</h3>
+                                <p class="muted">@item.Description</p>
+                            </div>
+                        }
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <section class="page">
+            <div class="eyebrow">Badges e marcos</div>
+            <h2>Conquistas que a familia pode guardar</h2>
+            <div class="badge-grid">
+                @foreach (var badge in Model.CelebrationBadges)
+                {
+                    <article class="badge">
+                        <h3>@badge.Title</h3>
+                        <p>@badge.Description</p>
+                        <div class="muted">Registrada em @badge.EarnedAt.ToLocalTime().ToString("dd/MM/yyyy")</div>
+                    </article>
+                }
+            </div>
+        </section>
+
+        <section class="page">
+            <div class="eyebrow">Metas e proximo ciclo</div>
+            <div class="grid-2">
+                <article class="card">
+                    <h2>Metas trabalhadas no mes</h2>
+                    @foreach (var goal in Model.MonthlyGoals)
+                    {
+                        <div class="goal">
+                            <h3>@goal.SkillName</h3>
+                            <p class="muted">@goal.DomainLabel • @goal.CurrentPercent% de @goal.TargetPercent%</p>
+                            <p>@goal.WhyItMatters</p>
+                        </div>
+                    }
+                </article>
+                <article class="card">
+                    <h2>Proximo ciclo recomendado</h2>
+                    <div class="timeline">
+                        @foreach (var item in Model.NextCycleRecommendations)
+                        {
+                            <p>@item</p>
+                        }
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <section class="page">
+            <div class="eyebrow">Galeria pedagogica</div>
+            <h2>Evidencias que contam a historia</h2>
+            <div class="gallery">
+                @foreach (var item in Model.EvidenceItems)
+                {
+                    <article class="gallery-item">
+                        @if (item.IsImage)
+                        {
+                            <img src="@item.MediaUrl" alt="Evidencia pedagogica" />
+                        }
+                        else if (item.IsVideo)
+                        {
+                            <video controls preload="metadata">
+                                <source src="@item.MediaUrl" type="@item.MediaContentType" />
+                            </video>
+                        }
+                        <div class="gallery-copy">
+                            <h3>@item.LoggedAt.ToLocalTime().ToString("dd/MM/yyyy") • @item.Title</h3>
+                            <p class="muted">@item.Description</p>
+                        </div>
+                    </article>
+                }
+            </div>
+        </section>
+
+        <section class="page">
+            <div class="eyebrow">Linha do tempo</div>
+            <h2>Historico mensal consolidado</h2>
+            <div class="history">
+                @foreach (var item in Model.History)
+                {
+                    <article class="history-item">
+                        <h3>@item.MonthLabel</h3>
+                        <p class="muted">Score geral @item.OverallScore% • @item.SessionsCount sessao(oes)</p>
+                        <p><strong>Ponto forte:</strong> @item.StrongestArea</p>
+                        <p><strong>Atencao:</strong> @item.AttentionArea</p>
+                        <p>@item.Summary</p>
+                    </article>
+                }
+            </div>
+            <div class="footer-note">
+                Este portfolio foi criado para a familia guardar, compartilhar e acompanhar a evolucao da crianca com mais orgulho e clareza.
+            </div>
+        </section>
+    </main>
+</body>
+</html>

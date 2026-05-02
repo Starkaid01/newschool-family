@@ -1,0 +1,57 @@
+@model NewSchool.Web.Models.AchievementShareCardViewModel
+@{
+    ViewData["Title"] = "Cartao de conquista";
+}
+
+<section class="share-card-shell">
+    <article class="share-card-poster">
+        <div class="eyebrow">NewSchool • Conquista da familia</div>
+        <h1>@Model.ChildName</h1>
+        <div class="share-card-badge">@Model.BadgeTitle</div>
+        <p class="hero-lead">@Model.BadgeDescription</p>
+
+        <div class="share-card-metrics">
+            <div>
+                <strong>@Model.ProgressPercent%</strong>
+                <span>progresso do ciclo</span>
+            </div>
+            <div>
+                <strong>@Model.SessionsThisMonth</strong>
+                <span>sessoes no mes</span>
+            </div>
+            <div>
+                <strong>@Model.EvidenceCount</strong>
+                <span>evidencias salvas</span>
+            </div>
+        </div>
+
+        <div class="demo-box share-card-story">
+            @Model.MomentumSummary
+        </div>
+
+        <p class="muted">Familia de @Model.ParentFirstName usando o NewSchool para transformar rotina em prova de evolucao.</p>
+    </article>
+
+    <article class="panel">
+        <div class="eyebrow">Pronto para compartilhar</div>
+        <h2>Abra, tire um print e envie com o convite.</h2>
+        <p class="muted">Esse cartao foi desenhado para circular bem no WhatsApp e puxar a pessoa direto para a landing publica de convite.</p>
+
+        <div class="stack-form">
+            <div>
+                <strong>Mensagem pronta</strong>
+                <div class="demo-box">@Model.ShareMessage</div>
+            </div>
+            <div>
+                <strong>Landing publica</strong>
+                <div class="demo-box">@Model.ReferralLandingUrl</div>
+            </div>
+        </div>
+
+        <div class="stack-inline">
+            <a class="btn-primary" href="@Model.WhatsAppShareUrl" target="_blank" rel="noopener noreferrer">Enviar no WhatsApp</a>
+            <a class="btn-secondary" href="@Model.ReferralLandingUrl" target="_blank" rel="noopener noreferrer">Abrir landing</a>
+            <a class="btn-secondary" href="@Model.PortfolioUrl" target="_blank" rel="noopener noreferrer">Ver portfolio</a>
+        </div>
+    </article>
+</section>

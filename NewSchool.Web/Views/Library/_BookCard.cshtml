@@ -1,0 +1,51 @@
+@model NewSchool.Web.Models.FamilyLibraryBookCardViewModel
+@{
+    var returnUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
+}
+
+<article class="family-library-book-card">
+    <a class="family-library-book-main" asp-controller="Library" asp-action="Book" asp-route-id="@Model.Id">
+        @if (!string.IsNullOrWhiteSpace(Model.CoverImageUrl))
+        {
+            <img class="family-library-book-cover" src="@Model.CoverImageUrl" alt="Capa de @Model.Title" loading="lazy" />
+        }
+        else
+        {
+            <div class="family-library-book-cover family-library-book-cover-placeholder">
+                <span>@Model.Category</span>
+            </div>
+        }
+
+        <div class="family-library-book-copy">
+            <div class="family-library-book-topline">
+                <span class="family-library-chip">@Model.CollectionLabel</span>
+                <span class="family-library-status @Model.StatusCssClass">@Model.StatusLabel</span>
+            </div>
+            <h3>@Model.Title</h3>
+            <p>@Model.Description</p>
+            <div class="family-library-book-meta">
+                <span>@Model.Category</span>
+                <span>@Model.EducationStage</span>
+                <span>@Model.PageCount página(s)</span>
+            </div>
+            @if (Model.IsStarted)
+            {
+                <div class="family-library-progress-note">
+                    Página @Model.CurrentPageNumber de @Model.PageCount
+                </div>
+            }
+        </div>
+    </a>
+
+    <div class="family-library-book-actions">
+        <span class="family-library-age-note">@Model.AgeLabel</span>
+        <form method="post" asp-controller="Library" asp-action="ToggleFavorite">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="id" value="@Model.Id" />
+            <input type="hidden" name="returnUrl" value="@returnUrl" />
+            <button class="family-library-favorite-button @(Model.IsFavorite ? "is-active" : string.Empty)" type="submit">
+                @(Model.IsFavorite ? "Favorito" : "Favoritar")
+            </button>
+        </form>
+    </div>
+</article>

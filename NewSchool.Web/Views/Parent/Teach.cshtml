@@ -1,0 +1,222 @@
+@model NewSchool.Web.Models.TeachingGuideViewModel
+@{
+    ViewData["Title"] = $"Ensinar hoje - {Model.FullName}";
+}
+
+<section class="page-hero compact">
+    <div>
+        <div class="eyebrow">Ensinar hoje</div>
+        <h1>@Model.FullName</h1>
+        <p class="muted">@Model.Age anos • @Model.SupportProfileLabel • @Model.FamilyGoalTrackLabel</p>
+        <p class="small-meta">@Model.TodayLabel • plano de aproximadamente @Model.TotalMinutesPlanned min</p>
+    </div>
+    <div class="stack-inline">
+        <a class="btn-secondary" asp-action="Index">Voltar ao painel</a>
+        <a class="btn-primary" href="@Model.RegisterSessionUrl">Registrar no fim</a>
+        <a class="btn-secondary" href="@Model.ChildUrl">Abrir rotina completa</a>
+    </div>
+</section>
+
+<section class="panel teach-command-panel">
+    <div class="card-topline">
+        <div>
+            <div class="eyebrow">Fluxo do dia</div>
+            <h2>Hoje voce so precisa seguir esta ordem</h2>
+        </div>
+        <span class="chip @(Model.CompletedToday ? "success" : "warning")">
+            @(Model.CompletedToday ? "Dia ja registrado" : "Falta registrar")
+        </span>
+    </div>
+    <p>@Model.ParentSummary</p>
+    <div class="recommendation-box">
+        <strong>Recomendacao automatica</strong>
+        <p>@Model.DailyRecommendation</p>
+    </div>
+    <div class="onboarding-grid">
+        <article class="step-card">
+            <strong>1. Veja o checklist</strong>
+            <p class="muted">Prepare ambiente, tempo e materiais antes de chamar a crianca.</p>
+        </article>
+        <article class="step-card">
+            <strong>2. Faça um bloco por vez</strong>
+            <p class="muted">Nao tente ensinar tudo. Siga as materias logo abaixo e encerre cada bloco antes do desgaste.</p>
+        </article>
+        <article class="step-card">
+            <strong>3. Use materiais simples</strong>
+            <p class="muted">Se faltar recurso, improvise com objetos da casa. O importante e fazer junto, nao ter o material perfeito.</p>
+        </article>
+        <article class="step-card">
+            <strong>4. Registre evidencia</strong>
+            <p class="muted">No fim, salve foto, video curto ou anote rapidamente o que a crianca conseguiu fazer.</p>
+        </article>
+    </div>
+</section>
+
+<section class="section-grid">
+    <article class="panel">
+        <div class="eyebrow">Antes de comecar</div>
+        <h2>Checklist rapido</h2>
+        <ul class="teach-checklist">
+            @foreach (var item in Model.BeforeStartChecklist)
+            {
+                <li>@item</li>
+            }
+        </ul>
+    </article>
+
+    <article class="panel">
+        <div class="eyebrow">Materiais de hoje</div>
+        <h2>Separe antes de chamar a crianca</h2>
+        <ul class="teach-checklist">
+            @foreach (var item in Model.MaterialChecklist)
+            {
+                <li>@item</li>
+            }
+        </ul>
+    </article>
+</section>
+
+<section class="panel highlight">
+    <div class="card-topline">
+        <div>
+            <div class="eyebrow">O que sua crianca esta aprendendo agora</div>
+            <h2>Resumo do momento pedagogico</h2>
+        </div>
+        <span class="chip neutral">@Model.Curriculum.StageLabel</span>
+    </div>
+    <p><strong>Foco do periodo:</strong> @Model.Curriculum.CurrentFocus</p>
+    <p><strong>Objetivo maior:</strong> @Model.Curriculum.AnnualObjective</p>
+    <div class="timeline">
+        @foreach (var evidence in Model.Curriculum.EvidenceTargets)
+        {
+            <article class="timeline-item">
+                <strong>Evidencia recomendada</strong>
+                <div>@evidence</div>
+            </article>
+        }
+    </div>
+    <div class="stack-inline">
+        <a class="btn-secondary" href="@Model.CurriculumUrl">Abrir curriculo completo</a>
+    </div>
+</section>
+
+<section class="teach-lesson-grid">
+    @foreach (var lesson in Model.Lessons)
+    {
+        <article class="panel teach-lesson-card">
+            <div class="card-topline">
+                <div>
+                    <div class="eyebrow">@lesson.SubjectLabel</div>
+                    <h2>@lesson.BlockTitle</h2>
+                    @if (lesson.SupportSourceLabel != "Base comum" || lesson.FunctionalTrackLabel != "Base academica")
+                    {
+                        <p class="small-meta teach-support-line">Ajuste de hoje: @lesson.SupportSourceLabel • @lesson.FunctionalTrackLabel</p>
+                    }
+                </div>
+                <div class="stack-inline">
+                    <span class="chip @lesson.FocusChipClass">@lesson.FocusLabel</span>
+                    <span class="chip neutral">@lesson.DurationMinutes min</span>
+                </div>
+            </div>
+            <div class="teach-lesson-block">
+                <strong>O que vamos treinar hoje</strong>
+                <p>@lesson.Goal</p>
+            </div>
+            <div class="teach-lesson-block">
+                <strong>O que voce faz</strong>
+                <p>@lesson.AdultInstruction</p>
+            </div>
+            @if (lesson.MaterialItems.Count > 0)
+            {
+                <div class="teach-lesson-block">
+                    <strong>Separe isto</strong>
+                    <ul class="teach-checklist compact">
+                        @foreach (var item in lesson.MaterialItems)
+                        {
+                            <li>@item</li>
+                        }
+                    </ul>
+                </div>
+            }
+            @if (lesson.StepByStep.Count > 0)
+            {
+                <div class="teach-lesson-block">
+                    <strong>Faca assim</strong>
+                    <ol class="teach-lesson-steps">
+                        @foreach (var step in lesson.StepByStep)
+                        {
+                            <li>@step</li>
+                        }
+                    </ol>
+                </div>
+            }
+            <div class="teach-lesson-block">
+                <strong>Fala pronta</strong>
+                <p>@lesson.ExampleScript</p>
+            </div>
+            <div class="teach-lesson-block">
+                <strong>O que a crianca faz</strong>
+                <p>@lesson.ChildInstruction</p>
+            </div>
+            <div class="teach-lesson-block">
+                <strong>Se travar</strong>
+                <p>@lesson.IfStuck</p>
+            </div>
+            <div class="teach-lesson-block">
+                <strong>Deu certo quando</strong>
+                <p>@lesson.SuccessSignal</p>
+            </div>
+            <div class="teach-lesson-block">
+                <strong>O que guardar no final</strong>
+                <p>@lesson.EvidenceToSave</p>
+            </div>
+        </article>
+    }
+</section>
+
+<section class="panel teach-print-panel">
+    <div class="card-topline">
+        <div>
+            <div class="eyebrow">Materiais simples</div>
+            <h2>Como improvisar com o que voce ja tem em casa</h2>
+        </div>
+    </div>
+    <p class="muted">O sistema vai te orientar a ensinar com objetos reais, desenhos, fala, escolha e brincadeira guiada. Se um formato falhar, troque o formato, nao abandone o objetivo.</p>
+    <div class="card-grid">
+        @foreach (var idea in Model.MaterialAlternatives)
+        {
+            <article class="step-card printable-preview-card">
+                <strong>@idea.Title</strong>
+                <p>@idea.Body</p>
+            </article>
+        }
+    </div>
+</section>
+
+<section class="section-grid">
+    <article class="panel">
+        <div class="eyebrow">Dicas para pais leigos</div>
+        <h2>Como conduzir sem complicar</h2>
+        <div class="timeline">
+            @foreach (var tip in Model.QuickTips)
+            {
+                <article class="timeline-item">
+                    <strong>@tip.Title</strong>
+                    <div>@tip.Body</div>
+                </article>
+            }
+        </div>
+    </article>
+
+    <article class="panel">
+        <div class="eyebrow">No fim da aula</div>
+        <h2>Fechamento do dia</h2>
+        <p><strong>Guarde isto:</strong> @Model.EvidenceReminder</p>
+        <p><strong>Amanha:</strong> @Model.TomorrowAdjustment</p>
+        <div class="stack-form">
+            <a class="btn-primary" href="@Model.RegisterSessionUrl">Registrar sessao e evidencia</a>
+            <a class="btn-secondary" href="@Model.ChildUrl">Abrir rotina completa</a>
+            <a class="btn-secondary" href="@Model.AcademyUrl">Ver academia dos pais</a>
+        </div>
+    </article>
+</section>

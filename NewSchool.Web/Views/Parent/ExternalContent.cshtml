@@ -1,0 +1,235 @@
+@model NewSchool.Web.Models.ExternalContentGuideViewModel
+@{
+    ViewData["Title"] = Model.Title;
+    var returnUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
+}
+
+<section class="academy-app-shell">
+    <div class="child-topbar-row">
+        <a class="back-inline-link" asp-action="Academy" asp-route-childId="@Model.SelectedChildId">Voltar para a biblioteca</a>
+    </div>
+
+    <section class="family-hero-card family-hero-card-simple">
+        <div class="family-hero-copy">
+            <span class="app-kicker">Guia em português</span>
+            <h1>@Model.Title</h1>
+            <p>@Model.Summary</p>
+            <div class="hero-chip-row">
+                <span class="app-soft-pill">@Model.Subtitle</span>
+                <span class="app-soft-pill">@Model.SourceLabel</span>
+                <span class="app-soft-pill">@Model.AudienceLabel</span>
+            </div>
+        </div>
+
+        <div class="hero-status-card">
+            <span class="app-status @Model.AudienceChipClass">@Model.AudienceLabel</span>
+            <strong>@Model.AdaptedHeadline</strong>
+            <p>@Model.Intro</p>
+            <div class="hero-action-row">
+                <a class="btn-primary" href="@(Model.HasSelectedFocus && !string.IsNullOrWhiteSpace(Model.SelectedFocusOfficialUrl) ? Model.SelectedFocusOfficialUrl : Model.SourceUrl)" target="_blank" rel="noopener noreferrer">Abrir material certo agora</a>
+            </div>
+        </div>
+    </section>
+
+    @if (Model.Children.Count > 0)
+    {
+        <section class="app-card">
+            <div class="section-heading-row">
+                <div>
+                    <span class="app-kicker">Escolha a criança</span>
+                    <h2>Use este guia com a criança certa</h2>
+                </div>
+                @if (Model.IsCompletedForSelectedChild)
+                {
+                    <span class="app-status success">Concluído em @Model.CompletedAt?.ToLocalTime().ToString("dd/MM")</span>
+                }
+            </div>
+
+            <form method="get" class="compact-form-grid">
+                <input type="hidden" name="slug" value="@Model.Slug" />
+                <div>
+                    <label for="childId">Criança</label>
+                    <select id="childId" name="childId" class="input">
+                        <option value="">Guia geral</option>
+                        @foreach (var child in Model.Children)
+                        {
+                            if (Model.SelectedChildId == child.ChildId)
+                            {
+                                <option value="@child.ChildId" selected>@child.FullName</option>
+                            }
+                            else
+                            {
+                                <option value="@child.ChildId">@child.FullName</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="form-submit-align">
+                    <button class="btn-primary" type="submit">Aplicar</button>
+                </div>
+            </form>
+        </section>
+    }
+
+    <section class="family-highlight-grid family-highlight-grid-simple">
+        <article class="overview-card">
+            <span class="app-kicker">Comece assim</span>
+            <h2>Um pedaço pequeno por vez</h2>
+            <div class="simple-steps-list compact">
+                @foreach (var step in Model.ParentSteps.Take(3))
+                {
+                    <article class="simple-step-item">
+                        <p>@step</p>
+                    </article>
+                }
+            </div>
+        </article>
+
+        <article class="overview-card">
+            <span class="app-kicker">Nesta semana</span>
+            <h2>Rotina leve para a família</h2>
+            <div class="simple-steps-list compact">
+                @foreach (var item in Model.WeeklyRhythm.Take(3))
+                {
+                    <article class="simple-step-item">
+                        <p>@item</p>
+                    </article>
+                }
+            </div>
+        </article>
+
+        <article class="overview-card">
+            <span class="app-kicker">Separe antes</span>
+            <h2>O que deixar por perto</h2>
+            <div class="achievement-chip-row">
+                @foreach (var item in Model.StarterMaterials.Take(5))
+                {
+                    <span class="app-soft-pill">@item</span>
+                }
+            </div>
+        </article>
+    </section>
+
+    @if (Model.FocusLinks.Count > 0)
+    {
+        <section class="app-card">
+            <div class="section-heading-row">
+                <div>
+                    <span class="app-kicker">Abrir pelo assunto certo</span>
+                    <h2>Escolha o foco sem se perder</h2>
+                </div>
+                <span class="app-status neutral">@Model.FocusLinks.Count foco(s)</span>
+            </div>
+
+            <div class="focus-guide-grid">
+                @foreach (var focus in Model.FocusLinks)
+                {
+                    var isActive = string.Equals(Model.SelectedFocusSlug, focus.Slug, StringComparison.OrdinalIgnoreCase);
+                    <a class="focus-guide-card @(isActive ? "active" : string.Empty)" href="@focus.Url">
+                        <strong>@focus.Title</strong>
+                        <p>@focus.Summary</p>
+                    </a>
+                }
+            </div>
+        </section>
+    }
+
+    @if (Model.HasSelectedFocus)
+    {
+        <section class="app-card">
+            <div class="section-heading-row">
+                <div>
+                    <span class="app-kicker">Foco desta página</span>
+                    <h2>@Model.SelectedFocusTitle</h2>
+                </div>
+                <span class="app-status success">pronto para usar</span>
+            </div>
+
+            <p>@Model.SelectedFocusSummary</p>
+
+            <div class="details-grid">
+                <article class="child-card-note">
+                    <strong>Quando abrir</strong>
+                    <p>@Model.SelectedFocusWhenToUse</p>
+                </article>
+
+                <article class="child-card-note">
+                    <strong>Como aplicar em casa</strong>
+                    <p>@Model.SelectedFocusHowItEnters</p>
+                </article>
+
+                <article class="child-card-note">
+                    <strong>O que vale observar</strong>
+                    <p>@Model.SelectedFocusEvidenceIdea</p>
+                </article>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(Model.SelectedFocusOfficialUrl))
+            {
+                <div class="hero-action-row">
+                    <a class="btn-primary" href="@Model.SelectedFocusOfficialUrl" target="_blank" rel="noopener noreferrer">@Model.SelectedFocusActionLabel</a>
+                </div>
+            }
+        </section>
+    }
+
+    @if (Model.FolderHighlights.Count > 0 || Model.EvidenceIdeas.Count > 0)
+    {
+        <section class="details-grid">
+            @if (Model.FolderHighlights.Count > 0)
+            {
+                <article class="app-card">
+                    <span class="app-kicker">Comece por aqui</span>
+                    <h2>Entradas mais úteis</h2>
+                    <div class="achievement-chip-row">
+                        @foreach (var folder in Model.FolderHighlights.Take(8))
+                        {
+                            <span class="app-soft-pill">@folder</span>
+                        }
+                    </div>
+                </article>
+            }
+
+            @if (Model.EvidenceIdeas.Count > 0)
+            {
+                <article class="app-card">
+                    <span class="app-kicker">Depois da atividade</span>
+                    <h2>Se quiser guardar registro</h2>
+                    <div class="simple-steps-list compact">
+                        @foreach (var item in Model.EvidenceIdeas.Take(3))
+                        {
+                            <article class="simple-step-item">
+                                <p>@item</p>
+                            </article>
+                        }
+                    </div>
+                </article>
+            }
+        </section>
+    }
+
+    @if (Model.SelectedChildId.HasValue)
+    {
+        <section class="app-card">
+            <div class="section-heading-row">
+                <div>
+                    <span class="app-kicker">Marcar no painel</span>
+                    <h2>Registrar que @Model.SelectedChildName usou este conteúdo</h2>
+                </div>
+                <span class="app-status @(Model.IsCompletedForSelectedChild ? "success" : "warning")">
+                    @(Model.IsCompletedForSelectedChild ? "já concluído" : "pendente")
+                </span>
+            </div>
+
+            <form method="post" asp-action="MarkExternalContentComplete" class="stack-form">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="childId" value="@Model.SelectedChildId" />
+                <input type="hidden" name="slug" value="@Model.Slug" />
+                <input type="hidden" name="focus" value="@Model.SelectedFocusSlug" />
+                <input type="hidden" name="returnUrl" value="@returnUrl" />
+                <p>Quando terminar este material com a criança, marque aqui para isso entrar no painel e no histórico do currículo.</p>
+                <button class="btn-primary" type="submit">Marcar como usado nesta semana</button>
+            </form>
+        </section>
+    }
+</section>

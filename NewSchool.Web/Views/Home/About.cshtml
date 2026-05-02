@@ -1,0 +1,49 @@
+@{
+    ViewData["Title"] = "Sobre";
+}
+
+<section class="info-page-shell">
+    <div class="info-page-hero">
+        <div class="landing-kicker">sobre a plataforma</div>
+        <h1>Ensino domiciliar mais claro, mais simples e mais organizado no celular.</h1>
+        <p>
+            O NewSchool Family existe para tirar o peso da improvisacao: a familia encontra curriculo,
+            aula do dia, materiais, leituras e evidencias em um fluxo mais direto.
+        </p>
+    </div>
+
+    <div class="info-page-grid">
+        <article class="panel">
+            <div class="eyebrow">O que a plataforma organiza</div>
+            <h2>Curriculo, rotina e provas de aprendizagem</h2>
+            <p>
+                Cada crianca tem uma rotina propria, com aula do dia, fila de licoes, materiais relevantes,
+                leituras e uma central separada para fotos, videos e documentos.
+            </p>
+        </article>
+        <article class="panel">
+            <div class="eyebrow">Como o sistema ajuda</div>
+            <h2>Menos busca, mais conducao</h2>
+            <p>
+                O foco do produto e conduzir o adulto: abrir a crianca certa, seguir o passo a passo,
+                marcar o que foi concluido e guardar a memoria do processo sem se perder.
+            </p>
+        </article>
+        <article class="panel">
+            <div class="eyebrow">Para quem foi feito</div>
+            <h2>Familias brasileiras que ensinam em casa</h2>
+            <p>
+                A plataforma conversa com pais e responsaveis, nao com professores ou desenvolvedores.
+                Por isso a experiencia precisa continuar simples, objetiva e boa no mobile.
+            </p>
+        </article>
+    </div>
+
+    @await Component.InvokeAsync("AdBanner", new
+    {
+        zone = "about-inline",
+        label = "Espaco pronto para parceiro recomendado",
+        description = "Area responsiva reservada para anuncios ou recomendacoes futuras sem poluir a leitura.",
+        variant = "inline"
+    })
+</section>

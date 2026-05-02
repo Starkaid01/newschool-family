@@ -1,0 +1,341 @@
+@model NewSchool.Web.Models.CreateChildViewModel
+@{
+    var isEditMode = (bool?)ViewBag.IsEditMode == true;
+    Guid? childId = ViewBag.ChildId is Guid value ? value : null;
+    ViewData["Title"] = ViewData["Title"] ?? (isEditMode ? "Editar criança" : "Nova criança");
+}
+
+<section class="child-app-shell">
+    <section class="family-hero-card">
+        <div class="family-hero-copy">
+            <span class="app-kicker">@ViewBag.FormKicker</span>
+            <h1>@ViewBag.FormHeading</h1>
+            <p>
+                @ViewBag.FormDescription
+            </p>
+            <div class="hero-chip-row">
+                <span class="app-soft-pill">currículo automático</span>
+                <span class="app-soft-pill">aula do dia</span>
+                <span class="app-soft-pill">gestão simples</span>
+            </div>
+        </div>
+
+        <div class="hero-status-card">
+            <span class="app-status success">@ViewBag.FlowStatus</span>
+            <strong>@ViewBag.FlowStatusTitle</strong>
+            <p>@ViewBag.FlowStatusDescription</p>
+            <a class="btn-secondary" asp-action="Index">Voltar ao painel</a>
+        </div>
+    </section>
+
+    <section class="family-resource-grid">
+        <article class="app-card">
+            <span class="app-kicker">O que o sistema cria</span>
+            <div class="simple-steps-list compact">
+                <article class="simple-step-item">
+                    <strong>1. Currículo por idade</strong>
+                    <p>Linguagem, matemática, mundo real e função executiva organizados para a fase da criança.</p>
+                </article>
+                <article class="simple-step-item">
+                    <strong>2. Aula do dia pronta</strong>
+                    <p>Blocos curtos, materiais sugeridos, passo a passo para o pai e evidência esperada.</p>
+                </article>
+                <article class="simple-step-item">
+                    <strong>3. Provas e evolução</strong>
+                    <p>Fotos, vídeos, tarefas concluídas e progresso ficam vinculados à criança automaticamente.</p>
+                </article>
+            </div>
+        </article>
+
+        <article class="app-card">
+            <span class="app-kicker">Faixa etária</span>
+            <div class="simple-steps-list compact">
+                <article class="simple-step-item">
+                    <strong>3 a 4 anos</strong>
+                    <p>Entrada na rotina, linguagem oral, coordenação e contagem concreta.</p>
+                </article>
+                <article class="simple-step-item">
+                    <strong>5 a 6 anos</strong>
+                    <p>Pré-alfabetização, organização, autonomia e matemática inicial.</p>
+                </article>
+                <article class="simple-step-item">
+                    <strong>7 a 10 anos</strong>
+                    <p>Leitura, escrita, problemas, ciências e registro mais forte de evolução.</p>
+                </article>
+                <article class="simple-step-item">
+                    <strong>11 a 14 anos</strong>
+                    <p>Argumentação, matemática aplicada, projeto de mundo real e autonomia crescente de estudo.</p>
+                </article>
+            </div>
+        </article>
+    </section>
+
+    <form method="post" asp-action="@(isEditMode ? "EditChild" : "CreateChild")" asp-route-id="@(isEditMode ? childId : null)" class="stack-form">
+        @Html.AntiForgeryToken()
+
+        @if (!ViewData.ModelState.IsValid)
+        {
+            <section class="app-inline-message warning">
+                <strong>Revise os dados da criança.</strong>
+                <span>Alguns campos precisam ser corrigidos antes de salvar.</span>
+            </section>
+        }
+
+        <section class="app-card">
+            <div class="section-heading-row">
+                <div>
+                    <span class="app-kicker">Essencial</span>
+                    <h2>Dados para destravar a rotina</h2>
+                </div>
+                <span class="app-status success">Primeiro bloco</span>
+            </div>
+
+            <div class="compact-form-grid">
+                <div>
+                    <label asp-for="FullName"></label>
+                    <input asp-for="FullName" class="input" placeholder="Ex.: Maria, Davi, Emanuele..." />
+                    <p class="small-meta">Se ficar em branco, o sistema cria um nome provisório.</p>
+                </div>
+                <div>
+                    <label asp-for="EstimatedAgeYears"></label>
+                    <select asp-for="EstimatedAgeYears" class="input">
+                        @for (var age = 3; age <= 14; age++)
+                        {
+                            <option value="@age">@age anos</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label asp-for="BirthDate"></label>
+                    <input asp-for="BirthDate" class="input" />
+                    <p class="small-meta">Opcional. Se não informar, a idade aproximada será usada.</p>
+                </div>
+                <div>
+                    <label asp-for="DailyStudyMinutes"></label>
+                    <select asp-for="DailyStudyMinutes" class="input">
+                        <option value="20">20 min por dia</option>
+                        <option value="30">30 min por dia</option>
+                        <option value="45">45 min por dia</option>
+                        <option value="60">60 min por dia</option>
+                        <option value="90">90 min por dia</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <section class="app-card">
+            <div class="section-heading-row">
+                <div>
+                    <span class="app-kicker">Direção principal</span>
+                    <h2>Como a plataforma deve começar</h2>
+                </div>
+            </div>
+
+            <div class="compact-form-grid">
+                <div>
+                    <label asp-for="SupportProfile"></label>
+                    <select asp-for="SupportProfile" class="input">
+                        <option value="General">Base geral</option>
+                        <option value="TeaLevel1">TEA nível 1</option>
+                        <option value="TeaLevel2">TEA nível 2</option>
+                        <option value="TeaLevel3">TEA nível 3</option>
+                    </select>
+                </div>
+                <div>
+                    <label asp-for="FamilyGoalTrack"></label>
+                    <select asp-for="FamilyGoalTrack" class="input">
+                        <option value="balanced_growth">Crescimento equilibrado</option>
+                        <option value="literacy">Alfabetização e linguagem</option>
+                        <option value="math_foundations">Matemática base</option>
+                        <option value="autonomy">Autonomia e foco</option>
+                        <option value="science_discovery">Ciências e descoberta</option>
+                    </select>
+                </div>
+                <div>
+                    <label asp-for="LearningProfile"></label>
+                    <select asp-for="LearningProfile" class="input">
+                        <option value="balanced">Equilibrado</option>
+                        <option value="hands_on">Aprende fazendo</option>
+                        <option value="story_based">Aprende por histórias e conversa</option>
+                        <option value="visual">Aprende melhor vendo</option>
+                        <option value="movement">Aprende melhor em movimento</option>
+                    </select>
+                </div>
+                <div>
+                    <label asp-for="GuidanceStyle"></label>
+                    <select asp-for="GuidanceStyle" class="input">
+                        <option value="guided">Precisa de condução passo a passo</option>
+                        <option value="confidence">Precisa de vitórias rápidas</option>
+                        <option value="autonomy">Já responde bem com autonomia</option>
+                        <option value="focus_support">Precisa de blocos curtos e foco apoiado</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="child-card-note">
+                <strong>Resumo do que será gerado</strong>
+                <p>O sistema combinará idade, trilha, perfil de aprendizagem e ritmo diário para montar o primeiro conjunto de aulas e tarefas.</p>
+            </div>
+        </section>
+
+        <section class="app-card">
+            <div class="section-heading-row">
+                <div>
+                    <span class="app-kicker">Apoios que ajudam</span>
+                    <h2>Marque só o que realmente muda a rotina</h2>
+                </div>
+            </div>
+
+            <div class="check-grid">
+                <label class="check-item"><input asp-for="NeedsVisualRoutine" type="checkbox" /> Rotina visual</label>
+                <label class="check-item"><input asp-for="NeedsFirstThen" type="checkbox" /> First-then</label>
+                <label class="check-item"><input asp-for="NeedsTimer" type="checkbox" /> Timer visual</label>
+                <label class="check-item"><input asp-for="NeedsPlanB" type="checkbox" /> Plano B previsto</label>
+            </div>
+        </section>
+
+        <section class="app-card">
+            <div class="section-heading-row">
+                <div>
+                    <span class="app-kicker">Dificuldades atuais</span>
+                    <h2>O que mais pesa hoje</h2>
+                </div>
+            </div>
+
+            <div class="check-grid">
+                <label class="check-item"><input asp-for="BarrierAnxietyCrises" type="checkbox" /> Crises de ansiedade</label>
+                <label class="check-item"><input asp-for="BarrierSchoolOverload" type="checkbox" /> Sobrecarga sensorial</label>
+                <label class="check-item"><input asp-for="BarrierRigidity" type="checkbox" /> Rigidez cognitiva alta</label>
+                <label class="check-item"><input asp-for="BarrierSocialDifficulty" type="checkbox" /> Demanda social pesada</label>
+                <label class="check-item"><input asp-for="SupportNeedsFocus" type="checkbox" /> Foco fraco</label>
+                <label class="check-item"><input asp-for="SupportNeedsTransitions" type="checkbox" /> Trocas difíceis</label>
+                <label class="check-item"><input asp-for="SupportNeedsLanguage" type="checkbox" /> Linguagem precisa reforço</label>
+                <label class="check-item"><input asp-for="SupportNeedsRegulation" type="checkbox" /> Autorregulação precisa reforço</label>
+            </div>
+        </section>
+
+        <details class="app-details-card">
+            <summary>Adicionar detalhes opcionais</summary>
+
+            <div class="details-grid create-child-details-grid">
+                <article class="app-card">
+                    <span class="app-kicker">Metodologia e objetivo</span>
+                    <div class="compact-form-grid">
+                        <div>
+                            <label asp-for="TeachingMethodology"></label>
+                            <select asp-for="TeachingMethodology" class="input">
+                                <option value="eclectic">Eclética estruturada</option>
+                                <option value="montessori">Montessori em casa</option>
+                                <option value="charlotte_mason">Charlotte Mason</option>
+                                <option value="classical">Clássica</option>
+                                <option value="singapore_math">Singapore Math</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label asp-for="ParentPrimaryGoal"></label>
+                            <input asp-for="ParentPrimaryGoal" class="input" placeholder="Ex.: voltar a estudar sem crise" />
+                        </div>
+                    </div>
+                </article>
+
+                <article class="app-card">
+                    <span class="app-kicker">Comunicação</span>
+                    <div class="check-grid">
+                        <label class="check-item"><input asp-for="CommunicationDirectLanguage" type="checkbox" /> Linguagem direta ajuda</label>
+                        <label class="check-item"><input asp-for="CommunicationVisualSupport" type="checkbox" /> Apoio visual ajuda</label>
+                        <label class="check-item"><input asp-for="CommunicationModeling" type="checkbox" /> Precisa ver primeiro</label>
+                        <label class="check-item"><input asp-for="CommunicationProcessingTime" type="checkbox" /> Precisa de mais tempo</label>
+                    </div>
+                </article>
+
+                <article class="app-card">
+                    <span class="app-kicker">Pontos fortes</span>
+                    <div class="check-grid">
+                        <label class="check-item"><input asp-for="StrengthCurious" type="checkbox" /> Curiosa e investigativa</label>
+                        <label class="check-item"><input asp-for="StrengthCommunicative" type="checkbox" /> Comunicativa</label>
+                        <label class="check-item"><input asp-for="StrengthCreative" type="checkbox" /> Criativa</label>
+                        <label class="check-item"><input asp-for="StrengthMemorizes" type="checkbox" /> Memoriza bem</label>
+                        <label class="check-item"><input asp-for="StrengthLogical" type="checkbox" /> Gosta de lógica e padrões</label>
+                    </div>
+                </article>
+
+                <article class="app-card">
+                    <span class="app-kicker">Gatilhos comuns</span>
+                    <div class="check-grid">
+                        <label class="check-item"><input asp-for="TriggerUnexpectedChange" type="checkbox" /> Mudança inesperada</label>
+                        <label class="check-item"><input asp-for="TriggerNoise" type="checkbox" /> Barulho</label>
+                        <label class="check-item"><input asp-for="TriggerWritingDemand" type="checkbox" /> Escrita ou papel</label>
+                        <label class="check-item"><input asp-for="TriggerWaiting" type="checkbox" /> Espera</label>
+                        <label class="check-item"><input asp-for="TriggerSocialDemand" type="checkbox" /> Exigência social</label>
+                    </div>
+                </article>
+
+                <article class="app-card">
+                    <span class="app-kicker">O que costuma ajudar</span>
+                    <div class="check-grid">
+                        <label class="check-item"><input asp-for="CalmingPause" type="checkbox" /> Pausa curta</label>
+                        <label class="check-item"><input asp-for="CalmingMovement" type="checkbox" /> Movimento</label>
+                        <label class="check-item"><input asp-for="CalmingQuietCorner" type="checkbox" /> Lugar silencioso</label>
+                        <label class="check-item"><input asp-for="CalmingDrawing" type="checkbox" /> Desenhar</label>
+                        <label class="check-item"><input asp-for="CalmingMusic" type="checkbox" /> Música calma</label>
+                    </div>
+                </article>
+
+                <article class="app-card">
+                    <span class="app-kicker">Notas adicionais</span>
+                    <div class="stack-form">
+                        <div>
+                            <label asp-for="SpecialInterests"></label>
+                            <input asp-for="SpecialInterests" class="input" placeholder="Ex.: dinossauros, mapas, música..." />
+                        </div>
+                        <div>
+                            <label asp-for="Notes"></label>
+                            <textarea asp-for="Notes" class="input" rows="3" placeholder="Algo importante para deixar registrado."></textarea>
+                        </div>
+                        <div>
+                            <label asp-for="DocumentationNotes"></label>
+                            <textarea asp-for="DocumentationNotes" class="input" rows="2" placeholder="Use se houver algo importante para documentação futura."></textarea>
+                        </div>
+                    </div>
+                </article>
+            </div>
+        </details>
+
+        <div class="hero-action-row">
+            <a class="btn-secondary" asp-action="Index">Cancelar</a>
+            <button class="btn-primary" type="submit">@ViewBag.FormSubmitLabel</button>
+        </div>
+
+    </form>
+
+    @if (isEditMode && childId.HasValue)
+    {
+        <section class="app-card danger-zone-card">
+            <div class="section-heading-row">
+                <div>
+                    <span class="app-kicker">Excluir criança</span>
+                    <h2>Remova este perfil por completo</h2>
+                </div>
+                <span class="app-status warning">Ação irreversível</span>
+            </div>
+
+            <p>
+                Excluir apaga o currículo desta criança, o histórico de lições, as evidências anexadas e os
+                registros vinculados a ela. O restante da família continua intacto.
+            </p>
+
+            <form method="post"
+                  asp-action="DeleteChild"
+                  asp-route-id="@childId"
+                  class="inline-action-form"
+                  onsubmit="return confirm('Tem certeza que deseja excluir esta criança e todo o histórico vinculado?');">
+                @Html.AntiForgeryToken()
+                <button class="btn-danger" type="submit">Excluir esta criança</button>
+            </form>
+        </section>
+    }
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

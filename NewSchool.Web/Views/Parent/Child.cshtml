@@ -1,0 +1,840 @@
+@using System.Linq
+@model NewSchool.Web.Models.ChildDetailsViewModel
+@{
+    ViewData["Title"] = Model.FullName;
+    var currentUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
+    var statusMessage = TempData["StatusMessage"]?.ToString();
+    var statusKind = TempData["StatusKind"]?.ToString();
+    var childInitial = string.IsNullOrWhiteSpace(Model.FullName)
+        ? "C"
+        : Model.FullName.Trim()[0].ToString().ToUpperInvariant();
+    var activeLesson = Model.GuidedLesson.Lessons.FirstOrDefault(item => !item.IsCompleted);
+    var queuedLessons = activeLesson is null
+        ? new List<NewSchool.Web.Models.GuidedLessonCardViewModel>()
+        : Model.GuidedLesson.Lessons
+            .Where(item => !item.IsCompleted && item.DailyPlanBlockId != activeLesson.DailyPlanBlockId)
+            .ToList();
+    var completedDay = Model.GuidedLesson.PlannedLessonsCount > 0
+        && Model.GuidedLesson.CompletedLessonsCount >= Model.GuidedLesson.PlannedLessonsCount;
+    var libraryBook = Model.LibraryBridge.RecommendedBook;
+    var libraryPrintable = Model.LibraryBridge.RecommendedPrintable;
+    var weeklyReading = Model.LibraryBridge.WeeklyReading;
+    var currentSystemTrack = activeLesson is null
+        ? Model.SystemCurriculumTracks.FirstOrDefault(track => track.CurrentUnit is not null)
+        : Model.SystemCurriculumTracks.FirstOrDefault(track => string.Equals(track.DomainLabel, activeLesson.SubjectLabel, StringComparison.OrdinalIgnoreCase))
+            ?? Model.SystemCurriculumTracks.FirstOrDefault(track => track.CurrentUnit is not null);
+    var weeklyRoadmapPreview = Model.WeeklyRoadmap.SubjectRuns.Take(3).ToList();
+    var tomorrowPreviewLessons = Model.TomorrowLesson.Lessons.Take(3).ToList();
+    var evidencePreview = Model.SessionHistory
+        .Where(item => item.HasMedia)
+        .Take(2)
+        .ToList();
+}
+
+<section class="child-app-shell child-app-shell-simple">
+    <div class="child-topbar-row">
+        <a class="back-inline-link" asp-action="Index">Voltar ao painel</a>
+        <div class="hero-chip-row">
+            <span class="app-soft-pill active">Hoje</span>
+            <a class="app-soft-pill" href="@Model.CurriculumUrl">Plano anual</a>
+            <a class="app-soft-pill" href="@Model.EvidenceCenterUrl">Evidências</a>
+            <a class="app-soft-pill" asp-action="Academy" asp-route-childId="@Model.ChildId">Biblioteca</a>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(statusMessage))
+    {
+        <section class="app-inline-message @(string.Equals(statusKind, "warning", StringComparison.OrdinalIgnoreCase) ? "warning" : string.Empty)">
+            <strong>@(string.Equals(statusKind, "warning", StringComparison.OrdinalIgnoreCase) ? "Atenção." : "Tudo certo.")</strong>
+            <span>@statusMessage</span>
+        </section>
+    }
+
+    <section class="child-hero-card child-hero-card-simple">
+        <div class="child-identity-row">
+            <span class="child-avatar">@childInitial</span>
+            <div class="child-identity-copy">
+                <span class="app-kicker">Aula de hoje</span>
+                <h1>@Model.FullName</h1>
+                <p>@Model.Age anos • @Model.FamilyGoalTrackLabel • @Model.DailyStudyMinutes min por dia</p>
+            </div>
+            <span class="app-status @(Model.GuidedLesson.ProgressPercent >= 100 ? "success" : "warning")">
+                @(Model.GuidedLesson.ProgressPercent >= 100 ? "dia concluído" : "faça agora")
+            </span>
+        </div>
+
+        <article class="lesson-hero-card lesson-hero-card-simple">
+            <div class="lesson-hero-copy">
+                <span class="app-kicker">Aula do dia</span>
+                <h2>@Model.Theme</h2>
+                <p>@Model.GuidedLesson.Summary</p>
+                <div class="hero-chip-row">
+                    <span class="app-soft-pill">@Model.GuidedLesson.CompletedLessonsCount/@Model.GuidedLesson.PlannedLessonsCount concluídas</span>
+                    <span class="app-soft-pill">@Model.GuidedLesson.ProgressPercent% do dia</span>
+                </div>
+            </div>
+
+            <div class="hero-action-row">
+                <a class="btn-primary" href="#guided-lessons">Abrir lição atual</a>
+                <a class="btn-secondary" href="@Model.EvidenceCenterUrl">Guardar evidências</a>
+            </div>
+        </article>
+    </section>
+
+    @if (!string.IsNullOrWhiteSpace(Model.LessonFlowMessage))
+    {
+        <section class="alert-soft @Model.LessonFlowStyle">
+            @if (!string.IsNullOrWhiteSpace(Model.LessonFlowHeadline))
+            {
+                <strong>@Model.LessonFlowHeadline</strong>
+            }
+            <div>@Model.LessonFlowMessage</div>
+        </section>
+    }
+
+    <section class="app-card study-progress-banner">
+        <div class="section-heading-row">
+            <div>
+                <span class="app-kicker">Progresso de hoje</span>
+                <h2>@Model.GuidedLesson.Headline</h2>
+            </div>
+            <span class="app-status neutral">@Model.GuidedLesson.ProgressPercent%</span>
+        </div>
+
+        <div class="progress-line-card compact">
+            <div class="progress-line-head">
+                <span>Lições concluídas</span>
+                <strong>@Model.GuidedLesson.CompletedLessonsCount de @Model.GuidedLesson.PlannedLessonsCount</strong>
+            </div>
+            <div class="progress-track">
+                <span class="progress-fill teal" style="width:@Math.Clamp(Model.GuidedLesson.ProgressPercent, 0, 100)%"></span>
+            </div>
+        </div>
+
+        <p>@Model.GuidedLesson.CompletionBanner</p>
+    </section>
+
+    @if (weeklyRoadmapPreview.Count > 0)
+    {
+        <section class="app-card">
+            <div class="section-heading-row">
+                <div>
+                    <span class="app-kicker">Depois de hoje</span>
+                    <h2>O restante da semana já está em ordem</h2>
+                </div>
+                <a class="btn-secondary" href="@Model.CurriculumUrl">Ver sequência completa</a>
+            </div>
+
+            <p>Você não precisa pensar na ordem das matérias. O app já sabe o próximo passo e continua daqui quando a lição de agora terminar.</p>
+
+            <div class="trail-checklist">
+                @foreach (var run in weeklyRoadmapPreview)
+                {
+                    <span>@run.SubjectLabel: @run.CurrentUnitTitle (@run.CurrentWeekStepNumber/5 desta semana)</span>
+                }
+            </div>
+
+            <details class="micro-sequence-details">
+                <summary>Entender a semana</summary>
+                <div class="simple-steps-list compact">
+                    @foreach (var run in weeklyRoadmapPreview)
+                    {
+                        <article class="simple-step-item">
+                            <strong>@run.SubjectLabel</strong>
+                            <p>@run.WeekHeadline</p>
+                            <p>@run.CompletionSignal</p>
+                        </article>
+                    }
+                </div>
+            </details>
+        </section>
+    }
+
+    @if (activeLesson is not null)
+    {
+        <section class="app-card">
+            <div class="section-heading-row">
+                <div>
+                    <span class="app-kicker">Use assim agora</span>
+                    <h2>O pai só precisa seguir esta ordem</h2>
+                </div>
+            </div>
+
+            <div class="simple-steps-list compact">
+                <article class="simple-step-item">
+                    <strong>1. Abra a lição atual</strong>
+                    <p>Foque primeiro em <strong>@activeLesson.Title</strong>. Não pule para a próxima antes de terminar esta.</p>
+                </article>
+                <article class="simple-step-item">
+                    <strong>2. Faça exatamente a entrega pedida</strong>
+                    <p>Use o material indicado na tela e feche a atividade do jeito que a própria lição pede.</p>
+                </article>
+                <article class="simple-step-item">
+                    <strong>3. Toque em concluir</strong>
+                    <p>O sistema sobe sozinho a próxima lição. Fotos e vídeos podem ficar para depois, em Evidências.</p>
+                </article>
+            </div>
+        </section>
+    }
+
+    @if (activeLesson is null)
+    {
+        <section class="app-card">
+            <div class="section-heading-row">
+                <div>
+                    <span class="app-kicker">Hoje</span>
+                    <h2>@(completedDay ? "Todas as lições do dia já terminaram" : "A aula do dia ainda está sendo montada")</h2>
+                </div>
+            </div>
+            <p>
+                @(completedDay
+                    ? "O sistema já registrou o dia como concluído. Agora a família pode descansar ou guardar provas depois em Evidências."
+                    : "Assim que o plano terminar de ser gerado, esta tela mostra a primeira lição pronta para começar.")
+            </p>
+            @if (completedDay)
+            {
+                <div class="hero-action-row">
+                    <a class="btn-primary" href="@Model.EvidenceCenterUrl">Abrir evidências</a>
+                    <a class="btn-secondary" href="@Model.TomorrowPreviewUrl">Ver amanhã</a>
+                </div>
+            }
+        </section>
+    }
+    else
+    {
+        <section class="guided-lesson-stack" id="guided-lessons">
+            <article class="guided-lesson-card guided-lesson-card-primary @(activeLesson.IsCompleted ? "is-complete" : string.Empty)">
+                <div class="section-heading-row">
+                    <div>
+                        <span class="app-kicker">Faça agora • @activeLesson.SubjectLabel</span>
+                        <h2>@activeLesson.Title</h2>
+                    </div>
+                    <span class="app-status @(activeLesson.IsCompleted ? "success" : activeLesson.SubjectChipClass)">@activeLesson.CompletionLabel</span>
+                </div>
+
+                <p class="guided-lesson-goal"><strong>O que fazer agora:</strong> @activeLesson.Goal</p>
+                <p class="guided-lesson-parent"><strong>Como abrir a lição:</strong> @activeLesson.ParentSummary</p>
+
+                @if (!string.IsNullOrWhiteSpace(activeLesson.UnitStepLabel))
+                {
+                    <article class="child-card-note">
+                        <strong>@activeLesson.UnitStepLabel</strong>
+                        <p>@activeLesson.UnitStepSummary</p>
+                        @if (!string.IsNullOrWhiteSpace(activeLesson.NextUnitStepHint))
+                        {
+                            <p><strong>O que vem depois:</strong> @activeLesson.NextUnitStepHint</p>
+                        }
+                    </article>
+                }
+
+                @if (activeLesson.LessonPacket is not null || activeLesson.CurrentSystemUnit is not null || activeLesson.RecommendedPrintable is not null)
+                {
+                    <div class="guided-lesson-meta-grid">
+                        @if (activeLesson.LessonPacket is not null)
+                        {
+                            <article class="child-card-note">
+                                <strong>Esta lição faz parte do currículo anual</strong>
+                                <p><strong>@activeLesson.LessonPacket.CurriculumPlacement</strong></p>
+                                @if (activeLesson.CurrentSystemUnit is not null)
+                                {
+                                    <p>@activeLesson.CurrentSystemUnit.PhaseLabel do ano • trilha de @activeLesson.SubjectLabel</p>
+                                }
+                                <p>@activeLesson.CurriculumOriginSummary</p>
+                                @if (!string.IsNullOrWhiteSpace(activeLesson.UnitStepLabel))
+                                {
+                                    <p><strong>@activeLesson.UnitStepLabel:</strong> @activeLesson.UnitStepSummary</p>
+                                }
+                                <p><strong>O foco desta parte do currículo:</strong> @activeLesson.LessonPacket.UnitSummary</p>
+                                <p><strong>O que a criança precisa entregar hoje:</strong> @activeLesson.LessonPacket.PracticeTask</p>
+                            </article>
+                        }
+                        else if (activeLesson.CurrentSystemUnit is not null)
+                        {
+                            <article class="child-card-note">
+                                <strong>Esta aula veio do currículo anual</strong>
+                                <p><strong>@activeLesson.CurrentSystemUnit.UnitLabel • @activeLesson.CurrentSystemUnit.Title</strong></p>
+                                <p>@activeLesson.CurriculumOriginSummary</p>
+                                @if (!string.IsNullOrWhiteSpace(activeLesson.UnitStepLabel))
+                                {
+                                    <p><strong>@activeLesson.UnitStepLabel:</strong> @activeLesson.UnitStepSummary</p>
+                                }
+                                <p><strong>Missão da unidade:</strong> @activeLesson.CurrentSystemUnit.TaskPrompt</p>
+                            </article>
+                        }
+
+                        @if (activeLesson.RecommendedPrintable is not null)
+                        {
+                            <article class="child-card-note">
+                                <strong>Folha para imprimir desta lição</strong>
+                                <p><strong>@activeLesson.RecommendedPrintable.Title</strong></p>
+                                <p>@activeLesson.RecommendedPrintable.Description</p>
+                                <p>@activeLesson.PrintableReason</p>
+                                <div class="hero-chip-row">
+                                    <span class="app-soft-pill">@activeLesson.RecommendedPrintable.Category</span>
+                                    <span class="app-soft-pill">@activeLesson.RecommendedPrintable.AgeLabel</span>
+                                </div>
+                                <div class="hero-action-row">
+                                    <a class="btn-secondary" href="@activeLesson.RecommendedPrintable.AccessUrl">@activeLesson.RecommendedPrintable.AccessLabel</a>
+                                </div>
+                            </article>
+                        }
+                    </div>
+                }
+
+                @if (activeLesson.LessonPacket is not null)
+                {
+                    <section class="lesson-packet-grid">
+                        <article class="lesson-packet-panel full-span">
+                            <span class="app-kicker">Onde isso entra no curriculo</span>
+                            <h3>@activeLesson.LessonPacket.UnitTitle</h3>
+                            <p><strong>@activeLesson.LessonPacket.CurriculumPlacement</strong></p>
+                            <p>@activeLesson.LessonPacket.UnitSummary</p>
+                        </article>
+
+                        <article class="lesson-packet-panel full-span">
+                            <span class="app-kicker">@activeLesson.LessonPacket.CoreMaterialLabel</span>
+                            <h3>@activeLesson.LessonPacket.CoreMaterialTitle</h3>
+                            @foreach (var paragraph in activeLesson.LessonPacket.CoreMaterialParagraphs)
+                            {
+                                <p>@paragraph</p>
+                            }
+                        </article>
+
+                        @if (activeLesson.LessonPacket.AdultSteps.Count > 0)
+                        {
+                            <article class="lesson-packet-panel">
+                                <span class="app-kicker">Como apresentar</span>
+                                <div class="simple-steps-list compact">
+                                    @for (var i = 0; i < activeLesson.LessonPacket.AdultSteps.Count; i++)
+                                    {
+                                        <article class="simple-step-item">
+                                            <strong>Passo @(i + 1)</strong>
+                                            <p>@activeLesson.LessonPacket.AdultSteps[i]</p>
+                                        </article>
+                                    }
+                                </div>
+                            </article>
+                        }
+
+                        @if (activeLesson.LessonPacket.AdultQuestions.Count > 0)
+                        {
+                            <article class="lesson-packet-panel">
+                                <span class="app-kicker">Pergunte assim</span>
+                                <div class="trail-checklist lesson-packet-list">
+                                    @foreach (var question in activeLesson.LessonPacket.AdultQuestions)
+                                    {
+                                        <span>@question</span>
+                                    }
+                                </div>
+                            </article>
+                        }
+
+                        @if (activeLesson.LessonPacket.AcceptableAnswers.Count > 0)
+                        {
+                            <article class="lesson-packet-panel">
+                                <span class="app-kicker">Resposta que voce pode aceitar</span>
+                                <div class="trail-checklist lesson-packet-list">
+                                    @foreach (var answer in activeLesson.LessonPacket.AcceptableAnswers)
+                                    {
+                                        <span>@answer</span>
+                                    }
+                                </div>
+                            </article>
+                        }
+
+                        <article class="lesson-packet-panel">
+                            <span class="app-kicker">Atividade para concluir hoje</span>
+                            <p>@activeLesson.LessonPacket.PracticeTask</p>
+                        </article>
+                    </section>
+                }
+
+                @if (activeLesson.LessonPacket is null && activeLesson.Steps.Count > 0)
+                {
+                    <div class="simple-steps-list compact">
+                        @for (var i = 0; i < activeLesson.Steps.Count; i++)
+                        {
+                            <article class="simple-step-item">
+                                <strong>Passo @(i + 1)</strong>
+                                <p>@activeLesson.Steps[i]</p>
+                            </article>
+                        }
+                    </div>
+                }
+
+                <div class="guided-lesson-meta-grid">
+                    <article class="child-card-note">
+                        <strong>Com o que ensinar</strong>
+                        <p>@activeLesson.MaterialsSummary</p>
+                    </article>
+                    <article class="child-card-note">
+                        <strong>Quando pode marcar como concluida</strong>
+                        <p>@activeLesson.Outcome</p>
+                    </article>
+                </div>
+
+                <div class="hero-chip-row">
+                    <span class="app-soft-pill">@activeLesson.SuggestedMinutes min</span>
+                    @if (activeLesson.LessonPacket is null && !string.IsNullOrWhiteSpace(activeLesson.ChildPrompt))
+                    {
+                        <span class="app-soft-pill">@activeLesson.ChildPrompt</span>
+                    }
+                </div>
+
+                <div class="guided-lesson-links">
+                    @if (activeLesson.PrimaryResource is not null)
+                    {
+                        <a class="btn-secondary" href="@activeLesson.PrimaryResource.AccessUrl" target="_blank" rel="noopener noreferrer">@activeLesson.PrimaryResource.AccessLabel</a>
+                    }
+                    @if (activeLesson.SupportLink is not null)
+                    {
+                        <a class="btn-secondary" href="@activeLesson.SupportLink.Url">@activeLesson.SupportLink.Label</a>
+                    }
+                </div>
+
+                <p class="guided-lesson-fit"><strong>Por que esta lição entrou hoje:</strong> @activeLesson.WhyThisLesson</p>
+
+                @if (activeLesson.IsCompleted)
+                {
+                    <div class="lesson-complete-chip">
+                        <strong>Lição registrada como concluída.</strong>
+                        <span>Abra a próxima da fila ou guarde a prova depois em Evidências.</span>
+                    </div>
+                }
+                else
+                {
+                    <form method="post" asp-action="MarkTaskComplete" class="guided-complete-form">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="childId" value="@Model.ChildId" />
+                        <input type="hidden" name="blockId" value="@activeLesson.DailyPlanBlockId" />
+                        <input type="hidden" name="returnUrl" value="@currentUrl" />
+                        <p class="input-helper">Quando terminar <strong>@activeLesson.Title</strong>, toque abaixo para registrar essa lição no currículo de hoje.</p>
+                        <button class="btn-primary" type="submit">Concluir: @activeLesson.Title</button>
+                    </form>
+                }
+            </article>
+        </section>
+    }
+
+    @if (queuedLessons.Count > 0)
+    {
+        <section class="app-card">
+            <div class="section-heading-row">
+                <div>
+                    <span class="app-kicker">Fila do dia</span>
+                    <h2>As próximas lições já estão prontas</h2>
+                </div>
+                <span class="app-status neutral">@queuedLessons.Count restante(s)</span>
+            </div>
+
+            <div class="lesson-collapsible-list">
+                @foreach (var lesson in queuedLessons)
+                {
+                    <details class="lesson-collapsible">
+                        <summary>
+                            <div>
+                                <strong>@lesson.Title</strong>
+                                <p>
+                                    @lesson.SubjectLabel • @lesson.SuggestedMinutes min
+                                    @if (!string.IsNullOrWhiteSpace(lesson.UnitStepLabel))
+                                    {
+                                        <text> • @lesson.UnitStepLabel</text>
+                                    }
+                                </p>
+                            </div>
+                            <span class="app-status @(lesson.IsCompleted ? "success" : lesson.SubjectChipClass)">@lesson.CompletionLabel</span>
+                        </summary>
+
+                        <div class="lesson-collapsible-body">
+                            <p class="guided-lesson-goal"><strong>O que fazer:</strong> @lesson.Goal</p>
+                            <p class="guided-lesson-parent"><strong>Como conduzir:</strong> @lesson.ParentSummary</p>
+
+                            @if (!string.IsNullOrWhiteSpace(lesson.UnitStepLabel))
+                            {
+                                <article class="child-card-note nested-surface">
+                                    <strong>@lesson.UnitStepLabel</strong>
+                                    <p>@lesson.UnitStepSummary</p>
+                                    @if (!string.IsNullOrWhiteSpace(lesson.NextUnitStepHint))
+                                    {
+                                        <p><strong>O que vem depois:</strong> @lesson.NextUnitStepHint</p>
+                                    }
+                                </article>
+                            }
+
+                            @if (lesson.LessonPacket is not null || lesson.CurrentSystemUnit is not null || lesson.RecommendedPrintable is not null)
+                            {
+                                <div class="guided-lesson-meta-grid">
+                                    @if (lesson.LessonPacket is not null)
+                                    {
+                                        <article class="child-card-note nested-surface">
+                                            <strong>@lesson.LessonPacket.CurriculumPlacement</strong>
+                                            <p>@lesson.CurriculumOriginSummary</p>
+                                            @if (!string.IsNullOrWhiteSpace(lesson.UnitStepLabel))
+                                            {
+                                                <p><strong>@lesson.UnitStepLabel:</strong> @lesson.UnitStepSummary</p>
+                                            }
+                                            <p><strong>Entrega desta lição:</strong> @lesson.LessonPacket.PracticeTask</p>
+                                        </article>
+                                    }
+                                    else if (lesson.CurrentSystemUnit is not null)
+                                    {
+                                        <article class="child-card-note nested-surface">
+                                            <strong>@lesson.CurrentSystemUnit.UnitLabel • @lesson.CurrentSystemUnit.Title</strong>
+                                            <p>@lesson.CurrentSystemUnit.TaskPrompt</p>
+                                            <p>@lesson.CurriculumOriginSummary</p>
+                                            @if (!string.IsNullOrWhiteSpace(lesson.UnitStepLabel))
+                                            {
+                                                <p><strong>@lesson.UnitStepLabel:</strong> @lesson.UnitStepSummary</p>
+                                            }
+                                        </article>
+                                    }
+
+                                    @if (lesson.RecommendedPrintable is not null)
+                                    {
+                                        <article class="child-card-note nested-surface">
+                                            <strong>Folha para imprimir desta lição</strong>
+                                            <p>@lesson.RecommendedPrintable.Title</p>
+                                            @if (!string.IsNullOrWhiteSpace(lesson.RecommendedPrintable.Description))
+                                            {
+                                                <p>@lesson.RecommendedPrintable.Description</p>
+                                            }
+                                            <p>@lesson.PrintableReason</p>
+                                            <a class="btn-secondary" href="@lesson.RecommendedPrintable.AccessUrl">@lesson.RecommendedPrintable.AccessLabel</a>
+                                        </article>
+                                    }
+                                </div>
+                            }
+
+                            @if (lesson.LessonPacket is not null)
+                            {
+                                <article class="child-card-note">
+                                    <strong>@lesson.LessonPacket.UnitTitle</strong>
+                                    <p>@lesson.LessonPacket.CurriculumPlacement</p>
+                                    <p>@lesson.LessonPacket.PracticeTask</p>
+                                </article>
+                            }
+
+                            @if (lesson.Steps.Count > 0)
+                            {
+                                <div class="simple-steps-list compact">
+                                    @for (var i = 0; i < lesson.Steps.Count; i++)
+                                    {
+                                        <article class="simple-step-item">
+                                            <strong>Passo @(i + 1)</strong>
+                                            <p>@lesson.Steps[i]</p>
+                                        </article>
+                                    }
+                                </div>
+                            }
+
+                            <div class="guided-lesson-meta-grid">
+                                <article class="child-card-note">
+                                    <strong>Com o que ensinar</strong>
+                                    <p>@lesson.MaterialsSummary</p>
+                                </article>
+                                <article class="child-card-note">
+                                    <strong>Quando pode marcar como concluida</strong>
+                                    <p>@lesson.Outcome</p>
+                                </article>
+                            </div>
+
+                            <div class="guided-lesson-links">
+                                @if (lesson.PrimaryResource is not null)
+                                {
+                                    <a class="btn-secondary" href="@lesson.PrimaryResource.AccessUrl" target="_blank" rel="noopener noreferrer">@lesson.PrimaryResource.AccessLabel</a>
+                                }
+                                @if (lesson.SupportLink is not null)
+                                {
+                                    <a class="btn-secondary" href="@lesson.SupportLink.Url">@lesson.SupportLink.Label</a>
+                                }
+                            </div>
+
+                            @if (lesson.IsCompleted)
+                            {
+                                <div class="lesson-complete-chip">
+                                    <strong>Lição já concluída.</strong>
+                                    <span>Ela continua registrada no currículo da criança.</span>
+                                </div>
+                            }
+                            else
+                            {
+                                <form method="post" asp-action="MarkTaskComplete" class="guided-complete-form">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="childId" value="@Model.ChildId" />
+                                    <input type="hidden" name="blockId" value="@lesson.DailyPlanBlockId" />
+                                    <input type="hidden" name="returnUrl" value="@currentUrl" />
+                                    <p class="input-helper">Quando terminar <strong>@lesson.Title</strong>, registre aqui para a próxima lição subir na fila.</p>
+                                    <button class="btn-primary" type="submit">Concluir: @lesson.Title</button>
+                                </form>
+                            }
+                        </div>
+                    </details>
+                }
+            </div>
+        </section>
+    }
+
+    <section class="guided-secondary-grid guided-secondary-grid-compact">
+        <article class="app-card">
+            <div class="section-heading-row">
+                <div>
+                    <span class="app-kicker">Amanhã</span>
+                    <h2>O próximo dia já está pronto</h2>
+                </div>
+                <a class="btn-secondary" href="@Model.TomorrowPreviewUrl">Ver amanhã</a>
+            </div>
+
+            @if (!Model.TomorrowLesson.HasPlan)
+            {
+                <p>O sistema prepara o próximo dia automaticamente.</p>
+            }
+            else
+            {
+                <p><strong>@Model.TomorrowLesson.Theme</strong></p>
+                <div class="hero-chip-row">
+                    <span class="app-soft-pill">@Model.TomorrowLesson.TotalMinutes min</span>
+                </div>
+                <p>@Model.TomorrowLesson.Summary</p>
+
+                @if (tomorrowPreviewLessons.Count > 0)
+                {
+                    <div class="simple-steps-list compact">
+                        @foreach (var lesson in tomorrowPreviewLessons)
+                        {
+                            <article class="simple-step-item">
+                                <strong>@lesson.Title</strong>
+                                <p>@lesson.SubjectLabel • @lesson.SuggestedMinutes min</p>
+                                @if (!string.IsNullOrWhiteSpace(lesson.UnitStepLabel))
+                                {
+                                    <p>@lesson.UnitStepLabel</p>
+                                }
+                                @if (lesson.RecommendedPrintable is not null)
+                                {
+                                    <p>Folha pronta: @lesson.RecommendedPrintable.Title</p>
+                                }
+                            </article>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="trail-checklist">
+                        @foreach (var item in Model.TomorrowLesson.TopLessons)
+                        {
+                            <span>@item</span>
+                        }
+                    </div>
+                }
+            }
+        </article>
+
+        <article class="app-card">
+            <div class="section-heading-row">
+                <div>
+                    <span class="app-kicker">Currículo</span>
+                    <h2>Veja só o que importa agora</h2>
+                </div>
+            </div>
+
+            <p>O plano anual continua organizado por trás da rotina. Aqui você só precisa saber em que parte do ano a criança está e abrir o plano quando quiser ver mais.</p>
+
+            @if (currentSystemTrack?.CurrentUnit is not null)
+            {
+                <article class="child-card-note nested-surface">
+                    <strong>@currentSystemTrack.DomainLabel • @currentSystemTrack.CurrentUnit.UnitLabel</strong>
+                    <p><strong>@currentSystemTrack.CurrentUnit.Title</strong></p>
+                    <p>@currentSystemTrack.CurrentUnit.TaskPrompt</p>
+                </article>
+            }
+
+            <div class="hero-action-row">
+                <a class="btn-secondary" href="@Model.CurriculumUrl">Abrir plano anual</a>
+                <a class="btn-primary" href="@Model.EvidenceCenterUrl">Abrir evidências</a>
+            </div>
+        </article>
+    </section>
+
+    <section class="app-card">
+        <div class="section-heading-row">
+            <div>
+                <span class="app-kicker">Material extra</span>
+                <h2>Livro e folha certos para esta etapa</h2>
+            </div>
+            <a class="btn-secondary" href="@Model.LibraryBridge.LibraryUrl">Abrir biblioteca</a>
+        </div>
+
+        <p>Quando houver algo realmente útil para esta idade e para esta fase do currículo, o sistema mostra aqui sem misturar com a lição principal.</p>
+
+        @if (weeklyReading is not null)
+        {
+            <article class="child-card-note weekly-reading-card">
+                <strong>Leitura da semana</strong>
+                @if (weeklyReading.Book is not null)
+                {
+                    <p><strong>@weeklyReading.Book.Title</strong></p>
+                }
+                <p>@weeklyReading.WeeklyGoal</p>
+
+                <div class="hero-chip-row">
+                    <span class="app-soft-pill">@weeklyReading.PhaseLabel</span>
+                    <span class="app-soft-pill">@weeklyReading.MonthlyGoal.ProgressLabel</span>
+                    <span class="app-soft-pill">@(weeklyReading.IsCompleted ? weeklyReading.CompletedAtLabel : weeklyReading.CompletionStatusLabel)</span>
+                </div>
+
+                <div class="guided-lesson-meta-grid">
+                    <article class="child-card-note nested-surface">
+                        <strong>Meta da semana</strong>
+                        <p>@weeklyReading.MonthlyGoal.Summary</p>
+                    </article>
+
+                    <article class="child-card-note nested-surface">
+                        <strong>Como conduzir</strong>
+                        <p>@weeklyReading.ParentGuide</p>
+                    </article>
+                </div>
+
+                <div class="guided-lesson-meta-grid">
+                    <article class="child-card-note nested-surface">
+                        <strong>Quando considerar feita</strong>
+                        <p>@weeklyReading.CompletionSignal</p>
+                    </article>
+
+                    <article class="child-card-note nested-surface">
+                        <strong>Pergunta para fechar</strong>
+                        <p>@weeklyReading.ReflectionPrompt</p>
+                    </article>
+                </div>
+
+                @if (weeklyReading.Book is not null && weeklyReading.MaterialId.HasValue)
+                {
+                    if (weeklyReading.IsCompleted)
+                    {
+                        <div class="lesson-complete-chip">
+                            <strong>Leitura da semana já registrada.</strong>
+                            <span>@weeklyReading.Book.Title entrou no histórico de @Model.FullName em @weeklyReading.CompletedAtLabel.</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <form method="post" asp-controller="Library" asp-action="MarkWeeklyReadingComplete" class="guided-complete-form">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="childId" value="@Model.ChildId" />
+                            <input type="hidden" name="materialId" value="@weeklyReading.MaterialId" />
+                            <input type="hidden" name="phaseNumber" value="@weeklyReading.PhaseNumber" />
+                            <input type="hidden" name="periodKey" value="@weeklyReading.PeriodKey" />
+                            <input type="hidden" name="weekNumber" value="@weeklyReading.WeekNumber" />
+                            <input type="hidden" name="phaseLabel" value="@weeklyReading.PhaseLabel" />
+                            <input type="hidden" name="goalLabel" value="@weeklyReading.WeeklyGoal" />
+                            <input type="hidden" name="returnUrl" value="@currentUrl" />
+                            <p class="input-helper">Depois de fazer os encontros da semana com <strong>@weeklyReading.Book.Title</strong>, registre aqui para o currículo anual guardar essa leitura.</p>
+                            <button class="btn-primary" type="submit">@weeklyReading.CompletionActionLabel</button>
+                        </form>
+                    }
+                }
+
+                <div class="hero-action-row">
+                    @if (weeklyReading.Book is not null)
+                    {
+                        <a class="btn-secondary" href="@weeklyReading.Book.AccessUrl">@weeklyReading.Book.AccessLabel</a>
+                    }
+                    <a class="btn-secondary" href="@Model.LibraryBridge.LibraryUrl">Abrir literatura do ano</a>
+                </div>
+            </article>
+        }
+
+        @if (libraryBook is null && libraryPrintable is null)
+        {
+            <p>Quando o acervo terminar de casar melhor com esta faixa, o sistema mostra aqui o livro e a atividade mais certos para esta etapa.</p>
+        }
+        else
+        {
+            <div class="guided-lesson-meta-grid">
+                @if (weeklyReading is null && libraryBook is not null)
+                {
+                    <article class="child-card-note">
+                        <strong>Livro sugerido</strong>
+                        <p><strong>@libraryBook.Title</strong></p>
+                        <p>@libraryBook.Description</p>
+                        <p>@libraryBook.FitReason</p>
+                        <div class="hero-chip-row">
+                            <span class="app-soft-pill">@libraryBook.Category</span>
+                            <span class="app-soft-pill">@libraryBook.ProgressLabel</span>
+                        </div>
+                        <div class="hero-action-row">
+                            <a class="btn-primary" href="@libraryBook.AccessUrl">@libraryBook.AccessLabel</a>
+                            <a class="btn-secondary" href="@libraryBook.SecondaryActionUrl">@libraryBook.SecondaryActionLabel</a>
+                        </div>
+                    </article>
+                }
+
+                @if (libraryPrintable is not null)
+                {
+                    <article class="child-card-note">
+                        <strong>Folha para imprimir</strong>
+                        <p><strong>@libraryPrintable.Title</strong></p>
+                        <p>@libraryPrintable.Description</p>
+                        <p>@libraryPrintable.FitReason</p>
+                        <div class="hero-chip-row">
+                            <span class="app-soft-pill">@libraryPrintable.Category</span>
+                            <span class="app-soft-pill">@libraryPrintable.ProgressLabel</span>
+                        </div>
+                        <div class="hero-action-row">
+                            <a class="btn-primary" href="@libraryPrintable.AccessUrl">@libraryPrintable.AccessLabel</a>
+                            <a class="btn-secondary" href="@libraryPrintable.SecondaryActionUrl">@libraryPrintable.SecondaryActionLabel</a>
+                        </div>
+                    </article>
+                }
+            </div>
+        }
+    </section>
+
+    <section class="app-card" id="session-log">
+        <div class="section-heading-row">
+            <div>
+                <span class="app-kicker">Evidências</span>
+                <h2>Memórias e provas em página separada</h2>
+            </div>
+            <a class="btn-primary" href="@Model.EvidenceCenterUrl">Abrir evidências</a>
+        </div>
+
+        @if (evidencePreview.Count == 0)
+        {
+            <p>Nenhuma foto, vídeo ou documento salvo ainda.</p>
+        }
+        else
+        {
+            <div class="evidence-grid-mobile">
+                @foreach (var item in evidencePreview)
+                {
+                    <article class="evidence-asset-card">
+                        <a class="evidence-item-mobile" href="@item.MediaUrl" target="_blank" rel="noopener noreferrer">
+                            @if (item.IsVideo)
+                            {
+                                <video class="evidence-media-mobile" muted preload="metadata">
+                                    <source src="@item.MediaUrl" type="@item.MediaContentType" />
+                                </video>
+                            }
+                            else if (item.IsImage)
+                            {
+                                <img class="evidence-media-mobile" src="@item.MediaUrl" alt="@item.Theme" />
+                            }
+                            else
+                            {
+                                <div class="evidence-document-card">
+                                    <strong>DOC</strong>
+                                    <span>@item.MediaFileName</span>
+                                </div>
+                            }
+                        </a>
+
+                        <div class="evidence-asset-copy">
+                            <strong>@item.Theme</strong>
+                            <p>@item.LoggedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</p>
+                            <a class="btn-secondary" href="@item.MediaUrl" target="_blank" rel="noopener noreferrer">Abrir</a>
+                        </div>
+                    </article>
+                }
+            </div>
+        }
+    </section>
+</section>

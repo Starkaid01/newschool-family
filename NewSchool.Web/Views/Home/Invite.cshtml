@@ -1,0 +1,54 @@
+@model NewSchool.Web.Models.ReferralLandingViewModel
+@{
+    ViewData["Title"] = "Convite NewSchool";
+    ViewData["MetaDescription"] = "Convite para conhecer a rotina organizada de ensino domiciliar do NewSchool Family.";
+    ViewData["MetaRobots"] = "noindex,nofollow";
+}
+
+<section class="hero-home invite-hero">
+    <div class="hero-copy">
+        <div class="eyebrow">Convite de familia para familia</div>
+        <h1>@Model.InvitationHeadline</h1>
+        <p class="hero-lead">@Model.InvitationMessage</p>
+        <div class="actions-row">
+            <a class="btn-primary" href="@Model.RegisterUrl">Aceitar convite e criar conta</a>
+            <a class="btn-secondary" asp-controller="Home" asp-action="Index">Ver a plataforma</a>
+        </div>
+        <div class="hero-proof">
+            <span class="chip success">Convite: @Model.ReferralCode</span>
+            <span class="chip neutral">@Model.ChildrenInRoutine crianca(s) em rotina</span>
+            <span class="chip neutral">@Model.SnapshotsRecorded snapshot(s) de evolucao</span>
+        </div>
+    </div>
+
+    <div class="panel premium-banner">
+        <div class="eyebrow">Por que esse convite vale abrir</div>
+        <h2>Uma familia real esta recomendando um sistema que tira peso do adulto.</h2>
+        <p class="muted">@Model.ReferrerName ja trouxe @Model.TotalReferrals familia(s), com @Model.ActiveReferrals assinatura(s) ativa(s). Isso transforma o convite em prova social, nao so em link.</p>
+        <ul class="feature-list">
+            @foreach (var point in Model.ProofPoints)
+            {
+                <li>@point</li>
+            }
+        </ul>
+    </div>
+</section>
+
+<section class="section-grid">
+    <article class="panel">
+        <div class="eyebrow">O que voce recebe</div>
+        <h3>Clareza para ensinar sem improvisacao</h3>
+        <p>O NewSchool monta o dia, explica a atividade, registra evidencias e mostra se a crianca esta realmente evoluindo.</p>
+    </article>
+    <article class="panel">
+        <div class="eyebrow">O que voce sente</div>
+        <h3>Paz mental e progresso visivel</h3>
+        <p>Em vez de so consumir atividades, a familia acompanha metas mensais, historico e portfolio com cara de acompanhamento premium.</p>
+    </article>
+    <article class="panel premium-banner">
+        <div class="eyebrow">Proximo passo</div>
+        <h3>Aceite o convite e comece hoje</h3>
+        <p>O cadastro ja vai com o codigo da familia que te convidou, para encurtar o caminho ate a primeira rotina.</p>
+        <a class="btn-primary" href="@Model.RegisterUrl">Criar minha conta</a>
+    </article>
+</section>

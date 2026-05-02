@@ -1,0 +1,120 @@
+@model NewSchool.Web.Models.ChildMonthlyReportViewModel
+@{
+    ViewData["Title"] = "Relatorio mensal";
+}
+
+<section class="print-shell">
+    <div class="panel print-report">
+        <div class="card-topline">
+            <div>
+                <div class="eyebrow">Relatorio mensal printavel</div>
+                <h1>@Model.FullName</h1>
+                <p class="muted">@Model.MonthLabel</p>
+            </div>
+            <button class="btn-secondary no-print" type="button" onclick="window.print()">Imprimir / PDF</button>
+        </div>
+
+        <section class="panel evolution-promise">
+            <h2>@Model.PromiseHeadline</h2>
+            <p>@Model.ParentMessage</p>
+        </section>
+
+        <section class="stats-grid">
+            <article class="stat-card">
+                <span>Sessoes</span>
+                <strong>@Model.SessionsThisMonth</strong>
+            </article>
+            <article class="stat-card">
+                <span>Minutos</span>
+                <strong>@Model.MinutesThisMonth</strong>
+            </article>
+            <article class="stat-card">
+                <span>Evidencias</span>
+                <strong>@Model.EvidenceCountThisMonth</strong>
+            </article>
+        </section>
+
+        <section class="panel">
+            <div class="card-topline">
+                <h2>Diagnostico e evolucao</h2>
+                <span class="chip neutral">Visao por area</span>
+            </div>
+            <div class="evolution-diagnostic-grid">
+                @foreach (var item in Model.Diagnostics)
+                {
+                    <article class="step-card evolution-diagnostic-card">
+                        <div class="card-topline">
+                            <strong>@item.DomainLabel</strong>
+                            <span class="chip @item.StatusChipClass">@item.StatusLabel</span>
+                        </div>
+                        <div class="small-meta">Inicial @item.InitialPercent% • Atual @item.CurrentPercent%</div>
+                        <p class="muted">@item.Summary</p>
+                    </article>
+                }
+            </div>
+        </section>
+
+        <section class="section-grid">
+            <article class="panel">
+                <h2>Metas do ciclo</h2>
+                <div class="timeline">
+                    @foreach (var goal in Model.MonthlyGoals)
+                    {
+                        <article class="timeline-item">
+                            <strong>@goal.SkillName</strong>
+                            <div class="small-meta">@goal.DomainLabel • @goal.CurrentPercent% de @goal.TargetPercent%</div>
+                            <div>@goal.WhyItMatters</div>
+                        </article>
+                    }
+                </div>
+            </article>
+
+            <article class="panel">
+                <h2>Conquistas principais</h2>
+                <div class="timeline">
+                    @foreach (var item in Model.Achievements)
+                    {
+                        <article class="timeline-item">
+                            <strong>@item.Title</strong>
+                            <div>@item.Description</div>
+                        </article>
+                    }
+                </div>
+            </article>
+        </section>
+
+        @if (Model.History.Count > 0)
+        {
+            <section class="panel">
+                <div class="card-topline">
+                    <h2>Historico mensal consolidado</h2>
+                    <span class="chip success">Linha do tempo persistida</span>
+                </div>
+                <div class="evolution-history-grid">
+                    @foreach (var item in Model.History)
+                    {
+                        <article class="step-card">
+                            <strong>@item.MonthLabel</strong>
+                            <div class="small-meta">Score geral @item.OverallScore% • @item.SessionsCount sessao(oes)</div>
+                            <div class="small-meta">Ponto forte: @item.StrongestArea</div>
+                            <div class="small-meta">Atencao: @item.AttentionArea</div>
+                            <div>@item.Summary</div>
+                        </article>
+                    }
+                </div>
+            </section>
+        }
+
+        <section class="panel">
+            <h2>Recomendacoes do proximo ciclo</h2>
+            <div class="timeline">
+                @foreach (var item in Model.NextCycleRecommendations)
+                {
+                    <article class="timeline-item">
+                        <div>@item</div>
+                    </article>
+                }
+            </div>
+        </section>
+    </div>
+</section>

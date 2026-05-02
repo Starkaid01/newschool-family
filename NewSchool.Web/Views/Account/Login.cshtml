@@ -1,0 +1,36 @@
+@model NewSchool.Web.Models.LoginViewModel
+@{
+    ViewData["Title"] = "Entrar";
+}
+
+<section class="auth-shell">
+    <div class="auth-card">
+        <div class="eyebrow">NewSchool</div>
+        <h1>Entre para conduzir a rotina e acompanhar a evolucao da sua familia</h1>
+        <p class="muted">Planos diarios automaticos, didatica guiada, metas mensais e historico de progresso em um unico lugar.</p>
+
+        <form method="post" class="stack-form">
+            @Html.AntiForgeryToken()
+            <label asp-for="Email"></label>
+            <input asp-for="Email" class="input" placeholder="parent@newschool.local" />
+            <span asp-validation-for="Email" class="text-danger"></span>
+
+            <label asp-for="Password"></label>
+            <input asp-for="Password" class="input" />
+            <span asp-validation-for="Password" class="text-danger"></span>
+
+            @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+            {
+                <div class="alert-soft danger">@Model.ErrorMessage</div>
+            }
+
+            <button type="submit" class="btn-primary">Entrar agora</button>
+        </form>
+
+        <p class="muted">Ainda nao tem conta? <a asp-action="Register">Criar conta da familia</a></p>
+    </div>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

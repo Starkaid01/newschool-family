@@ -1,0 +1,42 @@
+# Build outputs
+**/bin/
+**/obj/
+**/artifacts/
+
+# IDE and local tooling
+.vs/
+.vscode/
+*.user
+*.suo
+*.rsuser
+
+# Local runtime and logs
+logs/
+*.log
+*.err
+*.out
+*.stdout
+*.stderr
+logs-*.txt
+tmp-*.log
+app-run.log
+build-latest.log
+
+# Local databases and generated content
+**/*.db
+**/*.db-shm
+**/*.db-wal
+**/App_Data/emails/
+**/wwwroot/family-library-assets/
+
+# Local configuration overrides
+**/appsettings.Local.json
+**/appsettings.*.Local.json
+
+# Deployment scratch files
+publish-runasp/
+deploy-runasp-temp.ps1
+
+# OS files
+.DS_Store
+Thumbs.db

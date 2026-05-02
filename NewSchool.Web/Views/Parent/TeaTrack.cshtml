@@ -1,0 +1,367 @@
+@model NewSchool.Web.Models.TeaTrackDetailViewModel
+@{
+    ViewData["Title"] = Model.TrackLabel;
+}
+
+<section class="page-hero compact">
+    <div>
+        <div class="eyebrow">Trilha TEA</div>
+        <h1>@Model.TrackLabel</h1>
+        <p class="muted">@Model.FullName • @Model.SupportProfileLabel • @Model.FamilyGoalTrackLabel • @Model.TeachingMethodologyLabel</p>
+        <p class="tea-track-summary">@Model.TrackSummary</p>
+        <p class="muted">@Model.TrackDescription</p>
+    </div>
+    <div class="stack-inline">
+        <a class="btn-secondary" href="@Model.CurriculumUrl">Curriculo estruturado</a>
+        <a class="btn-secondary" href="@Model.HubUrl">Central TEA</a>
+        <a class="btn-primary" href="@Model.ChildUrl">Voltar para a rotina</a>
+    </div>
+</section>
+
+<section class="panel tea-track-nav-panel">
+    <div class="card-topline">
+        <div>
+            <div class="eyebrow">Trocar de trilha</div>
+            <h2>Navegacao funcional da crianca</h2>
+        </div>
+        <span class="chip @Model.TrackChipClass">@Model.TrackLabel</span>
+    </div>
+    <div class="tea-track-nav">
+        @foreach (var track in Model.TrackLinks)
+        {
+            <a class="chip @track.ChipClass tea-track-link" href="@track.Url">@track.Label</a>
+        }
+    </div>
+</section>
+
+<section class="stats-grid">
+    <article class="stat-card curriculum-stat-card curriculum-stat-card-minutes">
+        <span>Dominio medio</span>
+        <strong>@Model.ProgressPercent%</strong>
+    </article>
+    <article class="stat-card curriculum-stat-card curriculum-stat-card-sessions">
+        <span>Skills praticadas</span>
+        <strong>@Model.PracticedSkills/@Model.TotalSkills</strong>
+    </article>
+    <article class="stat-card curriculum-stat-card curriculum-stat-card-evidence">
+        <span>Skills fortes</span>
+        <strong>@Model.StrongSkills</strong>
+    </article>
+    <article class="stat-card">
+        <span>Skills fracas</span>
+        <strong>@Model.WeakSkills</strong>
+    </article>
+</section>
+
+<section class="panel highlight">
+    <div class="card-topline">
+        <h2>Leitura pedagógica da trilha</h2>
+        <span class="chip @Model.TrackChipClass">@Model.TrackLabel</span>
+    </div>
+    <p>@Model.Recommendation</p>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(Model.ActionMessage))
+{
+    <section class="alert-soft @Model.ActionMessageStyle">
+        @Model.ActionMessage
+    </section>
+}
+
+<section class="panel tea-track-command-panel">
+    <div class="card-topline">
+        <div>
+            <div class="eyebrow">Acao pratica</div>
+            <h2>Organizar amanha a partir desta trilha</h2>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(Model.TomorrowFocusLabel))
+        {
+            <span class="chip @Model.TomorrowFocusChipClass">@Model.TomorrowFocusLabel</span>
+        }
+    </div>
+
+    <p>@Model.TomorrowPlanSummary</p>
+
+    @if (Model.TomorrowPinnedActivities.Count > 0)
+    {
+        <div class="stack-inline wrap-inline tea-track-tomorrow-list">
+            @foreach (var pinnedActivity in Model.TomorrowPinnedActivities)
+            {
+                <span class="chip neutral">@pinnedActivity</span>
+            }
+        </div>
+    }
+
+    <form asp-action="GenerateTrackPlanForTomorrow" method="post" class="tea-track-inline-form">
+        <input type="hidden" name="id" value="@Model.ChildId" />
+        <input type="hidden" name="track" value="@Model.Track" />
+        <button type="submit" class="btn-primary btn-small">Gerar plano manual de amanha nesta trilha</button>
+    </form>
+</section>
+
+<section class="two-panel">
+    <div class="panel">
+        <div class="card-topline">
+            <h2>Kit de materiais da trilha</h2>
+            <span class="chip neutral">@Model.MaterialKit.Count item(ns)</span>
+        </div>
+        @if (Model.MaterialKit.Count == 0)
+        {
+            <p class="muted">Ainda nao ha materiais mapeados para esta trilha.</p>
+        }
+        else
+        {
+            <div class="tea-track-materials">
+                @foreach (var material in Model.MaterialKit)
+                {
+                    <article class="step-card tea-track-material-card">
+                        <strong>@material.Name</strong>
+                        <div class="small-meta">Aparece em @material.UsageCount atividade(s)</div>
+                        <p class="muted">@material.SuggestedUse</p>
+                    </article>
+                }
+            </div>
+        }
+    </div>
+
+    <div class="panel">
+        <div class="card-topline">
+            <h2>Como usar esta trilha</h2>
+            <span class="chip @Model.TrackChipClass">@Model.TrackLabel</span>
+        </div>
+        <div class="timeline">
+            <article class="timeline-item">
+                <strong>1. Escolha uma atividade recomendada</strong>
+                <div class="muted">Comece pelas marcadas como reforco ou consolidacao, conforme o momento da crianca.</div>
+            </article>
+            <article class="timeline-item">
+                <strong>2. Separe o material antes de chamar a crianca</strong>
+                <div class="muted">A trilha funciona melhor quando o ambiente ja esta previsivel e pronto para uso.</div>
+            </article>
+            <article class="timeline-item">
+                <strong>3. Registre a sessao depois</strong>
+                <div class="muted">O sistema vai usar esse retorno para escolher melhor os proximos blocos e relatorios.</div>
+            </article>
+        </div>
+    </div>
+</section>
+
+<section class="panel">
+    <div class="card-topline">
+        <h2>Atividades prontas desta trilha</h2>
+        <span class="chip neutral">@Model.Activities.Count atividade(s)</span>
+    </div>
+
+    @if (Model.Activities.Count == 0)
+    {
+        <p class="muted">Ainda nao ha atividades prontas para esta trilha nesta idade.</p>
+    }
+    else
+    {
+        <div class="tea-track-activity-grid">
+            @foreach (var activity in Model.Activities)
+            {
+                <article class="panel tea-track-activity-card">
+                    <div class="card-topline">
+                        <div>
+                            <strong>@activity.Title</strong>
+                            <div class="small-meta">@activity.SkillName</div>
+                        </div>
+                        <div class="stack-inline">
+                            <span class="chip @activity.SupportSourceChipClass">@activity.SupportSourceLabel</span>
+                            <span class="chip @activity.RecommendationChipClass">@activity.RecommendationLabel</span>
+                        </div>
+                    </div>
+                    <div class="stack-inline wrap-inline skill-context-row">
+                        <span class="chip @activity.FunctionalTrackChipClass">@activity.FunctionalTrackLabel</span>
+                        @if (activity.IsCurrentFocus)
+                        {
+                            <span class="chip success">Praticada hoje</span>
+                        }
+                        @if (activity.IsFavorite)
+                        {
+                            <span class="chip success">Favorita</span>
+                        }
+                        @if (activity.IsQueuedForTomorrow)
+                        {
+                            <span class="chip neutral">No plano de amanha</span>
+                        }
+                    </div>
+                    <div class="progress-track progress-track-lg">
+                        <div class="progress-fill @activity.RecommendationChipClass" style="width:@activity.ProgressPercent%"></div>
+                    </div>
+                    <div class="small-meta">Dominio atual nesta habilidade: @activity.ProgressPercent%</div>
+                    <p><strong>Meta:</strong> @activity.Goal</p>
+                    <p><strong>Como conduzir:</strong> @activity.ParentGuide</p>
+                    <p><strong>Missao da crianca:</strong> @activity.ChildMission</p>
+                    <p><strong>Materiais:</strong> @activity.Materials</p>
+                    <p><strong>Registro sugerido:</strong> @activity.EvidencePrompt</p>
+                    <div class="tea-track-action-row">
+                        <form asp-action="ToggleFavoriteActivity" method="post" class="tea-track-inline-form">
+                            <input type="hidden" name="id" value="@Model.ChildId" />
+                            <input type="hidden" name="track" value="@Model.Track" />
+                            <input type="hidden" name="templateId" value="@activity.TemplateId" />
+                            <button type="submit" class="btn-secondary btn-small">@(activity.IsFavorite ? "Remover favorito" : "Favoritar")</button>
+                        </form>
+                        <form asp-action="QueueTrackActivityForTomorrow" method="post" class="tea-track-inline-form">
+                            <input type="hidden" name="id" value="@Model.ChildId" />
+                            <input type="hidden" name="track" value="@Model.Track" />
+                            <input type="hidden" name="templateId" value="@activity.TemplateId" />
+                            <button type="submit" class="btn-primary btn-small" @(activity.IsQueuedForTomorrow ? "disabled" : null)>@(activity.IsQueuedForTomorrow ? "Ja esta em amanha" : "Levar para amanha")</button>
+                        </form>
+                    </div>
+                </article>
+            }
+        </div>
+    }
+</section>
+
+<section class="panel">
+    <div class="card-topline">
+        <h2>Roadmap da trilha</h2>
+        <span class="chip neutral">Sequencia do curriculo funcional</span>
+    </div>
+
+    @if (Model.Roadmap.Count == 0)
+    {
+        <p class="muted">Ainda nao ha roadmap configurado para esta trilha nesta idade.</p>
+    }
+    else
+    {
+        <div class="tea-track-roadmap">
+            @foreach (var item in Model.Roadmap)
+            {
+                <article class="step-card tea-track-roadmap-item @Model.TrackChipClass">
+                    <div class="card-topline">
+                        <div>
+                            <strong>@item.SkillName</strong>
+                            <div class="small-meta">@item.Title</div>
+                        </div>
+                        <div class="stack-inline">
+                            <span class="chip @item.SupportSourceChipClass">@item.SupportSourceLabel</span>
+                            <span class="chip @item.StatusChipClass">@item.StatusLabel</span>
+                        </div>
+                    </div>
+                    <div class="stack-inline wrap-inline skill-context-row">
+                        <span class="chip @item.FunctionalTrackChipClass">@item.FunctionalTrackLabel</span>
+                        @if (item.IsCurrentFocus)
+                        {
+                            <span class="chip success">No plano de hoje</span>
+                        }
+                    </div>
+                    <p><strong>Meta:</strong> @item.Goal</p>
+                    <p><strong>Como conduzir:</strong> @item.ParentGuide</p>
+                    <div class="progress-track progress-track-lg">
+                        <div class="progress-fill @item.StatusChipClass" style="width:@item.ProgressPercent%"></div>
+                    </div>
+                    <div class="small-meta">Dominio atual: @item.ProgressPercent%</div>
+                    <p class="muted">@item.Recommendation</p>
+                </article>
+            }
+        </div>
+    }
+</section>
+
+<section class="panel">
+    <div class="card-topline">
+        <h2>Blocos do plano de hoje nesta trilha</h2>
+        <span class="chip neutral">@Model.TodayBlocks.Count bloco(s)</span>
+    </div>
+
+    @if (Model.TodayBlocks.Count == 0)
+    {
+        <p class="muted">Hoje o plano diario nao trouxe um bloco especifico desta trilha. A familia ainda pode acompanhar o roadmap e os registros abaixo.</p>
+    }
+    else
+    {
+        <div class="tea-track-today-grid">
+            @foreach (var block in Model.TodayBlocks)
+            {
+                <article class="step-card tea-track-today-card @Model.TrackChipClass">
+                    <div class="card-topline">
+                        <div>
+                            <strong>@block.Title</strong>
+                            <div class="small-meta">@block.DomainLabel • @block.SkillName</div>
+                        </div>
+                        <div class="stack-inline">
+                            <span class="chip @block.SupportSourceChipClass">@block.SupportSourceLabel</span>
+                            <span class="chip @block.FocusChipClass">@block.FocusLabel</span>
+                        </div>
+                    </div>
+                    <div class="stack-inline wrap-inline skill-context-row">
+                        <span class="chip @block.FunctionalTrackChipClass">@block.FunctionalTrackLabel</span>
+                        <span class="chip neutral">@block.DurationMinutes min</span>
+                    </div>
+                    <p><strong>Meta:</strong> @block.Goal</p>
+                    <p><strong>Como ensinar:</strong> @block.ParentGuide</p>
+                    <p><strong>Evidencia:</strong> @block.EvidencePrompt</p>
+                </article>
+            }
+        </div>
+    }
+</section>
+
+<section class="panel">
+    <div class="card-topline">
+        <h2>Registros desta trilha</h2>
+        <span class="chip neutral">@Model.Entries.Count sessao(oes)</span>
+    </div>
+
+    @if (Model.Entries.Count == 0)
+    {
+        <p class="muted">Assim que houver registros ligados a esta trilha, eles vao aparecer aqui separados do restante da rotina.</p>
+    }
+    else
+    {
+        <div class="timeline curriculum-timeline">
+            @foreach (var entry in Model.Entries)
+            {
+                var entryArea = entry.Skills.FirstOrDefault()?.DomainLabel ?? "Geral";
+                <article class="timeline-item curriculum-entry">
+                    <div class="curriculum-entry-rail"></div>
+                    <div class="card-topline curriculum-entry-topline">
+                        <div class="curriculum-entry-heading">
+                            <span class="chip @Model.TrackChipClass">@Model.TrackLabel</span>
+                            <strong>@entry.LoggedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</strong>
+                            <div class="small-meta">@entry.Theme • @entryArea • @entry.MinutesCompleted min</div>
+                        </div>
+                        @if (entry.HasMedia)
+                        {
+                            <a href="@entry.MediaUrl" target="_blank" rel="noopener noreferrer" class="media-thumb-link">
+                                @if (entry.IsVideo)
+                                {
+                                    <video class="media-thumb" muted preload="metadata">
+                                        <source src="@entry.MediaUrl" type="@entry.MediaContentType" />
+                                    </video>
+                                }
+                                else if (entry.IsImage)
+                                {
+                                    <img class="media-thumb" src="@entry.MediaUrl" alt="Evidencia do registro" />
+                                }
+                            </a>
+                        }
+                    </div>
+
+                    <p><strong>Foi bem em:</strong> @entry.Wins</p>
+                    <p><strong>Pontos de atencao:</strong> @entry.Challenges</p>
+
+                    @if (!string.IsNullOrWhiteSpace(entry.Notes))
+                    {
+                        <p><strong>Observacoes do responsavel:</strong> @entry.Notes</p>
+                    }
+
+                    @if (entry.Skills.Count > 0)
+                    {
+                        <div class="stack-inline wrap-inline curriculum-entry-skills">
+                            @foreach (var skill in entry.Skills)
+                            {
+                                <span class="chip @skill.PerformanceChipClass">@skill.SkillName • @skill.PerformanceLabel</span>
+                                <span class="chip @skill.SupportSourceChipClass">@skill.SupportSourceLabel</span>
+                            }
+                        </div>
+                    }
+                </article>
+            }
+        </div>
+    }
+</section>

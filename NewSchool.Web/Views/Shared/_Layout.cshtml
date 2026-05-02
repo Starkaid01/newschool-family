@@ -1,0 +1,157 @@
+@{
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString() ?? string.Empty;
+    var action = ViewContext.RouteData.Values["action"]?.ToString() ?? string.Empty;
+    var isAuthenticatedParent = User.Identity?.IsAuthenticated == true && User.IsInRole("Parent");
+    var isAdmin = User.Identity?.IsAuthenticated == true && User.IsInRole("Admin");
+    var dashboardActive = string.Equals(controller, "Parent", StringComparison.OrdinalIgnoreCase)
+        && string.Equals(action, "Index", StringComparison.OrdinalIgnoreCase);
+    var childrenActive = string.Equals(controller, "Parent", StringComparison.OrdinalIgnoreCase)
+        && (string.Equals(action, "Child", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(action, "CreateChild", StringComparison.OrdinalIgnoreCase));
+    var reportsActive = string.Equals(controller, "Parent", StringComparison.OrdinalIgnoreCase)
+        && (string.Equals(action, "WeeklyReport", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(action, "Curriculum", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(action, "Evolution", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(action, "Dossier", StringComparison.OrdinalIgnoreCase));
+    var academyActive =
+        (string.Equals(controller, "Parent", StringComparison.OrdinalIgnoreCase)
+         && string.Equals(action, "Academy", StringComparison.OrdinalIgnoreCase))
+        || string.Equals(controller, "Library", StringComparison.OrdinalIgnoreCase);
+    var rawTitle = ViewData["Title"]?.ToString();
+    var pageTitle = string.IsNullOrWhiteSpace(rawTitle)
+        ? "NewSchool Family"
+        : rawTitle!;
+    if (!pageTitle.Contains("NewSchool", StringComparison.OrdinalIgnoreCase))
+    {
+        pageTitle = $"{pageTitle} | NewSchool Family";
+    }
+
+    var metaDescription = ViewData["MetaDescription"]?.ToString()
+        ?? "Curriculo, aula do dia, leituras, materiais e evidencias em um fluxo mais simples para familias brasileiras no celular.";
+    var metaRobots = ViewData["MetaRobots"]?.ToString()
+        ?? (isAuthenticatedParent ? "noindex,nofollow" : "index,follow");
+    var canonicalUrl = ViewData["CanonicalUrl"]?.ToString()
+        ?? $"{Context.Request.Scheme}://{Context.Request.Host}{Context.Request.Path}";
+    var openGraphType = ViewData["OpenGraphType"]?.ToString() ?? "website";
+    var hideFooterAd = ViewData["HideFooterAd"] as bool? == true;
+}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@pageTitle</title>
+    <meta name="description" content="@metaDescription" />
+    <meta name="robots" content="@metaRobots" />
+    <meta name="theme-color" content="#254441" />
+    <meta name="apple-mobile-web-app-title" content="NewSchool Family" />
+    <link rel="canonical" href="@canonicalUrl" />
+    <meta property="og:type" content="@openGraphType" />
+    <meta property="og:title" content="@pageTitle" />
+    <meta property="og:description" content="@metaDescription" />
+    <meta property="og:url" content="@canonicalUrl" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="@pageTitle" />
+    <meta name="twitter:description" content="@metaDescription" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    @await Html.PartialAsync("_AdvertisingHead")
+    @await RenderSectionAsync("Head", required: false)
+</head>
+<body class="site-body @(isAuthenticatedParent ? "auth-app-body" : string.Empty)">
+    <header class="site-header">
+        <div class="site-header-inner">
+            <a class="brand-block-new" asp-controller="Home" asp-action="Index">
+                <span class="brand-mark-new">NS</span>
+                <div class="brand-copy-new">
+                    @if (isAuthenticatedParent)
+                    {
+                        <strong>NewSchool</strong>
+                        <span>ensino domiciliar simples</span>
+                    }
+                    else
+                    {
+                        <strong>NewSchool Family</strong>
+                        <span>rotina, materiais e evidencias em um lugar mais simples</span>
+                    }
+                </div>
+            </a>
+
+            <div class="site-header-actions">
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    <nav class="site-nav-new @(isAuthenticatedParent ? "site-nav-auth" : string.Empty)">
+                        @if (isAdmin)
+                        {
+                            <a asp-controller="Admin" asp-action="Index">Admin</a>
+                        }
+                        else
+                        {
+                            <a class="@(dashboardActive ? "is-active" : string.Empty)" asp-controller="Parent" asp-action="Index">Inicio</a>
+                            <a class="@(childrenActive ? "is-active" : string.Empty)" asp-controller="Parent" asp-action="Index" asp-fragment="children-section">Filhos</a>
+                            <a class="@(reportsActive ? "is-active" : string.Empty)" asp-controller="Parent" asp-action="WeeklyReport">Progresso</a>
+                            <a class="@(academyActive ? "is-active" : string.Empty)" asp-controller="Library" asp-action="Index">Biblioteca</a>
+                        }
+                    </nav>
+
+                    <form method="post" asp-controller="Account" asp-action="Logout" class="header-inline-form">
+                        @Html.AntiForgeryToken()
+                        <button class="header-ghost-button" type="submit">Sair</button>
+                    </form>
+                }
+                else
+                {
+                    <nav class="site-nav-new site-nav-guest">
+                        <a asp-controller="Account" asp-action="Login">Entrar</a>
+                        <a class="header-cta-link" asp-controller="Account" asp-action="Register">Criar conta</a>
+                    </nav>
+                }
+            </div>
+        </div>
+    </header>
+
+    <main class="site-main @(isAuthenticatedParent ? "site-main-auth" : string.Empty)">
+        @RenderBody()
+    </main>
+
+    @if (isAuthenticatedParent)
+    {
+        <nav class="app-bottom-dock" aria-label="Navegacao principal da familia">
+            <a class="@(dashboardActive ? "is-active" : string.Empty)" asp-controller="Parent" asp-action="Index">Inicio</a>
+            <a class="@(childrenActive ? "is-active" : string.Empty)" asp-controller="Parent" asp-action="Index" asp-fragment="children-section">Filhos</a>
+            <a class="@(reportsActive ? "is-active" : string.Empty)" asp-controller="Parent" asp-action="WeeklyReport">Progresso</a>
+            <a class="@(academyActive ? "is-active" : string.Empty)" asp-controller="Library" asp-action="Index">Biblioteca</a>
+        </nav>
+    }
+
+    @if (!isAuthenticatedParent)
+    {
+        <footer class="site-footer">
+            <div class="site-footer-inner">
+                <strong>NewSchool Family</strong>
+                <span>Mais clareza para ensinar em casa, registrar o progresso e guardar evidencias sem confusao.</span>
+                <nav class="site-footer-links" aria-label="Links institucionais">
+                    <a asp-controller="Home" asp-action="About">Sobre</a>
+                    <a asp-controller="Home" asp-action="Contact">Contato</a>
+                    <a asp-controller="Home" asp-action="Privacy">Politica de Privacidade</a>
+                </nav>
+                @if (!hideFooterAd)
+                {
+                    @await Component.InvokeAsync("AdBanner", new
+                    {
+                        zone = "footer-public",
+                        label = "Rodape preparado para anuncio futuro",
+                        description = "Espaco responsivo reservado para anuncios ou parceiros sem quebrar o layout no mobile.",
+                        variant = "footer"
+                    })
+                }
+            </div>
+        </footer>
+    }
+
+    <script src="~/js/ads-ready.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

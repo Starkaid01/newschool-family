@@ -1,0 +1,179 @@
+@model NewSchool.Web.Models.ChildCurriculumViewModel
+@{
+    Layout = null;
+    ViewData["Title"] = "Curriculo estruturado";
+
+    static string AreaTone(string? area)
+    {
+        var normalized = (area ?? string.Empty).Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "linguagem" => "language",
+            "matematica" => "math",
+            "mundo real" => "world",
+            "funcao executiva" => "executive",
+            _ => "general"
+        };
+    }
+}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Curriculo estruturado - @Model.FullName</title>
+    <style>
+        body { font-family: Georgia, 'Times New Roman', serif; color: #142027; margin: 0; background: #f5f1e8; }
+        .sheet { max-width: 900px; margin: 24px auto; background: #fff; padding: 32px; box-sizing: border-box; }
+        .eyebrow { text-transform: uppercase; letter-spacing: .14em; font-size: 12px; color: #b85c38; margin-bottom: 8px; }
+        h1, h2, h3 { margin: 0 0 10px; }
+        .muted { color: #5f6f78; }
+        .stats { display: flex; gap: 12px; flex-wrap: wrap; margin: 24px 0; }
+        .stat { border: 1px solid #e5ddd0; border-radius: 16px; padding: 14px 16px; min-width: 160px; position: relative; overflow: hidden; }
+        .stat::after { content: ""; position: absolute; inset: auto 0 0 0; height: 4px; }
+        .stat-sessions::after { background: linear-gradient(90deg, #c9623e, #f0a25d); }
+        .stat-minutes::after { background: linear-gradient(90deg, #2e6f95, #66b8d8); }
+        .stat-evidence::after { background: linear-gradient(90deg, #3c7662, #79bb8d); }
+        .legend { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 22px; }
+        .pill { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 999px; border: 1px solid transparent; font-size: 12px; font-weight: 700; }
+        .dot { width: 8px; height: 8px; border-radius: 999px; background: currentColor; }
+        .skills { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 28px; }
+        .skill { border: 1px solid #ece4d8; border-radius: 16px; padding: 16px; position: relative; overflow: hidden; }
+        .skill::before, .entry::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 5px; background: currentColor; }
+        .skill-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+        .skill-domain { text-transform: uppercase; letter-spacing: .12em; font-size: 11px; font-weight: 700; }
+        .percent { padding: 6px 10px; border-radius: 12px; background: rgba(255,255,255,.86); border: 1px solid #ece4d8; font-size: 12px; font-weight: 700; }
+        .track { width: 100%; height: 10px; border-radius: 999px; background: #ece7dd; overflow: hidden; margin: 10px 0 12px; }
+        .fill { height: 100%; border-radius: 999px; background: #2c6e63; }
+        .entry { border: 1px solid #ece4d8; border-radius: 16px; padding: 18px 18px 18px 20px; page-break-inside: avoid; position: relative; margin-bottom: 14px; }
+        .chips { margin-top: 10px; }
+        .chip { display: inline-block; padding: 6px 10px; border-radius: 999px; background: #eef1f2; margin: 0 6px 6px 0; font-size: 12px; }
+        .media img, .media video { width: 92px; height: 92px; object-fit: cover; border-radius: 12px; border: 1px solid #e5ddd0; margin-top: 12px; }
+        .language { background: rgba(191, 87, 58, 0.12); color: #9c4226; border-color: rgba(191, 87, 58, 0.18); }
+        .math { background: rgba(37, 90, 146, 0.12); color: #1f5b90; border-color: rgba(37, 90, 146, 0.16); }
+        .world { background: rgba(60, 118, 98, 0.12); color: #2d6854; border-color: rgba(60, 118, 98, 0.16); }
+        .executive { background: rgba(118, 77, 160, 0.12); color: #6f4599; border-color: rgba(118, 77, 160, 0.16); }
+        .general { background: rgba(24, 32, 39, 0.06); color: #38434b; border-color: rgba(24, 32, 39, 0.1); }
+        .fill.language { background: linear-gradient(90deg, #bf573a, #ef9d63); }
+        .fill.math { background: linear-gradient(90deg, #255a92, #69b7f1); }
+        .fill.world { background: linear-gradient(90deg, #3c7662, #7fc09a); }
+        .fill.executive { background: linear-gradient(90deg, #764da0, #b388e6); }
+        .fill.general { background: linear-gradient(90deg, #42535d, #7c97a5); }
+        @@media print {
+            body { background: #fff; }
+            .sheet { margin: 0; max-width: none; box-shadow: none; }
+        }
+    </style>
+</head>
+<body>
+    <main class="sheet">
+        <div class="eyebrow">Curriculo estruturado</div>
+        <h1>@Model.FullName</h1>
+        <p class="muted">@Model.Age anos • @Model.SupportProfileLabel • @(string.IsNullOrWhiteSpace(Model.SelectedArea) ? "Todas as areas" : Model.SelectedArea)</p>
+
+        <section class="stats">
+            <div class="stat stat-sessions"><strong>@Model.TotalSessions</strong><div class="muted">Sessoes registradas</div></div>
+            <div class="stat stat-minutes"><strong>@Model.TotalMinutes</strong><div class="muted">Minutos acumulados</div></div>
+            <div class="stat stat-evidence"><strong>@Model.EvidenceCount</strong><div class="muted">Evidencias anexadas</div></div>
+        </section>
+
+        @if (Model.AvailableAreas.Count > 0)
+        {
+            <section class="legend">
+                @foreach (var area in Model.AvailableAreas)
+                {
+                    <span class="pill @AreaTone(area)">
+                        <span class="dot"></span>
+                        @area
+                    </span>
+                }
+            </section>
+        }
+
+        <section>
+            <h2>Andamento das habilidades</h2>
+            <div class="skills">
+                @foreach (var skill in Model.SkillProgress)
+                {
+                    var tone = AreaTone(skill.DomainLabel);
+                    <article class="skill @tone">
+                    <div class="skill-head">
+                        <div class="skill-domain">@skill.DomainLabel</div>
+                        <div class="percent">@skill.ProgressPercent%</div>
+                    </div>
+                    <div class="chips">
+                        <span class="chip">@skill.SupportSourceLabel</span>
+                        <span class="chip">@skill.FunctionalTrackLabel</span>
+                    </div>
+                    <h3>@skill.SkillName</h3>
+                    <div class="muted">@skill.DomainLabel • @skill.StatusLabel</div>
+                        <div class="track"><div class="fill @tone" style="width:@skill.ProgressPercent%"></div></div>
+                        <div class="muted">@skill.MasteryScore% de dominio • praticada @skill.TimesPracticed vez(es)</div>
+                    </article>
+                }
+            </div>
+        </section>
+
+        <section>
+            <h2>Registros do curriculo</h2>
+            @foreach (var entry in Model.Entries)
+            {
+                var entryArea = entry.Skills.FirstOrDefault()?.DomainLabel ?? "Geral";
+                var tone = AreaTone(entryArea);
+                <article class="entry @tone">
+                    <div class="pill @tone" style="margin-bottom:10px;">
+                        <span class="dot"></span>
+                        @entryArea
+                    </div>
+                    <h3>@entry.LoggedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</h3>
+                    <div class="muted">@entry.Theme • @entry.MinutesCompleted min</div>
+                    <p><strong>Foi bem em:</strong> @entry.Wins</p>
+                    <p><strong>Pontos de atencao:</strong> @entry.Challenges</p>
+                    @if (!string.IsNullOrWhiteSpace(entry.Notes))
+                    {
+                        <p><strong>Observacoes:</strong> @entry.Notes</p>
+                    }
+                    @if (entry.ContextBadges.Count > 0)
+                    {
+                        <div class="chips">
+                            @foreach (var badge in entry.ContextBadges)
+                            {
+                                <span class="chip">@badge.Label</span>
+                            }
+                        </div>
+                    }
+                    @if (entry.Skills.Count > 0)
+                    {
+                        <div class="chips">
+                            @foreach (var skill in entry.Skills)
+                            {
+                                <span class="chip">@skill.SkillName • @skill.PerformanceLabel</span>
+                                <span class="chip">@skill.SupportSourceLabel</span>
+                                <span class="chip">@skill.FunctionalTrackLabel</span>
+                            }
+                        </div>
+                    }
+                    @if (entry.HasMedia)
+                    {
+                        <div class="media">
+                            @if (entry.IsImage)
+                            {
+                                <img src="@entry.MediaUrl" alt="Evidencia do registro" />
+                            }
+                            else if (entry.IsVideo)
+                            {
+                                <video controls preload="metadata">
+                                    <source src="@entry.MediaUrl" type="@entry.MediaContentType" />
+                                </video>
+                            }
+                        </div>
+                    }
+                </article>
+            }
+        </section>
+    </main>
+    <script>
+        window.onload = () => window.print();
+    </script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+@model ErrorViewModel
+@{
+    ViewData["Title"] = "Erro";
+}
+
+<section class="section-narrow">
+    <div class="panel">
+        <h1>Algo saiu do esperado</h1>
+        <p>O aplicativo encontrou um erro durante a execucao. Se isso acontecer de novo, vale registrar o passo que causou o problema.</p>
+        @if (Model.ShowRequestId)
+        {
+            <p><strong>Request ID:</strong> <code>@Model.RequestId</code></p>
+        }
+    </div>
+</section>

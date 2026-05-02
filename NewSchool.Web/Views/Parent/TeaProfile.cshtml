@@ -1,0 +1,135 @@
+@model NewSchool.Web.Models.ChildTeaProfileViewModel
+@{
+    ViewData["Title"] = "Perfil TEA";
+}
+
+<section class="page-hero compact">
+    <div>
+        <div class="eyebrow">Perfil TEA e funcional</div>
+        <h1>@Model.FullName</h1>
+        <p class="muted">@Model.Age anos • @Model.SupportProfileLabel • Esta ficha alimenta a rotina adaptativa, o dossie e os ajustes do plano.</p>
+    </div>
+    <div class="stack-inline">
+        <a class="btn-secondary" href="@Model.AdaptiveRoutineUrl">Rotina adaptativa</a>
+        <a class="btn-secondary" href="@Model.DossierUrl">Dossie pedagogico</a>
+        <a class="btn-primary" href="@Model.ChildUrl">Voltar para a rotina</a>
+    </div>
+</section>
+
+@if ((string?)TempData["TeaProfileSaved"] == "true")
+{
+    <section class="panel">
+        <strong>Perfil atualizado.</strong>
+        <p class="muted">As proximas sugestoes do sistema vao usar esta ficha junto com as observacoes das sessoes.</p>
+    </section>
+}
+
+<section class="section-grid">
+    <article class="panel">
+        <div class="card-topline">
+            <div>
+                <div class="eyebrow">Leitura atual</div>
+                <h2>Resumo funcional</h2>
+            </div>
+            <span class="chip @Model.Snapshot.SupportIntensityChipClass">@Model.Snapshot.SupportIntensityLabel</span>
+        </div>
+        <p>@Model.Snapshot.Summary</p>
+        <div class="timeline">
+            @foreach (var insight in Model.Insights)
+            {
+                <article class="timeline-item">
+                    <div class="card-topline">
+                        <strong>@insight.Label</strong>
+                        <span class="chip @insight.ChipClass">@insight.Value</span>
+                    </div>
+                </article>
+            }
+        </div>
+        <div class="recommendation-box">
+            <strong>Recomendacao automatica para amanha</strong>
+            <p>@Model.Snapshot.TomorrowAdjustment</p>
+        </div>
+    </article>
+
+    <article class="panel">
+        <div class="card-topline">
+            <div>
+                <div class="eyebrow">Ajuste do adulto</div>
+                <h2>Atualizar ficha da crianca</h2>
+            </div>
+            <span class="chip neutral">Vivo</span>
+        </div>
+        <form method="post" asp-action="TeaProfile" class="stack-form">
+            @Html.AntiForgeryToken()
+            <input asp-for="Form.ChildId" type="hidden" />
+
+            <label asp-for="Form.CommunicationProfile"></label>
+            <textarea asp-for="Form.CommunicationProfile" class="input" rows="3"></textarea>
+
+            <label asp-for="Form.CommunicationNotes"></label>
+            <textarea asp-for="Form.CommunicationNotes" class="input" rows="3"></textarea>
+
+            <div class="two-columns">
+                <div>
+                    <label asp-for="Form.AnxietyLevel"></label>
+                    <input asp-for="Form.AnxietyLevel" class="input" type="number" min="1" max="5" />
+                </div>
+                <div>
+                    <label asp-for="Form.CognitiveRigidityLevel"></label>
+                    <input asp-for="Form.CognitiveRigidityLevel" class="input" type="number" min="1" max="5" />
+                </div>
+                <div>
+                    <label asp-for="Form.SensorySensitivityLevel"></label>
+                    <input asp-for="Form.SensorySensitivityLevel" class="input" type="number" min="1" max="5" />
+                </div>
+                <div>
+                    <label asp-for="Form.TransitionDifficultyLevel"></label>
+                    <input asp-for="Form.TransitionDifficultyLevel" class="input" type="number" min="1" max="5" />
+                </div>
+                <div>
+                    <label asp-for="Form.SupportIntensityLevel"></label>
+                    <input asp-for="Form.SupportIntensityLevel" class="input" type="number" min="1" max="5" />
+                </div>
+            </div>
+
+            <div class="check-grid">
+                <label class="check-item"><input asp-for="Form.NeedsVisualRoutine" type="checkbox" /> Rotina visual</label>
+                <label class="check-item"><input asp-for="Form.NeedsFirstThen" type="checkbox" /> First-then</label>
+                <label class="check-item"><input asp-for="Form.NeedsTimer" type="checkbox" /> Timer visual</label>
+                <label class="check-item"><input asp-for="Form.NeedsPlanB" type="checkbox" /> Plano B previsto</label>
+            </div>
+
+            <label asp-for="Form.SpecialInterests"></label>
+            <textarea asp-for="Form.SpecialInterests" class="input" rows="2"></textarea>
+
+            <label asp-for="Form.EffectiveReinforcers"></label>
+            <textarea asp-for="Form.EffectiveReinforcers" class="input" rows="2"></textarea>
+
+            <label asp-for="Form.CommonTriggers"></label>
+            <textarea asp-for="Form.CommonTriggers" class="input" rows="2"></textarea>
+
+            <label asp-for="Form.OverloadSignals"></label>
+            <textarea asp-for="Form.OverloadSignals" class="input" rows="2"></textarea>
+
+            <label asp-for="Form.CalmingStrategies"></label>
+            <textarea asp-for="Form.CalmingStrategies" class="input" rows="2"></textarea>
+
+            <label asp-for="Form.TransitionSupports"></label>
+            <textarea asp-for="Form.TransitionSupports" class="input" rows="2"></textarea>
+
+            <label asp-for="Form.DailyLivingPriorities"></label>
+            <textarea asp-for="Form.DailyLivingPriorities" class="input" rows="2"></textarea>
+
+            <label asp-for="Form.ParentPrimaryGoal"></label>
+            <textarea asp-for="Form.ParentPrimaryGoal" class="input" rows="2"></textarea>
+
+            <label asp-for="Form.SchoolBarrierSummary"></label>
+            <textarea asp-for="Form.SchoolBarrierSummary" class="input" rows="3"></textarea>
+
+            <label asp-for="Form.DocumentationNotes"></label>
+            <textarea asp-for="Form.DocumentationNotes" class="input" rows="2"></textarea>
+
+            <button class="btn-primary" type="submit">Salvar perfil funcional</button>
+        </form>
+    </article>
+</section>

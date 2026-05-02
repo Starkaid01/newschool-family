@@ -1,0 +1,419 @@
+@using System.Linq
+@model NewSchool.Web.Models.ParentAcademyViewModel
+@{
+    ViewData["Title"] = "Biblioteca";
+    var totalResources = Model.Categories.Sum(category => category.Resources.Count) + Model.HostedLibrary.Count;
+    var totalSources = Model.Categories
+        .SelectMany(category => category.Resources)
+        .Concat(Model.HostedLibrary)
+        .Select(resource => resource.SourceLabel)
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .Count();
+    var hasSelectedChild = Model.SelectedChildId.HasValue;
+}
+
+<section class="academy-app-shell">
+    <section class="family-hero-card family-hero-card-simple">
+        <div class="family-hero-copy">
+            <span class="app-kicker">Biblioteca da família</span>
+            <h1>Abra o material certo na hora certa, sem se perder em listas enormes.</h1>
+            <p>Hoje a família começa pela aula do dia. Aqui ficam só os reforços, as apostilas em português e os guias organizados para cada idade e matéria.</p>
+            <div class="hero-chip-row">
+                <span class="app-soft-pill">@totalResources recurso(s)</span>
+                <span class="app-soft-pill">@totalSources fonte(s)</span>
+                <span class="app-soft-pill">prioridade em português</span>
+            </div>
+        </div>
+
+        <div class="hero-status-card">
+            <span class="app-status success">Biblioteca pronta</span>
+            <strong>@(hasSelectedChild ? Model.SelectedChildName : "Escolha uma criança")</strong>
+            <p>@Model.PersonalizationNote</p>
+            <div class="hero-action-row">
+                @if (hasSelectedChild)
+                {
+                    <a class="btn-primary" asp-action="Child" asp-route-id="@Model.SelectedChildId">Abrir aula de hoje</a>
+                    <a class="btn-secondary" asp-action="Curriculum" asp-route-id="@Model.SelectedChildId">Abrir plano anual</a>
+                }
+                else
+                {
+                    <a class="btn-primary" asp-action="Index">Voltar ao painel</a>
+                }
+            </div>
+        </div>
+    </section>
+
+    @if (Model.Children.Count > 0)
+    {
+        <section class="app-card">
+            <div class="section-heading-row">
+                <div>
+                    <span class="app-kicker">Escolha uma criança</span>
+                    <h2>Mostre só o que serve para esta criança</h2>
+                </div>
+                <span class="app-status neutral">opcional</span>
+            </div>
+
+            <form method="get" class="compact-form-grid">
+                <div>
+                    <label for="childId">Criança</label>
+                    <select id="childId" name="childId" class="input">
+                        <option value="">Biblioteca geral</option>
+                        @foreach (var child in Model.Children)
+                        {
+                            if (Model.SelectedChildId == child.ChildId)
+                            {
+                                <option value="@child.ChildId" selected>@child.FullName</option>
+                            }
+                            else
+                            {
+                                <option value="@child.ChildId">@child.FullName</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="form-submit-align">
+                    <button class="btn-primary" type="submit">Aplicar</button>
+                </div>
+            </form>
+        </section>
+    }
+
+    <section class="family-highlight-grid family-highlight-grid-simple">
+        <article class="overview-card">
+            <span class="app-kicker">1. Hoje</span>
+            <h2>Abra primeiro a lição atual</h2>
+            <p>O melhor caminho quase sempre é começar em <strong>Hoje</strong> e só depois puxar material extra.</p>
+        </article>
+
+        <article class="overview-card">
+            <span class="app-kicker">2. Ano</span>
+            <h2>Veja só a etapa em que a criança está</h2>
+            <p>O plano anual mostra o ano inteiro sem jogar tudo na tela de uma vez.</p>
+        </article>
+
+        <article class="overview-card">
+            <span class="app-kicker">3. Memórias</span>
+            <h2>Guarde depois, em página separada</h2>
+            <p>Fotos, vídeos e documentos ficam fora da aula para o uso no celular continuar leve.</p>
+        </article>
+    </section>
+
+    @if (Model.QuickStartCards.Count > 0)
+    {
+        <section class="academy-category-section">
+            <div class="section-heading-row">
+                <div>
+                    <span class="app-kicker">Comece por aqui</span>
+                    <h2>Três atalhos que resolvem esta semana</h2>
+                </div>
+            </div>
+
+            <div class="curriculum-subject-grid">
+                @for (var cardIndex = 0; cardIndex < Model.QuickStartCards.Count; cardIndex++)
+                {
+                    var card = Model.QuickStartCards[cardIndex];
+                    <article class="curriculum-subject-card">
+                        <span class="app-kicker">Passo @(cardIndex + 1) • @card.Eyebrow</span>
+                        <h3>@card.Title</h3>
+                        <p class="academy-resource-summary">@card.Summary</p>
+                        <div class="hero-action-row">
+                            <a class="btn-primary" href="@card.PrimaryActionUrl">@card.PrimaryActionLabel</a>
+                            @if (!string.IsNullOrWhiteSpace(card.SecondaryActionUrl))
+                            {
+                                <a class="btn-secondary" href="@card.SecondaryActionUrl">@card.SecondaryActionLabel</a>
+                            }
+                        </div>
+                    </article>
+                }
+            </div>
+        </section>
+    }
+
+    @if (Model.SystemCurriculumTracks.Count > 0)
+    {
+        <section class="academy-category-section" id="system-curriculum-tracks">
+            <div class="section-heading-row">
+                <div>
+                    <span class="app-kicker">Currículo próprio do sistema</span>
+                    <h2>O currículo do NewSchool já organiza o ano inteiro</h2>
+                </div>
+                <span class="app-status success">@Model.SystemCurriculumTracks.Count trilha(s)</span>
+            </div>
+
+            <p class="academy-category-copy">Essas trilhas são a base do ensino dentro da plataforma. Elas descem para a aula do dia e usam material externo só quando realmente ajuda.</p>
+
+            <div class="curriculum-subject-grid">
+                @foreach (var track in Model.SystemCurriculumTracks)
+                {
+                    <article class="curriculum-subject-card">
+                        <div class="child-dashboard-top">
+                            <div>
+                                <h3>@track.Title</h3>
+                                <p>@track.AgeBandLabel • @track.CurrentPhaseLabel</p>
+                            </div>
+                            <span class="app-status @track.DomainChipClass">@track.DomainLabel</span>
+                        </div>
+
+                        <article class="child-card-note">
+                            <strong>Objetivo do ano</strong>
+                            <p>@track.YearGoal</p>
+                        </article>
+
+                        <div class="hero-chip-row">
+                            <span class="app-soft-pill">@track.TotalLessons lições no ano</span>
+                            <span class="app-soft-pill">@track.PhaseSequences.Count etapa(s)</span>
+                        </div>
+
+                        <article class="child-card-note">
+                            <strong>Foco da etapa atual</strong>
+                            <p>@track.CurrentFocus</p>
+                        </article>
+
+                        @if (track.CurrentUnit is not null)
+                        {
+                            <article class="child-card-note">
+                                <strong>Unidade que vale agora</strong>
+                                <p><strong>@track.CurrentUnit.UnitLabel • @track.CurrentUnit.Title</strong></p>
+                                <p>@track.CurrentUnit.Summary</p>
+                            </article>
+
+                            <div class="guided-lesson-meta-grid">
+                                <article class="child-card-note nested-surface">
+                                    <strong>Tarefa principal da unidade</strong>
+                                    <p>@track.CurrentUnit.TaskPrompt</p>
+                                </article>
+
+                                <article class="child-card-note nested-surface">
+                                    <strong>Quando seguir</strong>
+                                    <p>@track.CurrentUnit.CompletionSignal</p>
+                                </article>
+                            </div>
+                        }
+
+                        @if (track.ExampleSkills.Count > 0)
+                        {
+                            <article class="child-card-note">
+                                <strong>Exemplos do que entra</strong>
+                                <div class="simple-steps-list compact">
+                                    @foreach (var skill in track.ExampleSkills)
+                                    {
+                                        <article class="simple-step-item">
+                                            <p>@skill</p>
+                                        </article>
+                                    }
+                                </div>
+                            </article>
+                        }
+
+                        @if (track.Materials.Count > 0)
+                        {
+                            <article class="child-card-note">
+                                <strong>Materiais que resolvem</strong>
+                                <div class="achievement-chip-row">
+                                    @foreach (var item in track.Materials)
+                                    {
+                                        <span class="app-soft-pill">@item</span>
+                                    }
+                                </div>
+                            </article>
+                        }
+
+                        <article class="child-card-note">
+                            <strong>Como o adulto conduz</strong>
+                            <p>@track.ParentMethod</p>
+                        </article>
+
+                        @if (track.PhaseSequences.Count > 0)
+                        {
+                            <details class="micro-sequence-details">
+                                <summary>Ver sequência do ano</summary>
+                                <div class="phase-sequence-list">
+                                    @foreach (var phase in track.PhaseSequences)
+                                    {
+                                        <article class="phase-sequence-item @(phase.IsCurrent ? "is-current" : string.Empty)">
+                                            <div class="section-heading-row compact">
+                                                <strong>@phase.PhaseLabel</strong>
+                                                <span class="app-status @(phase.IsCurrent ? "success" : "neutral")">
+                                                    @(phase.IsCurrent ? "agora" : "depois")
+                                                </span>
+                                            </div>
+                                            <div class="hero-chip-row">
+                                                <span class="app-soft-pill">@phase.UnitCount unidade(s)</span>
+                                                <span class="app-soft-pill">@phase.LessonCount lição(ões)</span>
+                                            </div>
+                                            <p>@phase.Summary</p>
+
+                                            @if (phase.Units.Count > 0)
+                                            {
+                                                <div class="simple-steps-list compact">
+                                                    @foreach (var unit in phase.Units)
+                                                    {
+                                                        <article class="simple-step-item">
+                                                            <strong>@unit.UnitLabel • @unit.Title</strong>
+                                                            <p>@unit.Summary</p>
+                                                            <p><strong>Tarefa:</strong> @unit.TaskPrompt</p>
+                                                            <p><strong>Sinal de avanço:</strong> @unit.CompletionSignal</p>
+                                                        </article>
+                                                    }
+                                                </div>
+                                            }
+                                        </article>
+                                    }
+                                </div>
+                            </details>
+                        }
+                    </article>
+                }
+            </div>
+        </section>
+    }
+
+    @if (Model.HostedLibrary.Count > 0)
+    {
+        <section class="academy-category-section" id="hosted-library">
+            <div class="section-heading-row">
+                <div>
+                    <span class="app-kicker">Apostilas em português</span>
+                    <h2>Materiais que já podem ser usados dentro da plataforma</h2>
+                </div>
+                <span class="app-status success">@Model.HostedLibrary.Count item(ns)</span>
+            </div>
+            <p class="academy-category-copy">@Model.HostedLibraryNote</p>
+
+            <div class="academy-card-grid">
+                @foreach (var resource in Model.HostedLibrary)
+                {
+                    <article class="academy-resource-card hosted-resource-card">
+                        <div class="child-dashboard-top">
+                            <div>
+                                <h3>@resource.Title</h3>
+                                <p>@resource.FormatLabel • @resource.DurationLabel</p>
+                            </div>
+                            <span class="app-status @resource.AudienceChipClass">@resource.AudienceLabel</span>
+                        </div>
+
+                        <div class="hero-chip-row">
+                            <span class="app-soft-pill success-source-pill">@resource.OwnershipLabel</span>
+                            <span class="app-soft-pill">@resource.LicenseLabel</span>
+                            <span class="app-soft-pill">@resource.SourceLabel</span>
+                        </div>
+
+                        <p class="academy-resource-summary">@resource.Summary</p>
+
+                        <article class="child-card-note">
+                            <strong>Como usar esta semana</strong>
+                            <p>@resource.PortugueseGuideNote</p>
+                        </article>
+
+                        <div class="hero-action-row">
+                            <a class="btn-primary" href="@resource.Url" target="_blank" rel="noopener noreferrer">@resource.AccessLabel</a>
+                            @if (!string.IsNullOrWhiteSpace(resource.SourceUrl))
+                            {
+                                <a class="btn-secondary" href="@resource.SourceUrl" target="_blank" rel="noopener noreferrer">Ver origem</a>
+                            }
+                        </div>
+                    </article>
+                }
+            </div>
+        </section>
+    }
+
+    <section class="academy-category-section" id="guided-collections">
+        @for (var categoryIndex = 0; categoryIndex < Model.Categories.Count; categoryIndex++)
+        {
+            var category = Model.Categories[categoryIndex];
+            var detailsClass = categoryIndex == 0 ? "academy-collection-details is-open-by-default" : "academy-collection-details";
+
+            <details class="@detailsClass" @(categoryIndex == 0 ? "open" : null)>
+                <summary class="academy-collection-summary">
+                    <div>
+                        <span class="app-kicker">Coleção organizada</span>
+                        <h2>@category.Title</h2>
+                        <p>@category.Description</p>
+                    </div>
+                    <span class="app-status neutral">@category.Resources.Count recurso(s)</span>
+                </summary>
+
+                <div class="academy-collection-body">
+                    <div class="academy-card-grid">
+                        @foreach (var resource in category.Resources)
+                        {
+                            <article class="academy-resource-card">
+                                <div class="child-dashboard-top">
+                                    <div>
+                                        <h3>@resource.Title</h3>
+                                        <p>@resource.FormatLabel • @resource.DurationLabel</p>
+                                    </div>
+                                    <span class="app-status @resource.AudienceChipClass">@resource.AudienceLabel</span>
+                                </div>
+
+                                <div class="hero-chip-row">
+                                    <span class="app-soft-pill @(resource.IsThirdParty ? "warning-source-pill" : "success-source-pill")">@resource.OwnershipLabel</span>
+                                    <span class="app-soft-pill">@resource.SourceLabel</span>
+                                    @if (!string.IsNullOrWhiteSpace(resource.HostingLabel))
+                                    {
+                                        <span class="app-soft-pill">@resource.HostingLabel</span>
+                                    }
+                                </div>
+
+                                <p class="academy-resource-summary">@resource.Summary</p>
+
+                                <article class="child-card-note">
+                                    <strong>Quando este material ajuda</strong>
+                                    <p>@resource.WhyItMatters</p>
+                                </article>
+
+                                @if (resource.Highlights.Count > 0)
+                                {
+                                    <article class="child-card-note">
+                                        <strong>Comece por estes assuntos</strong>
+                                        <div class="achievement-chip-row">
+                                            @foreach (var highlight in resource.Highlights.Take(6))
+                                            {
+                                                <span class="app-soft-pill">@highlight</span>
+                                            }
+                                        </div>
+                                    </article>
+                                }
+
+                                <article class="child-card-note">
+                                    <strong>Como usar em casa</strong>
+                                    <p>
+                                        @if (resource.HasGuide)
+                                        {
+                                            <text>Abra primeiro o guia em português, siga a ordem sugerida e use a fonte original só quando precisar baixar algo.</text>
+                                        }
+                                        else if (resource.HasUrl)
+                                        {
+                                            <text>Abra a fonte certa, use só a parte da semana e volte depois para registrar o que foi feito com a criança.</text>
+                                        }
+                                        else
+                                        {
+                                            <text>Esse conteúdo já faz parte da organização interna da plataforma e entra naturalmente na rotina da criança.</text>
+                                        }
+                                    </p>
+                                </article>
+
+                                <div class="hero-action-row">
+                                    @if (resource.HasGuide)
+                                    {
+                                        <a class="btn-primary" href="@resource.GuideUrl">@resource.GuideLabel</a>
+                                    }
+                                    @if (resource.HasUrl)
+                                    {
+                                        <a class="btn-secondary" href="@resource.Url" target="_blank" rel="noopener noreferrer">@resource.AccessLabel</a>
+                                    }
+                                    @if (!resource.HasGuide && !resource.HasUrl)
+                                    {
+                                        <span class="app-status neutral">Disponível no fluxo interno</span>
+                                    }
+                                </div>
+                            </article>
+                        }
+                    </div>
+                </div>
+            </details>
+        }
+    </section>
+</section>

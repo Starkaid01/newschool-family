@@ -1,0 +1,50 @@
+@model NewSchool.Web.Models.RecoveryPlanDetailsViewModel
+@{
+    ViewData["Title"] = "Plano de retomada";
+}
+
+<section class="page-hero compact">
+    <div>
+        <div class="eyebrow">Plano de retomada</div>
+        <h1>@Model.ChildName</h1>
+        <p class="muted">@Model.Title</p>
+    </div>
+    <div class="stack-inline">
+        <a class="btn-secondary" href="@Model.EvolutionUrl">Voltar para a evolucao</a>
+    </div>
+</section>
+
+<section class="panel recovery-banner">
+    <div class="card-topline">
+        <div>
+            <h2>Recuperacao guiada em 7 dias</h2>
+            <p class="muted">@Model.Summary</p>
+        </div>
+        <span class="chip warning">@Model.CompletedDays de @Model.TotalDays dias concluidos</span>
+    </div>
+</section>
+
+<section class="panel">
+    <div class="card-topline">
+        <h2>Rota de retomada</h2>
+        <span class="chip neutral">Pequenas vitorias diarias</span>
+    </div>
+    <div class="timeline">
+        @foreach (var day in Model.Days)
+        {
+            <article class="timeline-item">
+                <div class="card-topline">
+                    <div>
+                        <strong>Dia @day.DayNumber • @day.SuggestedDate.ToString("dd/MM")</strong>
+                        <div class="small-meta">Foco: @day.FocusSkill</div>
+                    </div>
+                    <span class="chip @(day.Completed ? "success" : "warning")">
+                        @(day.Completed ? "Concluido" : "Em aberto")
+                    </span>
+                </div>
+                <p><strong>Missao:</strong> @day.GoalText</p>
+                <p><strong>Dica para o adulto:</strong> @day.ParentTip</p>
+            </article>
+        }
+    </div>
+</section>

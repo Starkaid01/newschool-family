@@ -1,0 +1,28 @@
+@model NewSchool.Web.Models.AdBannerViewModel
+
+<section class="ad-slot ad-slot-@Model.Variant" data-ad-zone="@Model.Zone" aria-label="@Model.AccessibilityLabel">
+    <div class="ad-slot-frame">
+        @if (Model.RenderLiveAd)
+        {
+            <ins class="adsbygoogle"
+                 style="display:block"
+                 data-ad-client="@Model.AdClient"
+                 data-ad-slot="@Model.AdSlot"
+                 data-ad-format="auto"
+                 data-full-width-responsive="true"></ins>
+            <script>
+                if (window.newSchoolAds && typeof window.newSchoolAds.push === "function") {
+                    window.newSchoolAds.push();
+                }
+            </script>
+        }
+        else
+        {
+            <div class="ad-slot-placeholder">
+                <span class="ad-slot-kicker">Parceiros educacionais</span>
+                <strong>@Model.Label</strong>
+                <p>@Model.Description</p>
+            </div>
+        }
+    </div>
+</section>

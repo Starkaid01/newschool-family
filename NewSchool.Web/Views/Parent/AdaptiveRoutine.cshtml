@@ -1,0 +1,103 @@
+@model NewSchool.Web.Models.ChildAdaptiveRoutineViewModel
+@{
+    ViewData["Title"] = "Rotina adaptativa";
+}
+
+<section class="page-hero compact">
+    <div>
+        <div class="eyebrow">Rotina adaptativa</div>
+        <h1>@Model.FullName</h1>
+        <p class="muted">@Model.Age anos • @Model.SupportProfileLabel • Leitura operacional do dia para reduzir atrito, antecipar transicoes e preservar aprendizagem.</p>
+    </div>
+    <div class="stack-inline">
+        <a class="btn-secondary" href="@Model.TeaProfileUrl">Perfil TEA</a>
+        <a class="btn-secondary" href="@Model.DossierUrl">Dossie</a>
+        <a class="btn-primary" href="@Model.ChildUrl">Voltar para a rotina</a>
+    </div>
+</section>
+
+<section class="panel adaptive-routine-panel">
+    <div class="card-topline">
+        <div>
+            <div class="eyebrow">Leitura do sistema</div>
+            <h2>Configuracao sugerida para hoje</h2>
+        </div>
+        <span class="chip @Model.Snapshot.SupportIntensityChipClass">@Model.Snapshot.SupportIntensityLabel</span>
+    </div>
+    <p>@Model.Snapshot.Summary</p>
+    <div class="stats-grid adaptive-mini-stats">
+        <article class="stat-card">
+            <span>Bloco ideal</span>
+            <strong>@Model.Snapshot.RecommendedWorkBlockMinutes min</strong>
+        </article>
+        <article class="stat-card">
+            <span>Pausa ideal</span>
+            <strong>@Model.Snapshot.RecommendedBreakMinutes min</strong>
+        </article>
+    </div>
+    <p><strong>Suporte visual:</strong> @Model.Snapshot.VisualSupportRecommendation</p>
+    <p><strong>Transicao:</strong> @Model.Snapshot.TransitionRecommendation</p>
+    <p><strong>Plano B:</strong> @Model.Snapshot.PlanBRecommendation</p>
+    <div class="recommendation-box">
+        <strong>Ajuste para amanha</strong>
+        <p>@Model.Snapshot.TomorrowAdjustment</p>
+    </div>
+</section>
+
+<section class="section-grid">
+    <article class="panel">
+        <div class="card-topline">
+            <h2>Blocos operacionais do dia</h2>
+            <span class="chip neutral">@Model.Blocks.Count bloco(s)</span>
+        </div>
+        <div class="timeline">
+            @foreach (var block in Model.Blocks)
+            {
+                <article class="timeline-item">
+                    <div class="card-topline">
+                        <strong>@block.Title</strong>
+                        <span class="chip @block.TrackChipClass">@block.TrackLabel</span>
+                    </div>
+                    <div class="small-meta">Planejado: @block.PlannedMinutes min • Timer sugerido: @block.SuggestedTimerMinutes min</div>
+                    <p><strong>Conduzir assim:</strong> @block.SupportCue</p>
+                    <p><strong>Plano B:</strong> @block.PlanB</p>
+                    @if (block.IsSensitiveTransition)
+                    {
+                        <span class="chip warning">Transicao sensivel</span>
+                    }
+                </article>
+            }
+        </div>
+    </article>
+
+    <article class="panel">
+        <div class="card-topline">
+            <h2>Padroes observados</h2>
+            <span class="chip neutral">@Model.Observations.Count registro(s)</span>
+        </div>
+        @if (Model.Observations.Count == 0)
+        {
+            <p class="muted">Assim que voce preencher os campos de observacao no registro da sessao, o sistema vai consolidar gatilhos, apoios que funcionam e sugestoes mais finas.</p>
+        }
+        else
+        {
+            <div class="timeline">
+                @foreach (var item in Model.Observations)
+                {
+                    <article class="timeline-item">
+                        <div class="card-topline">
+                            <strong>@item.ObservedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</strong>
+                            <span class="chip @(item.NeededPlanB ? "warning" : "success")">@item.ContextLabel</span>
+                        </div>
+                        <div><span class="label-soft">Antes:</span> @item.Antecedent</div>
+                        <div><span class="label-soft">Reacao:</span> @item.ChildReaction</div>
+                        <div><span class="label-soft">Ajudou:</span> @item.WhatHelped</div>
+                        <div><span class="label-soft">Apoio usado:</span> @item.SupportUsed</div>
+                        <div><span class="label-soft">Desconforto:</span> @item.DistressLevel/5</div>
+                        <div><span class="label-soft">Tolerancia:</span> @item.TaskToleranceMinutes min</div>
+                    </article>
+                }
+            </div>
+        }
+    </article>
+</section>

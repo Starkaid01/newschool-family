@@ -1,0 +1,157 @@
+@model NewSchool.Web.Models.FamilyLibraryPrintablesViewModel
+@{
+    ViewData["Title"] = "Imprimíveis";
+}
+
+<section class="family-library-shell">
+    <section class="family-library-hero">
+        <div class="family-library-hero-copy">
+            <span class="app-kicker">Imprimíveis</span>
+            <h1>Atividades para abrir, visualizar e imprimir no momento certo.</h1>
+            <p>@Model.PersonalizationSummary Aqui entram apenas tarefas de papel, pintura, ligação, completar, nomear e outras atividades manuais. Esses materiais não aparecem na estante principal de leitura.</p>
+            <div class="family-library-hero-actions">
+                @if (Model.SelectedChildId.HasValue)
+                {
+                    <a class="btn-primary" asp-controller="Library" asp-action="Index" asp-route-childId="@Model.SelectedChildId">Voltar à biblioteca</a>
+                }
+                else
+                {
+                    <a class="btn-primary" asp-controller="Library" asp-action="Index">Voltar à biblioteca</a>
+                }
+            </div>
+        </div>
+
+        <div class="family-library-hero-panel">
+            <span class="app-status success">Separado do acervo</span>
+            <strong>@Model.Materials.Count imprimível(is)</strong>
+            <p>Use os filtros abaixo para achar a atividade certa mais rápido no celular.</p>
+        </div>
+    </section>
+
+    <section class="family-library-section">
+        <div class="family-library-section-heading">
+            <div>
+                <span class="app-kicker">Filtro rápido</span>
+                <h2>Busque por nome, categoria, etapa ou faixa etária.</h2>
+            </div>
+        </div>
+
+        <form method="get" class="family-library-tools">
+            @if (Model.SelectedChildId.HasValue)
+            {
+                <input type="hidden" name="childId" value="@Model.SelectedChildId" />
+            }
+            <div class="family-library-search-panel">
+                <label for="printable-search">Buscar atividade por nome</label>
+                <input id="printable-search" class="input family-library-search-input" type="search" name="q" value="@Model.SearchTerm" placeholder="Digite o nome da atividade" />
+            </div>
+
+            <div class="family-library-filter-grid">
+                <div>
+                    <label for="category">Categoria</label>
+                    <select id="category" name="category" class="input">
+                        <option value="">Todas as categorias</option>
+                        @foreach (var filter in Model.CategoryFilters)
+                        {
+                            if (string.Equals(Model.SelectedCategory, filter, StringComparison.OrdinalIgnoreCase))
+                            {
+                                <option value="@filter" selected>@filter</option>
+                            }
+                            else
+                            {
+                                <option value="@filter">@filter</option>
+                            }
+                        }
+                    </select>
+                </div>
+
+                <div>
+                    <label for="stage">Etapa</label>
+                    <select id="stage" name="stage" class="input">
+                        <option value="">Todas as etapas</option>
+                        @foreach (var filter in Model.StageFilters)
+                        {
+                            if (string.Equals(Model.SelectedStage, filter, StringComparison.OrdinalIgnoreCase))
+                            {
+                                <option value="@filter" selected>@filter</option>
+                            }
+                            else
+                            {
+                                <option value="@filter">@filter</option>
+                            }
+                        }
+                    </select>
+                </div>
+
+                @if (Model.AgeFilters.Count > 0)
+                {
+                    <div>
+                        <label for="age">Idade / faixa</label>
+                        <select id="age" name="age" class="input">
+                            <option value="">Todas as faixas</option>
+                            @foreach (var filter in Model.AgeFilters)
+                            {
+                                if (string.Equals(Model.SelectedAgeFilter, filter, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    <option value="@filter" selected>@filter</option>
+                                }
+                                else
+                                {
+                                    <option value="@filter">@filter</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                }
+            </div>
+
+            <div class="family-library-tools-footer">
+                <p>@Model.Materials.Count imprimível(is) encontrado(s).</p>
+                <div class="family-library-hero-actions">
+                    <button class="btn-primary" type="submit">Aplicar filtros</button>
+                    @if (Model.SelectedChildId.HasValue)
+                    {
+                        <a class="btn-secondary" asp-controller="Library" asp-action="Printables" asp-route-childId="@Model.SelectedChildId">Limpar filtros</a>
+                    }
+                    else
+                    {
+                        <a class="btn-secondary" asp-controller="Library" asp-action="Printables">Limpar filtros</a>
+                    }
+                </div>
+            </div>
+        </form>
+
+        @if (Model.Materials.Count == 0)
+        {
+            <section class="panel">
+                <span class="app-kicker">Sem resultados</span>
+                <h2>Nenhuma atividade combina com os filtros</h2>
+                <p>Limpe os filtros ou tente outro nome para voltar aos materiais disponíveis.</p>
+            </section>
+        }
+        else
+        {
+            <div class="family-library-printables-grid">
+                @foreach (var material in Model.Materials)
+                {
+                    <article class="family-library-printable-card">
+                        <span class="family-library-chip">@material.Category</span>
+                        <h3>@material.Title</h3>
+                        <p>@material.Description</p>
+                        <div class="family-library-book-meta">
+                            <span>@material.EducationStage</span>
+                            <span>@material.AgeLabel</span>
+                            <span>@material.PageCount página(s)</span>
+                        </div>
+                        @if (string.Equals(material.CollectionLabel, "Coleção NewSchool", StringComparison.OrdinalIgnoreCase))
+                        {
+                            <div class="family-library-progress-note">Conteúdo autoral do NewSchool, criado para entrar direto na rotina do currículo.</div>
+                        }
+                        <div class="family-library-printable-focus">@material.SkillFocus</div>
+                        <a class="btn-primary" asp-controller="Library" asp-action="Printable" asp-route-id="@material.Id">Abrir e imprimir</a>
+                    </article>
+                }
+            </div>
+        }
+    </section>
+</section>

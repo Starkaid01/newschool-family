@@ -1,0 +1,173 @@
+@model NewSchool.Web.Models.PortuguesePlanningViewModel
+@{
+    ViewData["Title"] = "Planejamento de Lingua Portuguesa";
+}
+
+<section class="page-hero compact">
+    <div>
+        <div class="eyebrow">@Model.ScopeLabel</div>
+        <h1>@Model.SubjectName • 4 a 8 anos</h1>
+        <p class="muted">@Model.ScopeSummary</p>
+        @if (!string.IsNullOrWhiteSpace(Model.SelectedChildName))
+        {
+            <p class="small-meta">Crianca selecionada: <strong>@Model.SelectedChildName</strong> • @Model.SelectedChildAge anos • @Model.SelectedStageLabel</p>
+            <p class="small-meta">@Model.SelectedStageSummary</p>
+        }
+    </div>
+    <div class="stack-inline">
+        <a class="btn-secondary" asp-action="Index">Voltar ao painel</a>
+    </div>
+</section>
+
+@if (Model.Children.Count > 0)
+{
+    <section class="panel">
+        <div class="card-topline">
+            <div>
+                <div class="eyebrow">Filtrar por crianca</div>
+                <h2>Ver a referencia mais adequada</h2>
+            </div>
+            <span class="chip neutral">Opcional</span>
+        </div>
+        <form method="get" asp-action="PortuguesePlanning" class="stack-inline wrap-inline">
+            <select name="childId" class="input">
+                <option value="">Mostrar todo o planejamento</option>
+                @foreach (var child in Model.Children)
+                {
+                    <option value="@child.Id" selected="@(Model.SelectedChildId == child.Id ? "selected" : null)">
+                        @child.Name • @child.Age anos • @child.StageLabel
+                    </option>
+                }
+            </select>
+            <button class="btn-primary" type="submit">Aplicar filtro</button>
+            @if (Model.SelectedChildId.HasValue)
+            {
+                <a class="btn-secondary" asp-action="PortuguesePlanning">Limpar</a>
+            }
+        </form>
+    </section>
+}
+
+<section class="panel guided-panel">
+    <div class="card-topline">
+        <div>
+            <div class="eyebrow">Como usar</div>
+            <h2>Leitura pedagógica do planejamento</h2>
+        </div>
+        <span class="chip success">BNCC</span>
+    </div>
+    <div class="onboarding-grid">
+        <article class="step-card">
+            <strong>1. Use a etapa certa</strong>
+            <p class="muted">4 e 5 anos ficam na logica da Educacao Infantil. 6, 7 e 8 anos seguem 1o, 2o e 3o ano do Fundamental.</p>
+        </article>
+        <article class="step-card">
+            <strong>2. Planeje por bimestre</strong>
+            <p class="muted">Cada faixa abaixo ja traz foco, metas de aprendizagem, generos e sinais de avaliacao por periodo.</p>
+        </article>
+        <article class="step-card">
+            <strong>3. Registre evidencias</strong>
+            <p class="muted">Use producoes, leituras gravadas, recontos, listas, bilhetes e observacoes para provar progresso real.</p>
+        </article>
+    </div>
+</section>
+
+<section class="stack-form">
+    @foreach (var stage in Model.Stages)
+    {
+        var isSelected = Model.SelectedChildAge == stage.Age;
+        <article class="panel @(isSelected ? "guided-panel" : string.Empty)">
+            <div class="card-topline">
+                <div>
+                    <div class="eyebrow">@stage.StageLabel</div>
+                    <h2>@stage.SchoolPlacement</h2>
+                </div>
+                <span class="chip @(isSelected ? "success" : "neutral")">@(isSelected ? "Faixa da crianca" : "Referencia")</span>
+            </div>
+
+            <p><strong>Base BNCC:</strong> @stage.BnccAnchor</p>
+            <p><strong>Objetivo anual:</strong> @stage.AnnualObjective</p>
+            <p><strong>Diagnostico inicial:</strong> @stage.DiagnosticFocus</p>
+            <p><strong>Abordagem pedagógica:</strong> @stage.PedagogicalApproach</p>
+
+            <div class="section-grid">
+                <article class="panel nested-panel">
+                    <h3>Referencias BNCC</h3>
+                    <ul class="feature-list">
+                        @foreach (var item in stage.BnccReferences)
+                        {
+                            <li>@item</li>
+                        }
+                    </ul>
+                </article>
+
+                <article class="panel nested-panel">
+                    <h3>Resultados esperados</h3>
+                    <ul class="feature-list">
+                        @foreach (var item in stage.ExpectedOutcomes)
+                        {
+                            <li>@item</li>
+                        }
+                    </ul>
+                </article>
+            </div>
+
+            <div class="card-grid">
+                @foreach (var term in stage.Terms)
+                {
+                    <article class="step-card">
+                        <div class="card-topline">
+                            <strong>@term.TermLabel</strong>
+                            <span class="chip neutral">@term.MainFocus</span>
+                        </div>
+                        <p><strong>Metas de aprendizagem</strong></p>
+                        <ul class="feature-list">
+                            @foreach (var item in term.LearningGoals)
+                            {
+                                <li>@item</li>
+                            }
+                        </ul>
+
+                        <p><strong>Generos e suportes</strong></p>
+                        <ul class="feature-list">
+                            @foreach (var item in term.SuggestedGenres)
+                            {
+                                <li>@item</li>
+                            }
+                        </ul>
+
+                        <p><strong>Sinais de avaliacao</strong></p>
+                        <ul class="feature-list">
+                            @foreach (var item in term.AssessmentSignals)
+                            {
+                                <li>@item</li>
+                            }
+                        </ul>
+                    </article>
+                }
+            </div>
+
+            <div class="section-grid">
+                <article class="panel nested-panel">
+                    <h3>Evidencias para o portifolio</h3>
+                    <ul class="feature-list">
+                        @foreach (var item in stage.SuggestedEvidence)
+                        {
+                            <li>@item</li>
+                        }
+                    </ul>
+                </article>
+
+                <article class="panel nested-panel">
+                    <h3>Rotina da familia</h3>
+                    <ul class="feature-list">
+                        @foreach (var item in stage.FamilyRoutineActions)
+                        {
+                            <li>@item</li>
+                        }
+                    </ul>
+                </article>
+            </div>
+        </article>
+    }
+</section>

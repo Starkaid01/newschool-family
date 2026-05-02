@@ -1,0 +1,814 @@
+@model NewSchool.Web.Models.FamilyLibraryHomeViewModel
+@{
+    ViewData["Title"] = "Biblioteca";
+    var currentUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
+}
+
+<section class="family-library-shell">
+    <section class="family-library-hero">
+        <div class="family-library-hero-copy">
+            <span class="app-kicker">Biblioteca online</span>
+            <h1>@Model.PersonalizationHeadline</h1>
+            <p>@Model.PersonalizationSummary</p>
+            <div class="family-library-hero-actions">
+                @if (Model.SelectedChildId.HasValue)
+                {
+                    <a class="btn-primary" asp-controller="Library" asp-action="Printables" asp-route-childId="@Model.SelectedChildId">Abrir imprimíveis</a>
+                }
+                else
+                {
+                    <a class="btn-primary" asp-controller="Library" asp-action="Printables">Abrir imprimíveis</a>
+                }
+                <a class="btn-secondary" asp-controller="Parent" asp-action="Index">Voltar ao painel</a>
+            </div>
+        </div>
+
+        <div class="family-library-hero-panel">
+            <span class="app-status success">Coleção autoral ativa</span>
+            <strong>@(Model.SelectedChildId.HasValue ? Model.SelectedChildName : $"{Model.TotalBooks} livros organizados")</strong>
+            <p>O sistema agora mistura acervo, currículo e coleção própria do NewSchool sem confundir livro digital com folha para imprimir.</p>
+        </div>
+    </section>
+
+    <section class="family-library-stats-grid">
+        <article class="family-library-stat-card">
+            <span class="app-kicker">Autoral</span>
+            <strong>@Model.ProprietaryBooks</strong>
+            <p>Livros próprios do NewSchool ligados ao currículo anual.</p>
+        </article>
+        <article class="family-library-stat-card">
+            <span class="app-kicker">Acervo</span>
+            <strong>@Model.TotalBooks</strong>
+            <p>Livros online disponíveis para leitura.</p>
+        </article>
+        <article class="family-library-stat-card">
+            <span class="app-kicker">Papel</span>
+            <strong>@Model.ProprietaryPrintables</strong>
+            <p>Folhas autorais prontas para baixar e usar.</p>
+        </article>
+        <article class="family-library-stat-card">
+            <span class="app-kicker">Lendo</span>
+            <strong>@Model.InProgressBooks</strong>
+            <p>Livros com leitura em andamento.</p>
+        </article>
+        <article class="family-library-stat-card">
+            <span class="app-kicker">Lidos</span>
+            <strong>@Model.CompletedBooks</strong>
+            <p>Livros concluídos até a última página.</p>
+        </article>
+    </section>
+
+    @if (Model.SpotlightBook is not null || Model.SpotlightPrintable is not null)
+    {
+        <section class="family-library-section">
+            <div class="family-library-section-heading">
+                <div>
+                    <span class="app-kicker">Comece sem pensar muito</span>
+                    <h2>O melhor par para esta semana já está separado</h2>
+                </div>
+            </div>
+
+            <div class="family-library-book-grid">
+                @if (Model.SpotlightBook is not null)
+                {
+                    <article class="family-library-book-card">
+                        <div class="family-library-book-copy">
+                            <div class="family-library-book-topline">
+                                <span class="family-library-chip">Livro certo</span>
+                                <span class="family-library-status reading">@Model.SpotlightBook.ProgressLabel</span>
+                            </div>
+                            <h3>@Model.SpotlightBook.Title</h3>
+                            <p>@Model.SpotlightBook.Description</p>
+                            <div class="family-library-book-meta">
+                                <span>@Model.SpotlightBook.Category</span>
+                                <span>@Model.SpotlightBook.EducationStage</span>
+                            </div>
+                            <div class="family-library-progress-note">@Model.SpotlightBook.FitReason</div>
+                        </div>
+                        <div class="family-library-book-actions">
+                            <span class="family-library-age-note">@Model.SpotlightBook.AgeLabel</span>
+                            <a class="btn-primary" href="@Model.SpotlightBook.AccessUrl">@Model.SpotlightBook.AccessLabel</a>
+                        </div>
+                    </article>
+                }
+
+                @if (Model.SpotlightPrintable is not null)
+                {
+                    <article class="family-library-book-card">
+                        <div class="family-library-book-copy">
+                            <div class="family-library-book-topline">
+                                <span class="family-library-chip">Atividade certa</span>
+                                <span class="family-library-status new">@Model.SpotlightPrintable.ProgressLabel</span>
+                            </div>
+                            <h3>@Model.SpotlightPrintable.Title</h3>
+                            <p>@Model.SpotlightPrintable.Description</p>
+                            <div class="family-library-book-meta">
+                                <span>@Model.SpotlightPrintable.Category</span>
+                                <span>@Model.SpotlightPrintable.EducationStage</span>
+                            </div>
+                            <div class="family-library-progress-note">@Model.SpotlightPrintable.FitReason</div>
+                        </div>
+                        <div class="family-library-book-actions">
+                            <span class="family-library-age-note">@Model.SpotlightPrintable.AgeLabel</span>
+                            <a class="btn-primary" href="@Model.SpotlightPrintable.AccessUrl">@Model.SpotlightPrintable.AccessLabel</a>
+                        </div>
+                    </article>
+                }
+            </div>
+        </section>
+    }
+
+    @if (Model.WeeklyReading is not null)
+    {
+        <section class="family-library-section">
+            <div class="family-library-section-heading">
+                <div>
+                    <span class="app-kicker">Leitura da semana</span>
+                    <h2>@Model.WeeklyReading.Headline</h2>
+                </div>
+            </div>
+
+            <p>@Model.WeeklyReading.Summary</p>
+
+            <div class="details-grid">
+                <article class="child-card-note nested-surface">
+                    <strong>Meta desta semana</strong>
+                    <p>@Model.WeeklyReading.WeeklyGoal</p>
+                </article>
+
+                <article class="child-card-note nested-surface">
+                    <strong>Como conduzir</strong>
+                    <p>@Model.WeeklyReading.ParentGuide</p>
+                </article>
+            </div>
+
+            <div class="hero-chip-row">
+                <span class="app-soft-pill">@Model.WeeklyReading.PhaseLabel</span>
+                <span class="app-soft-pill">@Model.WeeklyReading.MonthLabel</span>
+                <span class="app-soft-pill">@Model.WeeklyReading.CompletedReadingsLabel</span>
+                <span class="app-soft-pill">@(Model.WeeklyReading.IsCompleted ? Model.WeeklyReading.CompletedAtLabel : Model.WeeklyReading.CompletionStatusLabel)</span>
+            </div>
+
+            <article class="child-card-note nested-surface">
+                <strong>@Model.WeeklyReading.MonthlyGoal.Headline</strong>
+                <p>@Model.WeeklyReading.MonthlyGoal.Summary</p>
+                <div class="hero-chip-row">
+                    <span class="app-soft-pill">@Model.WeeklyReading.MonthlyGoal.ProgressLabel</span>
+                </div>
+                <p>@Model.WeeklyReading.MonthlyGoal.AutoCloseProjectionLabel</p>
+            </article>
+
+            @if (Model.WeeklyReading.MonthlyGoal.GoalBullets.Count > 0)
+            {
+                <div class="trail-checklist">
+                    @foreach (var item in Model.WeeklyReading.MonthlyGoal.GoalBullets)
+                    {
+                        <span>@item</span>
+                    }
+                </div>
+            }
+
+            @if (Model.WeeklyReading.MonthlyGoal.WeeklySequence.Count > 0)
+            {
+                <details class="micro-sequence-details">
+                    <summary>Ver sequência de literatura do mês</summary>
+                    <div class="phase-sequence-list">
+                        @foreach (var item in Model.WeeklyReading.MonthlyGoal.WeeklySequence)
+                        {
+                            <article class="phase-sequence-item @(item.IsCurrent ? "is-current" : string.Empty)">
+                                <div class="section-heading-row compact">
+                                    <strong>@item.WeekLabel</strong>
+                                    <span class="app-status @(item.IsCompleted ? "success" : item.IsCurrent ? "warning" : "neutral")">@item.StatusLabel</span>
+                                </div>
+                                <p><strong>@item.Title</strong></p>
+                                <p>@item.Summary</p>
+                            </article>
+                        }
+                    </div>
+                </details>
+            }
+
+            @if (Model.WeeklyReading.CurrentUnit is not null)
+            {
+                <article class="child-card-note nested-surface">
+                    <strong>Unidade do ano desta fase</strong>
+                    <p><strong>@Model.WeeklyReading.CurrentUnit.UnitLabel • @Model.WeeklyReading.CurrentUnit.Title</strong></p>
+                    <p>@Model.WeeklyReading.CurrentUnit.Summary</p>
+                    <p>@Model.WeeklyReading.CurrentUnit.ParentGuide</p>
+
+                    <div class="guided-lesson-meta-grid">
+                        <article class="child-card-note nested-surface">
+                            <strong>Tarefa escrita curta</strong>
+                            <p><strong>@Model.WeeklyReading.CurrentUnit.WritingTaskTitle</strong></p>
+                            <p>@Model.WeeklyReading.CurrentUnit.WritingTaskPrompt</p>
+                        </article>
+
+                        <article class="child-card-note nested-surface">
+                            <strong>Quando considerar pronta</strong>
+                            <p>@Model.WeeklyReading.CurrentUnit.WritingCompletionSignal</p>
+                        </article>
+                    </div>
+
+                    <article class="child-card-note nested-surface">
+                        <strong>Evidência opcional</strong>
+                        <p>@Model.WeeklyReading.CurrentUnit.OptionalEvidencePrompt</p>
+                    </article>
+
+                    @if (Model.WeeklyReading.CurrentUnit.UnitFlow.Count > 0)
+                    {
+                        <div class="simple-steps-list compact">
+                            @for (var i = 0; i < Model.WeeklyReading.CurrentUnit.UnitFlow.Count; i++)
+                            {
+                                <article class="simple-step-item">
+                                    <strong>Etapa @(i + 1)</strong>
+                                    <p>@Model.WeeklyReading.CurrentUnit.UnitFlow[i]</p>
+                                </article>
+                            }
+                        </div>
+                    }
+
+                    @if (Model.WeeklyReading.CurrentUnit.Book is not null || Model.WeeklyReading.CurrentUnit.Printable is not null)
+                    {
+                        <div class="guided-lesson-links">
+                            @if (Model.WeeklyReading.CurrentUnit.Book is not null)
+                            {
+                                <a class="btn-secondary" href="@Model.WeeklyReading.CurrentUnit.Book.AccessUrl">@Model.WeeklyReading.CurrentUnit.Book.AccessLabel</a>
+                            }
+                            @if (Model.WeeklyReading.CurrentUnit.Printable is not null)
+                            {
+                                <a class="btn-secondary" href="@Model.WeeklyReading.CurrentUnit.Printable.AccessUrl">@Model.WeeklyReading.CurrentUnit.Printable.AccessLabel</a>
+                            }
+                        </div>
+                    }
+                </article>
+            }
+
+            @if (Model.WeeklyReading.WeekSteps.Count > 0)
+            {
+                <div class="simple-steps-list compact">
+                    @for (var i = 0; i < Model.WeeklyReading.WeekSteps.Count; i++)
+                    {
+                        <article class="simple-step-item">
+                            <strong>Encontro @(i + 1)</strong>
+                            <p>@Model.WeeklyReading.WeekSteps[i]</p>
+                        </article>
+                    }
+                </div>
+            }
+
+            <div class="guided-lesson-meta-grid">
+                @if (Model.WeeklyReading.Book is not null)
+                {
+                    <article class="child-card-note nested-surface">
+                        <strong>Livro da semana</strong>
+                        <p><strong>@Model.WeeklyReading.Book.Title</strong></p>
+                        <p>@Model.WeeklyReading.Book.FitReason</p>
+                        <a class="btn-primary" href="@Model.WeeklyReading.Book.AccessUrl">@Model.WeeklyReading.Book.AccessLabel</a>
+                    </article>
+                }
+
+                @if (Model.WeeklyReading.Printable is not null)
+                {
+                    <article class="child-card-note nested-surface">
+                        <strong>Atividade de papel</strong>
+                        <p><strong>@Model.WeeklyReading.Printable.Title</strong></p>
+                        <p>@Model.WeeklyReading.Printable.FitReason</p>
+                        <a class="btn-secondary" href="@Model.WeeklyReading.Printable.AccessUrl">@Model.WeeklyReading.Printable.AccessLabel</a>
+                    </article>
+                }
+            </div>
+
+            <article class="child-card-note nested-surface">
+                <strong>Quando considerar feita</strong>
+                <p>@Model.WeeklyReading.CompletionSignal</p>
+                <p>@Model.WeeklyReading.ReflectionPrompt</p>
+            </article>
+
+            @if (Model.WeeklyReading.Book is not null && Model.SelectedChildId.HasValue && Model.WeeklyReading.MaterialId.HasValue)
+            {
+                if (Model.WeeklyReading.IsCompleted)
+                {
+                    <div class="lesson-complete-chip">
+                        <strong>Leitura da semana já registrada.</strong>
+                        <span>@Model.WeeklyReading.Book.Title entrou no histórico pedagógico de @Model.SelectedChildName em @Model.WeeklyReading.CompletedAtLabel.</span>
+                    </div>
+                }
+                else
+                {
+                    <form method="post" asp-controller="Library" asp-action="MarkWeeklyReadingComplete" class="guided-complete-form">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="childId" value="@Model.SelectedChildId" />
+                        <input type="hidden" name="materialId" value="@Model.WeeklyReading.MaterialId" />
+                        <input type="hidden" name="phaseNumber" value="@Model.WeeklyReading.PhaseNumber" />
+                        <input type="hidden" name="periodKey" value="@Model.WeeklyReading.PeriodKey" />
+                        <input type="hidden" name="weekNumber" value="@Model.WeeklyReading.WeekNumber" />
+                        <input type="hidden" name="phaseLabel" value="@Model.WeeklyReading.PhaseLabel" />
+                        <input type="hidden" name="goalLabel" value="@Model.WeeklyReading.WeeklyGoal" />
+                        <input type="hidden" name="returnUrl" value="@currentUrl" />
+                        <p class="input-helper">Quando os encontros da semana terminarem com <strong>@Model.WeeklyReading.Book.Title</strong>, registre aqui para essa leitura aparecer no plano anual.</p>
+                        <button class="btn-primary" type="submit">@Model.WeeklyReading.CompletionActionLabel</button>
+                    </form>
+                }
+            }
+
+            @if (Model.WeeklyReading.RecentHistory.Count > 0)
+            {
+                <article class="child-card-note nested-surface">
+                    <strong>Histórico de leituras desta criança</strong>
+                    <div class="simple-steps-list compact">
+                        @foreach (var item in Model.WeeklyReading.RecentHistory)
+                        {
+                            <article class="simple-step-item">
+                                <strong>@item.Title</strong>
+                                <p>@item.PhaseLabel • @item.CompletedAtLabel</p>
+                                @if (!string.IsNullOrWhiteSpace(item.GoalLabel))
+                                {
+                                    <p>@item.GoalLabel</p>
+                                }
+                            </article>
+                        }
+                    </div>
+                </article>
+            }
+        </section>
+    }
+
+    @if (Model.AnnualReadingSpine is not null && Model.AnnualReadingSpine.Phases.Count > 0)
+    {
+        <section class="family-library-section">
+            <div class="family-library-section-heading">
+                <div>
+                    <span class="app-kicker">Literatura do ano</span>
+                    <h2>@Model.AnnualReadingSpine.Headline</h2>
+                </div>
+                <span class="app-status success">@Model.AnnualReadingSpine.CurrentPhaseLabel</span>
+            </div>
+
+            <p>@Model.AnnualReadingSpine.Summary</p>
+            <div class="hero-chip-row">
+                <span class="app-soft-pill">@Model.AnnualReadingSpine.CompletedReadingsLabel</span>
+            </div>
+
+            <div class="lesson-collapsible-list">
+                @foreach (var phase in Model.AnnualReadingSpine.Phases)
+                {
+                    <details class="lesson-collapsible" @(phase.IsCurrent ? "open" : null)>
+                        <summary>
+                            <div>
+                                <strong>@phase.PhaseLabel • @phase.Title</strong>
+                                <p>@phase.Summary</p>
+                            </div>
+                            <span class="app-status @(phase.IsCurrent ? "success" : "neutral")">
+                                @(phase.IsCurrent ? "agora" : "depois")
+                            </span>
+                        </summary>
+
+                        <div class="lesson-collapsible-body">
+                            <div class="details-grid">
+                                <article class="child-card-note nested-surface">
+                                    <strong>Ritmo sugerido</strong>
+                                    <p>@phase.WeeklyRhythm</p>
+                                </article>
+
+                                <article class="child-card-note nested-surface">
+                                    <strong>Como conduzir</strong>
+                                    <p>@phase.ParentGuide</p>
+                                </article>
+
+                                <article class="child-card-note nested-surface">
+                                    <strong>Sinal para avançar</strong>
+                                    <p>@phase.CompletionSignal</p>
+                                </article>
+                            </div>
+
+                            <article class="child-card-note nested-surface">
+                                <strong>Literatura concluída nesta etapa</strong>
+                                <p>@phase.CompletedCountLabel</p>
+                                <p>@phase.AutoCloseLabel</p>
+
+                                @if (phase.CompletedItems.Count == 0)
+                                {
+                                    <p>Quando a família marcar uma leitura da semana como feita, ela aparece aqui.</p>
+                                }
+                                else
+                                {
+                                    <div class="simple-steps-list compact">
+                                        @foreach (var item in phase.CompletedItems)
+                                        {
+                                            <article class="simple-step-item">
+                                                <strong>@item.Title</strong>
+                                                <p>@item.CompletedAtLabel</p>
+                                                @if (!string.IsNullOrWhiteSpace(item.GoalLabel))
+                                                {
+                                                    <p>@item.GoalLabel</p>
+                                                }
+                                            </article>
+                                        }
+                                    </div>
+                                }
+                            </article>
+
+                            @if (phase.UnitSequences.Count > 0)
+                            {
+                                <details class="micro-sequence-details" @(phase.IsCurrent ? "open" : null)>
+                                    <summary>Ver unidades desta etapa</summary>
+                                    <div class="phase-sequence-list">
+                                        @foreach (var unit in phase.UnitSequences)
+                                        {
+                                            <article class="phase-sequence-item @(unit.IsCurrent ? "is-current" : string.Empty)">
+                                                <div class="section-heading-row compact">
+                                                    <strong>@unit.UnitLabel</strong>
+                                                    <span class="app-status @(unit.IsCurrent ? "warning" : "neutral")">
+                                                        @(unit.IsCurrent ? "agora" : "depois")
+                                                    </span>
+                                                </div>
+                                                <p><strong>@unit.Title</strong></p>
+                                                <p>@unit.Summary</p>
+                                                <p><strong>Tarefa escrita curta:</strong> @unit.WritingTaskTitle</p>
+                                                <p>@unit.WritingTaskPrompt</p>
+                                                <p><strong>Quando considerar pronta:</strong> @unit.WritingCompletionSignal</p>
+                                                <p><strong>Evidência opcional:</strong> @unit.OptionalEvidencePrompt</p>
+
+                                                @if (unit.UnitFlow.Count > 0)
+                                                {
+                                                    <div class="simple-steps-list compact">
+                                                        @for (var i = 0; i < unit.UnitFlow.Count; i++)
+                                                        {
+                                                            <article class="simple-step-item">
+                                                                <strong>Etapa @(i + 1)</strong>
+                                                                <p>@unit.UnitFlow[i]</p>
+                                                            </article>
+                                                        }
+                                                    </div>
+                                                }
+
+                                                @if (unit.Book is not null || unit.Printable is not null)
+                                                {
+                                                    <div class="guided-lesson-links">
+                                                        @if (unit.Book is not null)
+                                                        {
+                                                            <a class="btn-secondary" href="@unit.Book.AccessUrl">@unit.Book.AccessLabel</a>
+                                                        }
+                                                        @if (unit.Printable is not null)
+                                                        {
+                                                            <a class="btn-secondary" href="@unit.Printable.AccessUrl">@unit.Printable.AccessLabel</a>
+                                                        }
+                                                    </div>
+                                                }
+                                            </article>
+                                        }
+                                    </div>
+                                </details>
+                            }
+
+                            <div class="guided-lesson-meta-grid">
+                                @if (phase.Book is not null)
+                                {
+                                    <article class="child-card-note nested-surface">
+                                        <strong>Livro central</strong>
+                                        <p><strong>@phase.Book.Title</strong></p>
+                                        <p>@phase.Book.FitReason</p>
+                                        <a class="btn-primary" href="@phase.Book.AccessUrl">@phase.Book.AccessLabel</a>
+                                    </article>
+                                }
+
+                                @if (phase.Printable is not null)
+                                {
+                                    <article class="child-card-note nested-surface">
+                                        <strong>Atividade de apoio</strong>
+                                        <p><strong>@phase.Printable.Title</strong></p>
+                                        <p>@phase.Printable.FitReason</p>
+                                        <a class="btn-secondary" href="@phase.Printable.AccessUrl">@phase.Printable.AccessLabel</a>
+                                    </article>
+                                }
+                            </div>
+                        </div>
+                    </details>
+                }
+            </div>
+        </section>
+    }
+
+    @if (Model.CurriculumShelves.Count > 0)
+    {
+        @if (Model.SystemCurriculumTracks.Count > 0)
+        {
+            <section class="family-library-section">
+                <div class="family-library-section-heading">
+                    <div>
+                        <span class="app-kicker">Currículo próprio do sistema</span>
+                        <h2>As matérias do ano já mostram a unidade certa de agora</h2>
+                    </div>
+                </div>
+
+                <div class="curriculum-subject-grid">
+                    @foreach (var track in Model.SystemCurriculumTracks)
+                    {
+                        <article class="curriculum-subject-card">
+                            <div class="child-dashboard-top">
+                                <div>
+                                    <h3>@track.Title</h3>
+                                    <p>@track.AgeBandLabel • @track.CurrentPhaseLabel</p>
+                                </div>
+                                <span class="app-status @track.DomainChipClass">@track.DomainLabel</span>
+                            </div>
+
+                            @if (track.CurrentUnit is not null)
+                            {
+                                <article class="child-card-note">
+                                    <strong>Unidade que vale agora</strong>
+                                    <p><strong>@track.CurrentUnit.UnitLabel • @track.CurrentUnit.Title</strong></p>
+                                    <p>@track.CurrentUnit.Summary</p>
+                                </article>
+
+                                <div class="guided-lesson-meta-grid">
+                                    <article class="child-card-note nested-surface">
+                                        <strong>Tarefa principal da unidade</strong>
+                                        <p>@track.CurrentUnit.TaskPrompt</p>
+                                    </article>
+
+                                    <article class="child-card-note nested-surface">
+                                        <strong>Quando seguir</strong>
+                                        <p>@track.CurrentUnit.CompletionSignal</p>
+                                    </article>
+                                </div>
+                            }
+
+                            @if (track.PhaseSequences.Count > 0)
+                            {
+                                <details class="micro-sequence-details">
+                                    <summary>Ver sequência do ano</summary>
+                                    <div class="phase-sequence-list">
+                                        @foreach (var phase in track.PhaseSequences)
+                                        {
+                                            <article class="phase-sequence-item @(phase.IsCurrent ? "is-current" : string.Empty)">
+                                                <div class="section-heading-row compact">
+                                                    <strong>@phase.PhaseLabel</strong>
+                                                    <span class="app-status @(phase.IsCurrent ? "success" : "neutral")">
+                                                        @(phase.IsCurrent ? "agora" : "depois")
+                                                    </span>
+                                                </div>
+                                                <p>@phase.Summary</p>
+
+                                                @if (phase.Units.Count > 0)
+                                                {
+                                                    <div class="simple-steps-list compact">
+                                                        @foreach (var unit in phase.Units)
+                                                        {
+                                                            <article class="simple-step-item">
+                                                                <strong>@unit.UnitLabel • @unit.Title</strong>
+                                                                <p>@unit.Summary</p>
+                                                                <p><strong>Tarefa:</strong> @unit.TaskPrompt</p>
+                                                            </article>
+                                                        }
+                                                    </div>
+                                                }
+                                            </article>
+                                        }
+                                    </div>
+                                </details>
+                            }
+                        </article>
+                    }
+                </div>
+            </section>
+        }
+
+        <section class="family-library-section">
+            <div class="family-library-section-heading">
+                <div>
+                    <span class="app-kicker">Organizada pelo currículo</span>
+                    <h2>Rotas prontas para abrir o que combina com a fase da criança</h2>
+                </div>
+            </div>
+
+            <div class="lesson-collapsible-list">
+                @foreach (var shelf in Model.CurriculumShelves)
+                {
+                    <details class="lesson-collapsible">
+                        <summary>
+                            <div>
+                                <strong>@shelf.Title</strong>
+                                <p>@shelf.Summary</p>
+                            </div>
+                            <span class="app-status neutral">@shelf.Items.Count item(ns)</span>
+                        </summary>
+
+                        <div class="lesson-collapsible-body">
+                            <div class="family-library-book-grid">
+                                @foreach (var item in shelf.Items)
+                                {
+                                    <article class="family-library-book-card">
+                                        <div class="family-library-book-copy">
+                                            <div class="family-library-book-topline">
+                                                <span class="family-library-chip">@(item.IsPrintable ? "Atividade" : "Livro")</span>
+                                                <span class="family-library-status @(item.IsCompleted ? "complete" : item.IsStarted ? "reading" : "new")">@item.ProgressLabel</span>
+                                            </div>
+                                            <h3>@item.Title</h3>
+                                            <p>@item.Description</p>
+                                            <div class="family-library-book-meta">
+                                                <span>@item.Category</span>
+                                                <span>@item.EducationStage</span>
+                                            </div>
+                                            <div class="family-library-progress-note">@item.FitReason</div>
+                                        </div>
+
+                                        <div class="family-library-book-actions">
+                                            <span class="family-library-age-note">@item.AgeLabel</span>
+                                            <a class="btn-primary" href="@item.AccessUrl">@item.AccessLabel</a>
+                                        </div>
+                                    </article>
+                                }
+                            </div>
+
+                            <div class="hero-action-row">
+                                <a class="btn-secondary" href="@shelf.ActionUrl">@shelf.ActionLabel</a>
+                            </div>
+                        </div>
+                    </details>
+                }
+            </div>
+        </section>
+    }
+
+    @if (Model.CurrentBook is not null)
+    {
+        <section class="family-library-current-book">
+            <div>
+                <span class="app-kicker">Livro atual</span>
+                <h2>@Model.CurrentBook.Title</h2>
+                <p>@Model.CurrentBook.Description</p>
+                <div class="family-library-book-meta">
+                    <span>@Model.CurrentBook.Category</span>
+                    <span>@Model.CurrentBook.EducationStage</span>
+                    <span>Página @Model.CurrentBook.CurrentPageNumber de @Model.CurrentBook.PageCount</span>
+                </div>
+            </div>
+            @if (Model.SelectedChildId.HasValue)
+            {
+                <a class="btn-primary" asp-controller="Library" asp-action="Book" asp-route-id="@Model.CurrentBook.Id" asp-route-childId="@Model.SelectedChildId">Continuar leitura</a>
+            }
+            else
+            {
+                <a class="btn-primary" asp-controller="Library" asp-action="Book" asp-route-id="@Model.CurrentBook.Id">Continuar leitura</a>
+            }
+        </section>
+    }
+
+    @if (Model.FavoriteItems.Count > 0)
+    {
+        <section class="family-library-section">
+            <div class="family-library-section-heading">
+                <div>
+                    <span class="app-kicker">Favoritos</span>
+                    <h2>Livros guardados para voltar sempre.</h2>
+                </div>
+            </div>
+            <div class="family-library-book-grid">
+                @foreach (var book in Model.FavoriteItems)
+                {
+                    <partial name="_BookCard" model="book" />
+                }
+            </div>
+        </section>
+    }
+
+    @if (Model.CompletedItems.Count > 0)
+    {
+        <details class="family-library-section family-library-collapsible">
+            <summary class="family-library-collapsible-summary">
+                <div>
+                    <span class="app-kicker">Já lidos</span>
+                    <h2>Livros concluídos até a última página.</h2>
+                </div>
+                <span class="app-status neutral">@Model.CompletedItems.Count livro(s)</span>
+            </summary>
+            <div class="family-library-book-grid">
+                @foreach (var book in Model.CompletedItems)
+                {
+                    <partial name="_BookCard" model="book" />
+                }
+            </div>
+        </details>
+    }
+
+        <section class="family-library-section">
+            <div class="family-library-section-heading">
+                <div>
+                    <span class="app-kicker">Acervo completo</span>
+                    <h2>Todos os livros importados para leitura online.</h2>
+                </div>
+                @if (Model.SelectedChildId.HasValue)
+                {
+                    <a class="btn-secondary" asp-controller="Library" asp-action="Printables" asp-route-childId="@Model.SelectedChildId">Ver imprimíveis</a>
+                }
+                else
+                {
+                    <a class="btn-secondary" asp-controller="Library" asp-action="Printables">Ver imprimíveis</a>
+                }
+            </div>
+
+        <form method="get" class="family-library-tools">
+            @if (Model.SelectedChildId.HasValue)
+            {
+                <input type="hidden" name="childId" value="@Model.SelectedChildId" />
+            }
+            <div class="family-library-search-panel">
+                <label for="library-search">Buscar livro por nome</label>
+                <input id="library-search" class="input family-library-search-input" type="search" name="q" value="@Model.SearchTerm" placeholder="Digite o nome do livro" />
+            </div>
+
+            <div class="family-library-filter-grid">
+                <div>
+                    <label for="collection">Coleção</label>
+                    <select id="collection" name="collection" class="input">
+                        <option value="">Todas as coleções</option>
+                        @foreach (var filter in Model.CollectionFilters)
+                        {
+                            if (string.Equals(Model.SelectedCollection, filter, StringComparison.OrdinalIgnoreCase))
+                            {
+                                <option value="@filter" selected>@filter</option>
+                            }
+                            else
+                            {
+                                <option value="@filter">@filter</option>
+                            }
+                        }
+                    </select>
+                </div>
+
+                <div>
+                    <label for="stage">Etapa</label>
+                    <select id="stage" name="stage" class="input">
+                        <option value="">Todas as etapas</option>
+                        @foreach (var filter in Model.StageFilters)
+                        {
+                            if (string.Equals(Model.SelectedStage, filter, StringComparison.OrdinalIgnoreCase))
+                            {
+                                <option value="@filter" selected>@filter</option>
+                            }
+                            else
+                            {
+                                <option value="@filter">@filter</option>
+                            }
+                        }
+                    </select>
+                </div>
+
+                @if (Model.AgeFilters.Count > 0)
+                {
+                    <div>
+                        <label for="age">Idade / ano</label>
+                        <select id="age" name="age" class="input">
+                            <option value="">Todas as faixas</option>
+                            @foreach (var filter in Model.AgeFilters)
+                            {
+                                if (string.Equals(Model.SelectedAgeFilter, filter, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    <option value="@filter" selected>@filter</option>
+                                }
+                                else
+                                {
+                                    <option value="@filter">@filter</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                }
+            </div>
+
+            <div class="family-library-tools-footer">
+                <p>@Model.Books.Count de @Model.TotalBooks livros encontrados.</p>
+                <div class="family-library-hero-actions">
+                    <button class="btn-primary" type="submit">Aplicar filtros</button>
+                    @if (Model.SelectedChildId.HasValue)
+                    {
+                        <a class="btn-secondary" asp-controller="Library" asp-action="Index" asp-route-childId="@Model.SelectedChildId">Limpar filtros</a>
+                    }
+                    else
+                    {
+                        <a class="btn-secondary" asp-controller="Library" asp-action="Index">Limpar filtros</a>
+                    }
+                </div>
+            </div>
+        </form>
+
+        @if (Model.Books.Count == 0)
+        {
+            <section class="panel">
+                <span class="app-kicker">Sem resultados</span>
+                <h2>Nenhum livro combina com os filtros</h2>
+                <p>Tente outra busca ou limpe os filtros para voltar ao acervo completo.</p>
+            </section>
+        }
+        else
+        {
+            <div class="family-library-book-grid">
+                @foreach (var book in Model.Books)
+                {
+                    <partial name="_BookCard" model="book" />
+                }
+            </div>
+        }
+    </section>
+</section>

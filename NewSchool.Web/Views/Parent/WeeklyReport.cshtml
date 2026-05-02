@@ -1,0 +1,79 @@
+@model NewSchool.Web.Models.WeeklyReportPrintViewModel
+@{
+    ViewData["Title"] = "Relatorio semanal";
+}
+
+<section class="family-app-shell">
+    <section class="family-hero-card">
+        <div class="family-hero-copy">
+            <span class="app-kicker">Resumo semanal</span>
+            <h1>@Model.ParentName</h1>
+            <p>Semana de @Model.WeekLabel. Esta tela existe para o pai abrir no celular e entender rápido o que avançou, o que travou e o que deve virar foco da próxima semana.</p>
+        </div>
+
+        <div class="hero-status-card">
+            <span class="app-status success">Leitura rápida</span>
+            <strong>@Model.WeeklyReport.Children.Count criança(s) no relatório</strong>
+            <div class="hero-action-row">
+                <a class="btn-secondary" asp-action="Index">Voltar ao painel</a>
+                <button class="btn-primary" type="button" onclick="window.print()">Imprimir / PDF</button>
+            </div>
+        </div>
+    </section>
+
+    <section class="family-highlight-grid">
+        <article class="overview-card">
+            <span class="app-kicker">Panorama da família</span>
+            <h2>O que melhorou</h2>
+            <p>@Model.WeeklyReport.ImprovedSummary</p>
+        </article>
+
+        <article class="overview-card">
+            <span class="app-kicker">Atenção da semana</span>
+            <h2>O que revisar</h2>
+            <p>@Model.WeeklyReport.ReviewSummary</p>
+        </article>
+
+        <article class="overview-card">
+            <span class="app-kicker">Próximo avanço</span>
+            <h2>O que destravar depois</h2>
+            <p>@Model.WeeklyReport.AdvanceSummary</p>
+        </article>
+    </section>
+
+    <section class="children-dashboard-grid">
+        @foreach (var child in Model.WeeklyReport.Children)
+        {
+            <article class="child-dashboard-card">
+                <div class="child-dashboard-top">
+                    <div>
+                        <span class="app-kicker">Relatório por criança</span>
+                        <h3>@child.ChildName</h3>
+                    </div>
+                </div>
+
+                <div class="child-card-note">
+                    <strong>Melhorou</strong>
+                    <p>@child.ImprovedSkill</p>
+                </div>
+
+                <div class="child-card-note">
+                    <strong>Revisar</strong>
+                    <p>@(string.IsNullOrWhiteSpace(child.ReviewSkill) ? "Nenhum reforço forte no momento." : child.ReviewSkill)</p>
+                </div>
+
+                <div class="child-card-note">
+                    <strong>Avançar</strong>
+                    <p>@(string.IsNullOrWhiteSpace(child.AdvanceSkill) ? "Ainda não há habilidade pronta para subir." : child.AdvanceSkill)</p>
+                </div>
+
+                <div class="child-alert-box">
+                    <strong>Recomendação da próxima semana</strong>
+                    <p>@child.NextWeekRecommendation</p>
+                </div>
+
+                <a class="btn-secondary" asp-action="Child" asp-route-id="@child.ChildId">Abrir painel da criança</a>
+            </article>
+        }
+    </section>
+</section>

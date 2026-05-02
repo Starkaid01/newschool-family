@@ -1,0 +1,105 @@
+@model NewSchool.Web.Models.FamilyLibraryReaderViewModel
+@{
+    ViewData["Title"] = Model.Title;
+    var returnUrl = $"{ViewContext.HttpContext.Request.Path}{ViewContext.HttpContext.Request.QueryString}";
+    var previousPage = Math.Max(1, Model.CurrentPageNumber - 1);
+    var nextPage = Math.Min(Model.PageCount, Model.CurrentPageNumber + 1);
+}
+
+<section class="family-library-shell">
+    <section class="family-library-reader-shell">
+        <div class="family-library-reader-top">
+            <a class="btn-secondary" href="@Model.BackLibraryUrl">Voltar para a biblioteca</a>
+            <a class="btn-secondary" href="@Model.BackPrintablesUrl">Imprimíveis</a>
+        </div>
+
+        <section class="family-library-reader-header">
+            <div>
+                <span class="app-kicker">@Model.EducationStage</span>
+                <h1>@Model.Title</h1>
+                <p>@Model.Description</p>
+                <div class="family-library-book-meta">
+                    <span>@Model.Category</span>
+                    <span>@Model.CollectionLabel</span>
+                    <span>@Model.SkillFocus</span>
+                </div>
+            </div>
+
+            <div class="family-library-reader-side">
+                <span class="app-status @(Model.IsCompleted ? "success" : "neutral")">
+                    @(Model.IsCompleted ? "Livro concluído" : $"Página {Model.CurrentPageNumber} de {Model.PageCount}")
+                </span>
+                <form method="post" asp-controller="Library" asp-action="ToggleFavorite">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="id" value="@Model.Id" />
+                    <input type="hidden" name="returnUrl" value="@returnUrl" />
+                    <button class="family-library-favorite-button @(Model.IsFavorite ? "is-active" : string.Empty)" type="submit">
+                        @(Model.IsFavorite ? "Favorito" : "Favoritar")
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <section class="family-library-reader-card">
+            <div class="family-library-page-header">
+                <span class="app-kicker">Pág. @Model.CurrentPage.PageNumber</span>
+                <form method="get" class="family-library-page-jump">
+                    <input type="hidden" name="id" value="@Model.Id" />
+                    @if (Model.SelectedChildId.HasValue)
+                    {
+                        <input type="hidden" name="childId" value="@Model.SelectedChildId" />
+                    }
+                    <label for="pageNumber">Ir para</label>
+                    <select id="pageNumber" name="pageNumber" class="input">
+                        @foreach (var pageItem in Model.Pages)
+                        {
+                            if (pageItem.PageNumber == Model.CurrentPageNumber)
+                            {
+                                <option value="@pageItem.PageNumber" selected>Pág. @pageItem.PageNumber</option>
+                            }
+                            else
+                            {
+                                <option value="@pageItem.PageNumber">Pág. @pageItem.PageNumber</option>
+                            }
+                        }
+                    </select>
+                    <button class="btn-secondary" type="submit">Abrir</button>
+                </form>
+            </div>
+
+            @if (Model.CurrentPage.HasImage)
+            {
+                <img class="family-library-page-image" src="@Model.CurrentPage.ImageUrl" alt="Ilustração da página @Model.CurrentPage.PageNumber de @Model.Title" />
+            }
+
+            @if (Model.CurrentPage.HasText)
+            {
+                <div class="family-library-page-text">@Model.CurrentPage.TextContent</div>
+            }
+        </section>
+
+        <div class="family-library-reader-navigation">
+            <a class="btn-secondary @(Model.CurrentPageNumber == 1 ? "is-disabled" : string.Empty)"
+               asp-controller="Library"
+               asp-action="Book"
+               asp-route-id="@Model.Id"
+               asp-route-childId="@Model.SelectedChildId"
+               asp-route-pageNumber="@previousPage"
+               aria-disabled="@(Model.CurrentPageNumber == 1)">
+                Página anterior
+            </a>
+
+            <span class="family-library-reader-counter">Página @Model.CurrentPageNumber de @Model.PageCount</span>
+
+            <a class="btn-primary @(Model.CurrentPageNumber == Model.PageCount ? "is-disabled" : string.Empty)"
+               asp-controller="Library"
+               asp-action="Book"
+               asp-route-id="@Model.Id"
+               asp-route-childId="@Model.SelectedChildId"
+               asp-route-pageNumber="@nextPage"
+               aria-disabled="@(Model.CurrentPageNumber == Model.PageCount)">
+                Próxima página
+            </a>
+        </div>
+    </section>
+</section>

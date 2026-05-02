@@ -1,0 +1,205 @@
+@model NewSchool.Web.Models.HomeIndexViewModel
+@{
+    ViewData["Title"] = "Rotina simples para ensino domiciliar";
+    ViewData["MetaDescription"] = "Ensino domiciliar no celular com curriculo, aula do dia, leituras, materiais brasileiros e evidencias em um fluxo mais claro para a familia.";
+    var isAuthenticated = User.Identity?.IsAuthenticated == true;
+    var primaryUrl = isAuthenticated
+        ? Url.Action("Index", "Parent")
+        : Url.Action("Register", "Account");
+    var secondaryUrl = isAuthenticated
+        ? "#materiais"
+        : Url.Action("Login", "Account");
+    var primaryLabel = isAuthenticated ? "Abrir painel da familia" : "Criar conta";
+    var secondaryLabel = isAuthenticated ? "Ver materiais prontos" : "Ja tenho acesso";
+}
+
+<section class="landing-hero">
+    <div class="landing-copy">
+        <h1>Menos confusao. Mais direcao para ensinar, registrar e guardar a rotina da crianca.</h1>
+        <p class="landing-lead">
+            O NewSchool Family foi reorganizado para pais que nao sao professores:
+            cada crianca com seu painel, aula do dia, materiais prontos por idade,
+            evolucao simples e acervo de fotos e videos em um lugar mais facil de usar no celular.
+        </p>
+
+        <div class="landing-actions">
+            <a class="landing-primary" href="@primaryUrl">@primaryLabel</a>
+            <a class="landing-secondary" href="@secondaryUrl">@secondaryLabel</a>
+        </div>
+
+        <div class="landing-pills">
+            <span>curriculo por idade</span>
+            <span>aula do dia</span>
+            <span>acervo com miniaturas</span>
+            <span>materiais brasileiros prontos</span>
+        </div>
+
+        <div class="landing-metrics">
+            <article>
+                <strong>@Model.TotalFamilies</strong>
+                <span>familias</span>
+            </article>
+            <article>
+                <strong>@Model.TotalChildren</strong>
+                <span>criancas</span>
+            </article>
+            <article>
+                <strong>@Model.SessionsDelivered</strong>
+                <span>registros</span>
+            </article>
+            <article>
+                <strong>@Model.EvidenceCaptured</strong>
+                <span>evidencias</span>
+            </article>
+        </div>
+    </div>
+
+    <aside class="landing-preview">
+        <div class="phone-preview">
+            <div class="phone-preview-top">
+                <strong>Aula de hoje</strong>
+                <span>25 min</span>
+            </div>
+
+            <h2>Som inicial das palavras</h2>
+            <p>Separar figuras, falar os sons e registrar uma foto da atividade concluida.</p>
+
+            <div class="phone-preview-pills">
+                <span>6 a 8 anos</span>
+                <span>Alfabetizacao</span>
+            </div>
+
+            <div class="phone-preview-grid">
+                <div>
+                    <label>Leitura</label>
+                    <strong>4/5</strong>
+                </div>
+                <div>
+                    <label>Escrita</label>
+                    <strong>3/5</strong>
+                </div>
+                <div>
+                    <label>Rotina</label>
+                    <strong>5/5</strong>
+                </div>
+            </div>
+
+            <div class="phone-preview-thumbs">
+                <div class="preview-thumb warm"></div>
+                <div class="preview-thumb teal"></div>
+                <div class="preview-thumb sand"></div>
+            </div>
+        </div>
+    </aside>
+</section>
+
+@await Component.InvokeAsync("AdBanner", new
+{
+    zone = "home-top",
+    label = "Espaco pronto para patrocinio educacional",
+    description = "Area mobile-first reservada para anuncios futuros no topo do conteudo publico.",
+    variant = "banner"
+})
+
+<section class="landing-section">
+    <div class="landing-section-head">
+        <div>
+            <p class="landing-kicker">feito para o celular</p>
+            <h2>O pai abre e ja sabe qual e o proximo passo</h2>
+            <p>
+                Sem excesso de blocos, sem cara de painel tecnico e sem precisar caçar material em muitos lugares.
+            </p>
+        </div>
+    </div>
+
+    <div class="landing-grid landing-grid-3">
+        <article class="landing-card">
+            <strong>1. Escolha a crianca</strong>
+            <p>Abra o painel da crianca e veja a aula do dia, os focos do curriculo e as ultimas evidencias.</p>
+        </article>
+        <article class="landing-card">
+            <strong>2. Use uma trilha pronta</strong>
+            <p>Comece por alfabetizacao, matematica, autonomia ou ciencias sem montar um plano do zero.</p>
+        </article>
+        <article class="landing-card">
+            <strong>3. Guarde a prova</strong>
+            <p>Fotos e videos ficam em miniaturas simples para abrir, assistir ou baixar quando precisar.</p>
+        </article>
+    </div>
+</section>
+
+@await Component.InvokeAsync("AdBanner", new
+{
+    zone = "home-inline-middle",
+    label = "Espaco pronto para anuncio entre secoes",
+    description = "Reserva responsiva pensada para parceiros e monetizacao futura sem quebrar a leitura da landing.",
+    variant = "inline"
+})
+
+<section id="trilhas" class="landing-section">
+    <div class="landing-section-head">
+        <div>
+            <p class="landing-kicker">trilhas prontas</p>
+            <h2>Comece por uma rota que ja faz sentido</h2>
+        </div>
+    </div>
+
+    <div class="landing-grid landing-grid-2">
+        @foreach (var offer in Model.TrackOffers)
+        {
+            <article class="route-card">
+                <span class="route-pill">@offer.TrackLabel</span>
+                <strong>@offer.TrackLabel</strong>
+                <p>@offer.Description</p>
+                <a class="route-link" href="@offer.Url">Abrir trilha</a>
+            </article>
+        }
+    </div>
+</section>
+
+<section id="materiais" class="landing-section">
+    <div class="landing-section-head">
+        <div>
+            <p class="landing-kicker">materiais em um so lugar</p>
+            <h2>Fontes praticas para familias brasileiras</h2>
+            <p>
+                Em vez de esconder a origem, o sistema organiza melhor o que ja ajuda:
+                materiais gratuitos, acervos publicos e bibliotecas externas por faixa etaria.
+            </p>
+        </div>
+    </div>
+
+    <div class="landing-grid landing-grid-3">
+        @foreach (var resource in Model.ResourceSources)
+        {
+            <article class="source-card-new">
+                <strong>@resource.Title</strong>
+                <p>@resource.Description</p>
+                <a class="route-link" href="@resource.Url" target="_blank" rel="noopener noreferrer">@resource.ActionLabel</a>
+            </article>
+        }
+    </div>
+    <p class="landing-note">As fontes externas continuam no site original. O NewSchool organiza o uso e reduz a bagunca para a familia.</p>
+</section>
+
+@await Component.InvokeAsync("AdBanner", new
+{
+    zone = "home-inline-bottom",
+    label = "Espaco pronto para parceiro entre materiais e CTA",
+    description = "Reserva preparada para anuncio responsivo ou recomendacao patrocinada no fim da landing.",
+    variant = "inline"
+})
+
+<section class="landing-section landing-callout">
+    <div>
+        <p class="landing-kicker">agora sem enrolacao</p>
+        <h2>O sistema precisa ajudar quem esta ensinando, nao impressionar quem esta vendendo.</h2>
+        <p>
+            A prioridade agora e clareza de rotina, materiais acessiveis, registro simples e uma experiencia melhor no celular.
+        </p>
+    </div>
+    <div class="landing-callout-actions">
+        <a class="landing-primary" href="@primaryUrl">@primaryLabel</a>
+        <a class="landing-secondary" href="#trilhas">Ver trilhas</a>
+    </div>
+</section>

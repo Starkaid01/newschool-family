@@ -1,0 +1,16 @@
+@using Microsoft.Extensions.Options
+@inject IOptions<NewSchool.Web.Models.AdvertisingOptions> AdvertisingOptionsAccessor
+@{
+    var advertisingOptions = AdvertisingOptionsAccessor.Value;
+}
+<meta name="newschool-ads-ready" content="true" />
+@if (advertisingOptions.EnableAdScripts && !string.IsNullOrWhiteSpace(advertisingOptions.AdSenseClientId))
+{
+    <script async
+            src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=@advertisingOptions.AdSenseClientId"
+            crossorigin="anonymous"></script>
+}
+else
+{
+    <!-- Future ad network scripts should be inserted in this head slot after approval. -->
+}
