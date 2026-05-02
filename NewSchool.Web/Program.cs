@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Data.SqlClient;
@@ -20,9 +21,15 @@ if (builder.Environment.IsDevelopment())
     builder.Configuration.AddUserSecrets<Program>(optional: true);
 }
 
+var dedicatedConnectionString =
+    builder.Configuration["NewSchool:SqlConnectionString"]
+    ?? Environment.GetEnvironmentVariable("NEWSCHOOL_SQLSERVER_CONNECTION_STRING");
+
 var connectionString =
-    builder.Configuration.GetConnectionString("StarkaidSchoolConnection")
-    ?? throw new InvalidOperationException("Configure ConnectionStrings:StarkaidSchoolConnection para o banco online unico do NewSchool.");
+    dedicatedConnectionString
+    ?? builder.Configuration.GetConnectionString("StarkaidSchoolConnection")
+    ?? throw new InvalidOperationException(
+        "Configure NewSchool:SqlConnectionString (ou a variavel NEWSCHOOL_SQLSERVER_CONNECTION_STRING) para o banco online do NewSchool.");
 
 var sqlConnectionStringBuilder = new SqlConnectionStringBuilder(connectionString);
 
@@ -52,6 +59,16 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     });
 
 builder.Services.AddAuthorization();
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders =
+        ForwardedHeaders.XForwardedFor |
+        ForwardedHeaders.XForwardedProto |
+        ForwardedHeaders.XForwardedHost;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+    options.ForwardLimit = null;
+});
 builder.Services.Configure<StripeSettings>(builder.Configuration.GetSection("Stripe"));
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Email"));
 builder.Services.Configure<OpenRouterSettings>(builder.Configuration.GetSection("OpenRouter"));
@@ -117,6 +134,7 @@ StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
 
 await SeedData.InitializeAsync(app.Services, app.Environment);
 
+app.UseForwardedHeaders();
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();

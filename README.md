@@ -127,11 +127,18 @@ cp NewSchool.Web/appsettings.Local.example.json NewSchool.Web/appsettings.Local.
 You can also use **User Secrets** during development:
 
 ```bash
-dotnet user-secrets --project NewSchool.Web set "ConnectionStrings:StarkaidSchoolConnection" "Server=(localdb)\\MSSQLLocalDB;Database=NewSchoolDev;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=True;"
+dotnet user-secrets --project NewSchool.Web set "NewSchool:SqlConnectionString" "Server=(localdb)\\MSSQLLocalDB;Database=NewSchoolDev;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=True;"
+```
+
+If you prefer environment variables, the application also supports a dedicated variable that does not collide with other projects:
+
+```bash
+NEWSCHOOL_SQLSERVER_CONNECTION_STRING="Server=(localdb)\\MSSQLLocalDB;Database=NewSchoolDev;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=True;"
 ```
 
 Recommended local keys:
 
+- `NewSchool:SqlConnectionString`
 - `ConnectionStrings:StarkaidSchoolConnection`
 - `Stripe:PublishableKey`
 - `Stripe:SecretKey`
