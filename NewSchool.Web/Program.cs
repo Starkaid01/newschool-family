@@ -35,7 +35,7 @@ var connectionString =
 
 var sqlConnectionStringBuilder = new SqlConnectionStringBuilder(connectionString);
 
-var stripeSettings = builder.Configuration.GetSection("Stripe").Get<StripeSettings>() ?? new StripeSettings();
+var stripeSettings = ResolveStripeSettings(builder.Configuration);
 if (!builder.Environment.IsDevelopment())
 {
     if (string.IsNullOrWhiteSpace(stripeSettings.PublishableKey) || stripeSettings.PublishableKey.StartsWith("pk_test_", StringComparison.OrdinalIgnoreCase))
@@ -79,7 +79,19 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     options.KnownProxies.Clear();
     options.ForwardLimit = null;
 });
-builder.Services.Configure<StripeSettings>(builder.Configuration.GetSection("Stripe"));
+builder.Services.Configure<StripeSettings>(options =>
+{
+    options.PublishableKey = stripeSettings.PublishableKey;
+    options.SecretKey = stripeSettings.SecretKey;
+    options.PriceId = stripeSettings.PriceId;
+    options.PriceId20 = stripeSettings.PriceId20;
+    options.PriceId30 = stripeSettings.PriceId30;
+    options.PriceId80 = stripeSettings.PriceId80;
+    options.PriceId120 = stripeSettings.PriceId120;
+    options.PriceIdExtra100 = stripeSettings.PriceIdExtra100;
+    options.WebhookSecretSnapshot = stripeSettings.WebhookSecretSnapshot;
+    options.WebhookSecretMin = stripeSettings.WebhookSecretMin;
+});
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Email"));
 builder.Services.Configure<OpenRouterSettings>(builder.Configuration.GetSection("OpenRouter"));
 builder.Services.Configure<AdvertisingOptions>(builder.Configuration.GetSection(AdvertisingOptions.SectionName));
@@ -140,7 +152,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
+StripeConfiguration.ApiKey = stripeSettings.SecretKey;
 
 await SeedData.InitializeAsync(app.Services, app.Environment);
 
@@ -156,3 +168,47 @@ app.MapControllerRoute(
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
 app.Run();
+
+static StripeSettings ResolveStripeSettings(IConfiguration configuration)
+{
+    var stripeSettings = configuration.GetSection("Stripe").Get<StripeSettings>() ?? new StripeSettings();
+
+    stripeSettings.PublishableKey = FirstNonEmpty(
+        stripeSettings.PublishableKey,
+        Environment.GetEnvironmentVariable("NEWSCHOOL_STRIPE_PUBLISHABLE_KEY"));
+    stripeSettings.SecretKey = FirstNonEmpty(
+        stripeSettings.SecretKey,
+        Environment.GetEnvironmentVariable("NEWSCHOOL_STRIPE_SECRET_KEY"));
+    stripeSettings.PriceId = FirstNonEmpty(
+        stripeSettings.PriceId,
+        Environment.GetEnvironmentVariable("NEWSCHOOL_STRIPE_PRICE_ID"));
+    stripeSettings.PriceId20 = FirstNonEmpty(
+        stripeSettings.PriceId20,
+        Environment.GetEnvironmentVariable("NEWSCHOOL_STRIPE_PRICE_ID_20"),
+        stripeSettings.PriceId);
+    stripeSettings.PriceId30 = FirstNonEmpty(
+        stripeSettings.PriceId30,
+        Environment.GetEnvironmentVariable("NEWSCHOOL_STRIPE_PRICE_ID_30"));
+    stripeSettings.PriceId80 = FirstNonEmpty(
+        stripeSettings.PriceId80,
+        Environment.GetEnvironmentVariable("NEWSCHOOL_STRIPE_PRICE_ID_80"));
+    stripeSettings.PriceId120 = FirstNonEmpty(
+        stripeSettings.PriceId120,
+        Environment.GetEnvironmentVariable("NEWSCHOOL_STRIPE_PRICE_ID_120"));
+    stripeSettings.PriceIdExtra100 = FirstNonEmpty(
+        stripeSettings.PriceIdExtra100,
+        Environment.GetEnvironmentVariable("NEWSCHOOL_STRIPE_PRICE_ID_EXTRA_100"));
+    stripeSettings.WebhookSecretSnapshot = FirstNonEmpty(
+        stripeSettings.WebhookSecretSnapshot,
+        Environment.GetEnvironmentVariable("NEWSCHOOL_STRIPE_WEBHOOK_SECRET_SNAPSHOT"));
+    stripeSettings.WebhookSecretMin = FirstNonEmpty(
+        stripeSettings.WebhookSecretMin,
+        Environment.GetEnvironmentVariable("NEWSCHOOL_STRIPE_WEBHOOK_SECRET_MIN"));
+
+    return stripeSettings;
+}
+
+static string FirstNonEmpty(params string?[] values)
+{
+    return values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim() ?? string.Empty;
+}

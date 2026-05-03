@@ -45,17 +45,24 @@ public class BillingController(
 
             if (HasManagedSubscription(user))
             {
-                await evidenceStoragePlanService.UpdateSubscriptionPlanAsync(user, planCode, request.ExtraBlocks);
-                var updatedUrl = BuildRelativeUrl(returnUrl, new Dictionary<string, string?>
+                try
                 {
-                    ["billing"] = "updated"
-                });
+                    await evidenceStoragePlanService.UpdateSubscriptionPlanAsync(user, planCode, request.ExtraBlocks);
+                    var updatedUrl = BuildRelativeUrl(returnUrl, new Dictionary<string, string?>
+                    {
+                        ["billing"] = "updated"
+                    });
 
-                return Ok(new
+                    return Ok(new
+                    {
+                        redirectUrl = updatedUrl,
+                        message = "Plano de armazenamento atualizado."
+                    });
+                }
+                catch (StripeException ex) when (IsMissingSubscription(ex))
                 {
-                    redirectUrl = updatedUrl,
-                    message = "Plano de armazenamento atualizado."
-                });
+                    await ClearStaleSubscriptionAsync(user);
+                }
             }
 
             var lineItems = await evidenceStoragePlanService.BuildCheckoutLineItemsAsync(planCode, request.ExtraBlocks);
@@ -145,7 +152,7 @@ public class BillingController(
     [Authorize(Roles = "Parent")]
     [ValidateAntiForgeryToken]
     [HttpPost("/billing/create-portal-session")]
-    public async Task<IActionResult> CreatePortalSession()
+    public async Task<IActionResult> CreatePortalSession([FromBody] CreateBillingPortalRequest? request)
     {
         try
         {
@@ -157,12 +164,16 @@ public class BillingController(
                 return BadRequest(new { error = "Nao encontramos um cliente Stripe para este usuario." });
             }
 
+            var returnUrl = NormalizeLocalReturnUrl(request?.ReturnUrl);
             var domain = $"{Request.Scheme}://{Request.Host}";
             var service = new Stripe.BillingPortal.SessionService();
             var session = await service.CreateAsync(new Stripe.BillingPortal.SessionCreateOptions
             {
                 Customer = user.StripeCustomerId,
-                ReturnUrl = $"{domain}/Parent/Index?billing=return"
+                ReturnUrl = BuildAbsoluteUrl(domain, returnUrl, new Dictionary<string, string?>
+                {
+                    ["billing"] = "return"
+                })
             });
 
             return Ok(new { url = session.Url });
@@ -365,6 +376,21 @@ public class BillingController(
     {
         return !string.IsNullOrWhiteSpace(user.StripeSubscriptionId) &&
                user.SubscriptionStatus is "active" or "trialing" or "past_due" or "unpaid";
+    }
+
+    private async Task ClearStaleSubscriptionAsync(AppUser user)
+    {
+        user.StripeSubscriptionId = null;
+        user.SubscriptionStatus = string.Empty;
+        user.SubscriptionCurrentPeriodEnd = null;
+        evidenceStoragePlanService.DowngradeToFree(user);
+        await db.SaveChangesAsync();
+    }
+
+    private static bool IsMissingSubscription(StripeException exception)
+    {
+        return string.Equals(exception.StripeError?.Code, "resource_missing", StringComparison.OrdinalIgnoreCase) ||
+               exception.Message.Contains("No such subscription", StringComparison.OrdinalIgnoreCase);
     }
 
     private string NormalizeLocalReturnUrl(string? returnUrl)
