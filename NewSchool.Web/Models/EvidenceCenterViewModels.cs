@@ -32,18 +32,38 @@ public class UploadEvidenceViewModel
     [Display(Name = "Observacao")]
     public string Notes { get; set; } = string.Empty;
 
+    public string ThumbnailDataUrl { get; set; } = string.Empty;
+
     [Display(Name = "Arquivo")]
     public IFormFile? File { get; set; }
 }
 
+public class UploadEvidenceChunkViewModel
+{
+    public Guid ChildId { get; set; }
+    public Guid? DailyPlanId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Notes { get; set; } = string.Empty;
+    public string UploadId { get; set; } = string.Empty;
+    public int ChunkIndex { get; set; }
+    public int TotalChunks { get; set; }
+    public long TotalSize { get; set; }
+    public string FileName { get; set; } = string.Empty;
+    public string ContentType { get; set; } = string.Empty;
+    public string ThumbnailDataUrl { get; set; } = string.Empty;
+    public IFormFile? Chunk { get; set; }
+}
+
 public class EvidenceAssetViewModel
 {
+    public Guid ChildId { get; set; }
     public Guid SessionId { get; set; }
     public DateTime LoggedAt { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Theme { get; set; } = string.Empty;
     public string Notes { get; set; } = string.Empty;
     public string MediaUrl { get; set; } = string.Empty;
+    public string ThumbnailUrl { get; set; } = string.Empty;
     public string MediaContentType { get; set; } = string.Empty;
     public string FileName { get; set; } = string.Empty;
     public bool IsImage => MediaContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase);
@@ -53,4 +73,5 @@ public class EvidenceAssetViewModel
         MediaContentType.StartsWith("application/msword", StringComparison.OrdinalIgnoreCase) ||
         MediaContentType.StartsWith("application/vnd.openxmlformats-officedocument.wordprocessingml.document", StringComparison.OrdinalIgnoreCase);
     public string TypeLabel => IsImage ? "Foto" : IsVideo ? "Vídeo" : "Documento";
+    public bool HasThumbnail => !string.IsNullOrWhiteSpace(ThumbnailUrl);
 }

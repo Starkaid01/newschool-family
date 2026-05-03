@@ -2401,12 +2401,64 @@ code {
   overflow: hidden;
   border-radius: 18px;
   background: #efe5d5;
+  border: none;
+  width: 100%;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
 }
 
 .evidence-media-mobile {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.evidence-video-thumb-shell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.evidence-video-thumb-shell.is-pending {
+  background: linear-gradient(135deg, rgba(37, 68, 65, 0.12), rgba(184, 92, 56, 0.14));
+}
+
+.evidence-video-thumb-fallback {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  height: 100%;
+  padding: 18px;
+  align-content: end;
+  color: #172034;
+}
+
+.evidence-video-thumb-fallback strong {
+  font-size: 1rem;
+}
+
+.evidence-video-thumb-fallback span {
+  color: #4f5c67;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.evidence-play-badge {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(23, 32, 52, 0.82);
+  color: #fff;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 .evidence-badge {
@@ -3029,6 +3081,73 @@ code {
 
 .evidence-asset-copy {
   padding: 2px 6px 6px;
+}
+
+.evidence-open-helper {
+  font-size: 0.86rem;
+}
+
+.evidence-viewer-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.evidence-viewer-close {
+  min-width: 96px;
+}
+
+.evidence-viewer-stage {
+  display: grid;
+  gap: 12px;
+  min-height: 240px;
+  padding: 12px;
+  border-radius: 24px;
+  background: rgba(244, 230, 207, 0.58);
+  border: 1px solid rgba(23, 32, 52, 0.08);
+}
+
+.evidence-viewer-media,
+.evidence-viewer-document {
+  width: 100%;
+  max-height: 72vh;
+  border: none;
+  border-radius: 20px;
+  background: #000;
+}
+
+.evidence-viewer-media {
+  object-fit: contain;
+}
+
+.evidence-viewer-document {
+  min-height: 62vh;
+  background: #fff;
+}
+
+.evidence-viewer-document-card {
+  min-height: 220px;
+}
+
+.evidence-viewer-document-card p {
+  margin: 0;
+  color: #5f6b74;
+  line-height: 1.6;
+}
+
+.evidence-viewer-actions,
+.evidence-delete-form {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.evidence-delete-form {
+  margin: 0;
+}
+
+.evidence-delete-button {
+  border-color: rgba(184, 92, 56, 0.28);
+  color: #8d4324;
 }
 
 .lesson-collapsible-list {

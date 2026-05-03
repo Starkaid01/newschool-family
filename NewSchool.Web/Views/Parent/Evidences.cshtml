@@ -134,7 +134,7 @@
             </div>
         </div>
 
-        <form method="post" asp-action="UploadEvidence" enctype="multipart/form-data" class="compact-form-grid">
+        <form id="evidence-upload-form" method="post" asp-action="UploadEvidence" enctype="multipart/form-data" class="compact-form-grid">
             @Html.AntiForgeryToken()
             <input type="hidden" asp-for="Upload.ChildId" />
             <input type="hidden" asp-for="Upload.DailyPlanId" />
@@ -144,7 +144,11 @@
             </div>
             <div>
                 <label asp-for="Upload.File"></label>
-                <input class="input" asp-for="Upload.File" type="file" disabled="@(Model.Storage.CanUpload ? null : "disabled")" />
+                <input class="input"
+                       asp-for="Upload.File"
+                       type="file"
+                       accept="image/*,video/*,.pdf,.doc,.docx"
+                       disabled="@(Model.Storage.CanUpload ? null : "disabled")" />
             </div>
             <div class="full-span">
                 <label asp-for="Upload.Notes"></label>
@@ -161,9 +165,14 @@
                         @:O limite foi atingido. Faça upgrade para voltar a enviar arquivos.
                     }
                 </p>
+                <p class="storage-helper-text">Envie foto, vídeo ou documento com até 95 MB. Para vídeo, MP4 e MOV funcionam melhor no celular.</p>
+                <p id="chunk-upload-feedback" class="storage-helper-text" hidden></p>
+                <div id="chunk-upload-progress" class="storage-progress-track" hidden aria-hidden="true">
+                    <div id="chunk-upload-progress-fill" class="storage-progress-fill" style="width:0%"></div>
+                </div>
             </div>
             <div class="form-submit-align">
-                <button class="btn-primary" type="submit" disabled="@(Model.Storage.CanUpload ? null : "disabled")">Salvar evidência</button>
+                <button id="evidence-upload-submit" class="btn-primary" type="submit" disabled="@(Model.Storage.CanUpload ? null : "disabled")">Salvar evidência</button>
             </div>
         </form>
     </section>
@@ -197,6 +206,31 @@
         </form>
     </section>
 
+    <section id="evidence-viewer-panel" class="app-card evidence-viewer-panel" hidden>
+        <div class="section-heading-row">
+            <div>
+                <span class="app-kicker">Visualização</span>
+                <h2 id="evidence-viewer-title">Arquivo selecionado</h2>
+            </div>
+            <button id="evidence-viewer-close" class="btn-secondary evidence-viewer-close" type="button">Fechar</button>
+        </div>
+
+        <p id="evidence-viewer-meta" class="guided-lesson-parent"></p>
+        <div id="evidence-viewer-stage" class="evidence-viewer-stage"></div>
+        <p id="evidence-viewer-notes" class="guided-lesson-parent" hidden></p>
+
+        <div class="evidence-viewer-actions">
+            <a id="evidence-viewer-download" class="btn-secondary" href="#" download>Baixar</a>
+            <form id="evidence-delete-form" method="post" asp-action="DeleteEvidence" class="evidence-delete-form">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="childId" value="@Model.ChildId" />
+                <input type="hidden" id="evidence-delete-session-id" name="sessionId" value="" />
+                <input type="hidden" name="returnUrl" value="@returnUrl" />
+                <button class="btn-secondary evidence-delete-button" type="submit">Excluir</button>
+            </form>
+        </div>
+    </section>
+
     <section class="app-card">
         <div class="section-heading-row">
             <div>
@@ -219,12 +253,37 @@
                 @foreach (var item in Model.Items)
                 {
                     <article class="evidence-asset-card">
-                        <a class="evidence-item-mobile" href="@item.MediaUrl" target="_blank" rel="noopener noreferrer">
+                        <button type="button"
+                                class="evidence-item-mobile evidence-open-button"
+                                data-child-id="@item.ChildId"
+                                data-session-id="@item.SessionId"
+                                data-title="@item.Title"
+                                data-notes="@item.Notes"
+                                data-media-url="@item.MediaUrl"
+                                data-media-content-type="@item.MediaContentType"
+                                data-type-label="@item.TypeLabel"
+                                data-file-name="@item.FileName"
+                                data-logged-at="@item.LoggedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")">
                             @if (item.IsVideo)
                             {
-                                <video class="evidence-media-mobile" muted preload="metadata">
-                                    <source src="@item.MediaUrl" type="@item.MediaContentType" />
-                                </video>
+                                <div class="evidence-video-thumb-shell @(item.HasThumbnail ? string.Empty : "is-pending")"
+                                     data-evidence-video-thumb="true"
+                                     data-generate-thumbnail="@(item.HasThumbnail ? "false" : "true")"
+                                     data-video-url="@item.MediaUrl"
+                                     data-video-title="@item.Title">
+                                    @if (item.HasThumbnail)
+                                    {
+                                        <img class="evidence-media-mobile" src="@item.ThumbnailUrl" alt="@item.Title" />
+                                    }
+                                    else
+                                    {
+                                        <div class="evidence-video-thumb-fallback">
+                                            <strong>Vídeo</strong>
+                                            <span>Miniatura sendo preparada</span>
+                                        </div>
+                                    }
+                                    <span class="evidence-play-badge">Assistir</span>
+                                </div>
                             }
                             else if (item.IsImage)
                             {
@@ -237,7 +296,7 @@
                                     <span>@item.FileName</span>
                                 </div>
                             }
-                        </a>
+                        </button>
 
                         <div class="evidence-asset-copy">
                             <div class="section-heading-row compact">
@@ -249,7 +308,7 @@
                             {
                                 <p>@item.Notes</p>
                             }
-                            <a class="btn-secondary" href="@item.MediaUrl" target="_blank" rel="noopener noreferrer">Abrir ou baixar</a>
+                            <p class="evidence-open-helper">Toque na miniatura para abrir aqui no sistema.</p>
                         </div>
                     </article>
                 }
@@ -328,6 +387,421 @@
             if (data.url) {
                 window.location.href = data.url;
             }
+        }
+
+        function isProbablyVideoFile(file) {
+            if (!file) {
+                return false;
+            }
+
+            if ((file.type || '').startsWith('video/')) {
+                return true;
+            }
+
+            const lowerName = (file.name || '').toLowerCase();
+            return ['.mp4', '.mov', '.m4v', '.webm', '.3gp', '.3g2'].some((extension) => lowerName.endsWith(extension));
+        }
+
+        function onceMediaEvent(target, eventName, timeoutMs = 8000) {
+            return new Promise((resolve, reject) => {
+                let timeoutId = null;
+
+                function cleanup() {
+                    target.removeEventListener(eventName, handleSuccess);
+                    target.removeEventListener('error', handleError);
+                    if (timeoutId) {
+                        window.clearTimeout(timeoutId);
+                    }
+                }
+
+                function handleSuccess() {
+                    cleanup();
+                    resolve();
+                }
+
+                function handleError() {
+                    cleanup();
+                    reject(new Error('Nao foi possivel preparar este video agora.'));
+                }
+
+                target.addEventListener(eventName, handleSuccess, { once: true });
+                target.addEventListener('error', handleError, { once: true });
+                timeoutId = window.setTimeout(() => {
+                    cleanup();
+                    reject(new Error('O video demorou demais para responder.'));
+                }, timeoutMs);
+            });
+        }
+
+        async function seekVideoTo(video, targetTime) {
+            const safeTime = Math.max(0.1, targetTime);
+            if (Math.abs((video.currentTime || 0) - safeTime) < 0.05) {
+                return;
+            }
+
+            const seekPromise = onceMediaEvent(video, 'seeked', 8000);
+            video.currentTime = safeTime;
+            await seekPromise;
+        }
+
+        function resolveThumbnailCaptureTime(duration) {
+            const preferredLongVideoSeconds = 66;
+            if (Number.isFinite(duration) && duration > preferredLongVideoSeconds + 1) {
+                return preferredLongVideoSeconds;
+            }
+
+            if (!Number.isFinite(duration) || duration <= 0) {
+                return 1.1;
+            }
+
+            if (duration > 8) {
+                return Math.min(Math.max(duration * 0.2, 1.1), duration - 0.4);
+            }
+
+            return Math.max(0.1, Math.min(1.1, duration / 2));
+        }
+
+        async function captureVideoThumbnailFromSource(sourceUrl, cleanup = null) {
+            const video = document.createElement('video');
+            video.preload = 'metadata';
+            video.muted = true;
+            video.playsInline = true;
+            video.src = sourceUrl;
+
+            try {
+                await onceMediaEvent(video, 'loadedmetadata', 10000);
+
+                const duration = Number.isFinite(video.duration) ? video.duration : 0;
+                const captureTime = resolveThumbnailCaptureTime(duration);
+                await seekVideoTo(video, captureTime);
+
+                const width = video.videoWidth || 720;
+                const height = video.videoHeight || 405;
+                if (width <= 0 || height <= 0) {
+                    return '';
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const context = canvas.getContext('2d');
+                if (!context) {
+                    return '';
+                }
+
+                context.drawImage(video, 0, 0, width, height);
+                return canvas.toDataURL('image/jpeg', 0.84);
+            } catch {
+                return '';
+            } finally {
+                if (typeof cleanup === 'function') {
+                    cleanup();
+                }
+
+                video.pause();
+                video.removeAttribute('src');
+                video.load();
+            }
+        }
+
+        async function captureVideoThumbnailFromFile(file) {
+            const objectUrl = URL.createObjectURL(file);
+            try {
+                return await captureVideoThumbnailFromSource(objectUrl, () => URL.revokeObjectURL(objectUrl));
+            } catch {
+                URL.revokeObjectURL(objectUrl);
+                return '';
+            }
+        }
+
+        function createEvidenceViewerElement(kind, mediaUrl, mediaContentType, title, fileName) {
+            if (kind === 'video') {
+                const video = document.createElement('video');
+                video.className = 'evidence-viewer-media';
+                video.controls = true;
+                video.preload = 'metadata';
+                video.playsInline = true;
+                const source = document.createElement('source');
+                source.src = mediaUrl;
+                source.type = mediaContentType || 'video/mp4';
+                video.appendChild(source);
+                video.append('Seu navegador não conseguiu reproduzir este vídeo aqui. Use o botão Baixar.');
+                return video;
+            }
+
+            if (kind === 'image') {
+                const image = document.createElement('img');
+                image.className = 'evidence-viewer-media';
+                image.src = mediaUrl;
+                image.alt = title || fileName || 'Evidência';
+                return image;
+            }
+
+            if ((mediaContentType || '').startsWith('application/pdf')) {
+                const frame = document.createElement('iframe');
+                frame.className = 'evidence-viewer-document';
+                frame.src = `${mediaUrl}#view=FitH`;
+                frame.title = title || fileName || 'Documento';
+                return frame;
+            }
+
+            const fallback = document.createElement('div');
+            fallback.className = 'evidence-document-card large evidence-viewer-document-card';
+
+            const strong = document.createElement('strong');
+            strong.textContent = 'Documento';
+            fallback.appendChild(strong);
+
+            const file = document.createElement('span');
+            file.textContent = fileName || 'Arquivo salvo';
+            fallback.appendChild(file);
+
+            const helper = document.createElement('p');
+            helper.textContent = 'Este tipo de arquivo abre melhor pelo botão Baixar logo abaixo.';
+            fallback.appendChild(helper);
+
+            return fallback;
+        }
+
+        async function hydratePendingEvidenceVideoThumbnails() {
+            const pendingFrames = document.querySelectorAll('[data-evidence-video-thumb="true"][data-generate-thumbnail="true"]');
+            for (const frame of pendingFrames) {
+                const videoUrl = frame.getAttribute('data-video-url');
+                const title = frame.getAttribute('data-video-title') || 'Miniatura do vídeo';
+                if (!videoUrl) {
+                    continue;
+                }
+
+                const thumbnailDataUrl = await captureVideoThumbnailFromSource(videoUrl);
+                if (!thumbnailDataUrl) {
+                    continue;
+                }
+
+                frame.innerHTML = '';
+                frame.classList.remove('is-pending');
+
+                const image = document.createElement('img');
+                image.className = 'evidence-media-mobile';
+                image.src = thumbnailDataUrl;
+                image.alt = title;
+                frame.appendChild(image);
+
+                const badge = document.createElement('span');
+                badge.className = 'evidence-play-badge';
+                badge.textContent = 'Assistir';
+                frame.appendChild(badge);
+            }
+        }
+
+        const evidenceViewerPanel = document.getElementById('evidence-viewer-panel');
+        const evidenceViewerStage = document.getElementById('evidence-viewer-stage');
+        const evidenceViewerTitle = document.getElementById('evidence-viewer-title');
+        const evidenceViewerMeta = document.getElementById('evidence-viewer-meta');
+        const evidenceViewerNotes = document.getElementById('evidence-viewer-notes');
+        const evidenceViewerDownload = document.getElementById('evidence-viewer-download');
+        const evidenceDeleteSessionInput = document.getElementById('evidence-delete-session-id');
+        const evidenceDeleteForm = document.getElementById('evidence-delete-form');
+        const evidenceViewerClose = document.getElementById('evidence-viewer-close');
+
+        function closeEvidenceViewer() {
+            if (!evidenceViewerPanel || !evidenceViewerStage) {
+                return;
+            }
+
+            const playingVideo = evidenceViewerStage.querySelector('video');
+            if (playingVideo) {
+                playingVideo.pause();
+            }
+
+            evidenceViewerStage.innerHTML = '';
+            evidenceViewerPanel.hidden = true;
+        }
+
+        function openEvidenceViewer(button) {
+            if (!evidenceViewerPanel || !evidenceViewerStage || !evidenceViewerTitle || !evidenceViewerMeta || !evidenceViewerDownload || !evidenceDeleteSessionInput) {
+                return;
+            }
+
+            const mediaUrl = button.getAttribute('data-media-url') || '';
+            const mediaContentType = button.getAttribute('data-media-content-type') || '';
+            const title = button.getAttribute('data-title') || 'Evidência';
+            const notes = button.getAttribute('data-notes') || '';
+            const typeLabel = button.getAttribute('data-type-label') || 'Arquivo';
+            const loggedAt = button.getAttribute('data-logged-at') || '';
+            const sessionId = button.getAttribute('data-session-id') || '';
+            const fileName = button.getAttribute('data-file-name') || 'arquivo';
+
+            let kind = 'document';
+            if (mediaContentType.startsWith('video/')) {
+                kind = 'video';
+            } else if (mediaContentType.startsWith('image/')) {
+                kind = 'image';
+            }
+
+            evidenceViewerStage.innerHTML = '';
+            evidenceViewerStage.appendChild(createEvidenceViewerElement(kind, mediaUrl, mediaContentType, title, fileName));
+
+            evidenceViewerTitle.textContent = title;
+            evidenceViewerMeta.textContent = `${typeLabel} • ${loggedAt}`;
+            evidenceViewerDownload.href = mediaUrl;
+            evidenceViewerDownload.setAttribute('download', fileName);
+            evidenceDeleteSessionInput.value = sessionId;
+
+            if (evidenceViewerNotes) {
+                evidenceViewerNotes.hidden = !notes;
+                evidenceViewerNotes.textContent = notes;
+            }
+
+            evidenceViewerPanel.hidden = false;
+            evidenceViewerPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        document.querySelectorAll('.evidence-open-button').forEach((button) => {
+            button.addEventListener('click', () => openEvidenceViewer(button));
+        });
+
+        if (evidenceViewerClose) {
+            evidenceViewerClose.addEventListener('click', closeEvidenceViewer);
+        }
+
+        if (evidenceDeleteForm) {
+            evidenceDeleteForm.addEventListener('submit', (event) => {
+                if (!window.confirm('Deseja excluir esta evidência do acervo da família?')) {
+                    event.preventDefault();
+                }
+            });
+        }
+
+        hydratePendingEvidenceVideoThumbnails();
+
+        const evidenceUploadForm = document.getElementById('evidence-upload-form');
+        if (evidenceUploadForm) {
+            const chunkUploadUrl = '@(Url.Action("UploadEvidenceChunk", "Parent") ?? "/Parent/UploadEvidenceChunk")';
+            const fileInput = evidenceUploadForm.querySelector('input[name="Upload.File"]');
+            const titleInput = evidenceUploadForm.querySelector('input[name="Upload.Title"]');
+            const notesInput = evidenceUploadForm.querySelector('textarea[name="Upload.Notes"]');
+            const childIdInput = evidenceUploadForm.querySelector('input[name="Upload.ChildId"]');
+            const dailyPlanInput = evidenceUploadForm.querySelector('input[name="Upload.DailyPlanId"]');
+            const submitButton = document.getElementById('evidence-upload-submit');
+            const feedback = document.getElementById('chunk-upload-feedback');
+            const progressTrack = document.getElementById('chunk-upload-progress');
+            const progressFill = document.getElementById('chunk-upload-progress-fill');
+            const chunkSize = 8 * 1024 * 1024;
+            const maxChunkedUploadBytes = 350 * 1024 * 1024;
+            const defaultButtonText = submitButton ? submitButton.textContent : 'Salvar evidência';
+
+            function setChunkUploadStatus(message, percent = null) {
+                if (!feedback || !progressTrack || !progressFill) {
+                    return;
+                }
+
+                feedback.hidden = !message;
+                feedback.textContent = message || '';
+
+                if (percent === null) {
+                    progressTrack.hidden = true;
+                    progressFill.style.width = '0%';
+                    return;
+                }
+
+                progressTrack.hidden = false;
+                progressFill.style.width = `${percent}%`;
+            }
+
+            function setUploadingState(isUploading) {
+                if (!submitButton || !fileInput) {
+                    return;
+                }
+
+                submitButton.disabled = isUploading;
+                fileInput.disabled = isUploading;
+                if (titleInput) {
+                    titleInput.disabled = isUploading;
+                }
+                if (notesInput) {
+                    notesInput.disabled = isUploading;
+                }
+
+                submitButton.textContent = isUploading ? 'Enviando arquivo...' : defaultButtonText;
+            }
+
+            evidenceUploadForm.addEventListener('submit', async (event) => {
+                const file = fileInput?.files?.[0];
+                if (!file || !childIdInput) {
+                    return;
+                }
+
+                event.preventDefault();
+
+                if (file.size > maxChunkedUploadBytes) {
+                    setChunkUploadStatus('Esse arquivo passou de 350 MB. Envie um vídeo menor para guardar no acervo.', null);
+                    return;
+                }
+
+                const totalChunks = Math.max(1, Math.ceil(file.size / chunkSize));
+                const uploadId = window.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+                try {
+                    setUploadingState(true);
+                    let thumbnailDataUrl = '';
+
+                    if (isProbablyVideoFile(file)) {
+                        setChunkUploadStatus('Preparando a miniatura do vídeo...', 0);
+                        thumbnailDataUrl = await captureVideoThumbnailFromFile(file);
+                    }
+
+                    setChunkUploadStatus('Preparando o envio do arquivo...', 0);
+
+                    for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex += 1) {
+                        const start = chunkIndex * chunkSize;
+                        const end = Math.min(start + chunkSize, file.size);
+                        const blob = file.slice(start, end);
+                        const formData = new FormData();
+                        formData.append('__RequestVerificationToken', getToken());
+                        formData.append('ChildId', childIdInput.value);
+                        formData.append('DailyPlanId', dailyPlanInput?.value || '');
+                        formData.append('Title', titleInput?.value || '');
+                        formData.append('Notes', notesInput?.value || '');
+                        formData.append('UploadId', uploadId);
+                        formData.append('ChunkIndex', String(chunkIndex));
+                        formData.append('TotalChunks', String(totalChunks));
+                        formData.append('TotalSize', String(file.size));
+                        formData.append('FileName', file.name);
+                        formData.append('ContentType', file.type || 'application/octet-stream');
+                        if (thumbnailDataUrl && chunkIndex === totalChunks - 1) {
+                            formData.append('ThumbnailDataUrl', thumbnailDataUrl);
+                        }
+                        formData.append('Chunk', blob, file.name);
+
+                        const response = await fetch(chunkUploadUrl, {
+                            method: 'POST',
+                            headers: {
+                                'RequestVerificationToken': getToken()
+                            },
+                            body: formData
+                        });
+
+                        const data = await response.json().catch(() => ({}));
+                        if (!response.ok) {
+                            throw new Error(data.error || 'Nao foi possivel enviar o arquivo agora.');
+                        }
+
+                        const percent = Math.round(((chunkIndex + 1) / totalChunks) * 100);
+                        setChunkUploadStatus(`Enviando arquivo... ${chunkIndex + 1} de ${totalChunks} partes concluídas.`, percent);
+
+                        if (data.completed && data.redirectUrl) {
+                            window.location.href = data.redirectUrl;
+                            return;
+                        }
+                    }
+
+                    setChunkUploadStatus('O sistema terminou de enviar o arquivo. Atualizando a página...', 100);
+                    window.location.reload();
+                } catch (error) {
+                    setUploadingState(false);
+                    setChunkUploadStatus(error?.message || 'O upload falhou. Tente novamente.', null);
+                }
+            });
         }
     </script>
 }

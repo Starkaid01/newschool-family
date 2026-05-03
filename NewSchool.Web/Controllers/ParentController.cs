@@ -42,6 +42,53 @@ public class ParentController(
     PortuguesePlanningService portuguesePlanningService,
     FamilyLibraryService familyLibraryService) : Controller
 {
+    private const long EvidenceUploadMaxBytes = 95L * 1024 * 1024;
+    private const int EvidenceUploadMaxMegabytes = 95;
+    private const long ChunkedEvidenceUploadMaxBytes = 350L * 1024 * 1024;
+    private const int ChunkedEvidenceUploadMaxMegabytes = 350;
+    private const int EvidenceUploadChunkSizeBytes = 8 * 1024 * 1024;
+    private const int EvidenceUploadChunkRequestMaxBytes = 12 * 1024 * 1024;
+
+    private static readonly HashSet<string> AllowedEvidenceContentTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "image/gif",
+        "image/heic",
+        "image/heif",
+        "video/mp4",
+        "video/webm",
+        "video/quicktime",
+        "video/x-m4v",
+        "video/3gpp",
+        "video/3gpp2",
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/octet-stream"
+    };
+
+    private static readonly HashSet<string> AllowedEvidenceExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".webp",
+        ".gif",
+        ".heic",
+        ".heif",
+        ".mp4",
+        ".mov",
+        ".m4v",
+        ".webm",
+        ".3gp",
+        ".3g2",
+        ".pdf",
+        ".doc",
+        ".docx"
+    };
+
     private static readonly string[] StrengthLabels =
     [
         "curiosidade e investigacao",
@@ -705,6 +752,8 @@ public class ParentController(
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [RequestFormLimits(MultipartBodyLengthLimit = EvidenceUploadMaxBytes)]
+    [RequestSizeLimit(EvidenceUploadMaxBytes)]
     public async Task<IActionResult> UploadEvidence([Bind(Prefix = "Upload")] UploadEvidenceViewModel model)
     {
         if (!IsSubscriptionActive())
@@ -721,12 +770,141 @@ public class ParentController(
         }
 
         var child = await GetOwnedChildAsync(model.ChildId);
+        if (model.File is not null && model.File.Length > EvidenceUploadMaxBytes)
+        {
+            TempData["StatusMessage"] = $"O video ou documento passou de {EvidenceUploadMaxMegabytes} MB. Envie um arquivo menor para guardar nesta versão do sistema.";
+            TempData["StatusKind"] = "warning";
+            return RedirectToAction(nameof(Evidences), new { id = model.ChildId });
+        }
+
         var uploadedMedia = await SaveEvidenceFileAsync(model.File);
         if (uploadedMedia is null)
         {
-            TempData["StatusMessage"] = "Nao foi possivel salvar esse arquivo. Confira o formato e tente novamente.";
+            TempData["StatusMessage"] = $"Nao foi possivel salvar esse arquivo. Use foto, video ou documento em formato aceito e com ate {EvidenceUploadMaxMegabytes} MB.";
             TempData["StatusKind"] = "warning";
             return RedirectToAction(nameof(Evidences), new { id = model.ChildId });
+        }
+
+        var dailyPlanId = model.DailyPlanId
+            ?? await db.DailyPlans
+                .Where(x => x.ChildId == child.Id)
+                .OrderByDescending(x => x.PlannedDate)
+                .Select(x => (Guid?)x.Id)
+                .FirstOrDefaultAsync();
+
+        if (!dailyPlanId.HasValue)
+        {
+            var plan = await learningPlanService.EnsurePlanAsync(child, DateTime.Today);
+            dailyPlanId = plan.Id;
+        }
+
+        db.LearningSessions.Add(new LearningSession
+        {
+            ChildId = child.Id,
+            DailyPlanId = dailyPlanId.Value,
+            LoggedAt = DateTime.UtcNow,
+            MinutesCompleted = 0,
+            Wins = string.IsNullOrWhiteSpace(model.Title) ? "Evidência salva" : model.Title,
+            Challenges = string.Empty,
+            Notes = model.Notes,
+            MediaUrl = uploadedMedia.Value.Url,
+            MediaContentType = uploadedMedia.Value.ContentType,
+            MediaFileName = uploadedMedia.Value.FileName
+        });
+
+        if (IsVideoContentType(uploadedMedia.Value.ContentType))
+        {
+            await TrySaveEvidenceThumbnailAsync(uploadedMedia.Value.Url, model.ThumbnailDataUrl);
+        }
+
+        var parent = await db.Users.FirstAsync(x => x.Id == GetCurrentUserId());
+        parent.LastActiveAt = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+        TempData["StatusMessage"] = "Evidência salva no acervo da família.";
+        TempData["StatusKind"] = "success";
+
+        return RedirectToAction(nameof(Evidences), new { id = model.ChildId });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequestFormLimits(MultipartBodyLengthLimit = EvidenceUploadChunkRequestMaxBytes)]
+    [RequestSizeLimit(EvidenceUploadChunkRequestMaxBytes)]
+    public async Task<IActionResult> UploadEvidenceChunk([FromForm] UploadEvidenceChunkViewModel model)
+    {
+        if (!IsSubscriptionActive())
+        {
+            return Unauthorized(new { error = "A conta precisa estar ativa para guardar evidências." });
+        }
+
+        if (model.Chunk is null || model.Chunk.Length == 0)
+        {
+            return BadRequest(new { error = "Nenhum trecho do arquivo foi recebido." });
+        }
+
+        if (string.IsNullOrWhiteSpace(model.UploadId))
+        {
+            return BadRequest(new { error = "O identificador do upload não foi informado." });
+        }
+
+        if (model.TotalChunks <= 0 || model.ChunkIndex < 0 || model.ChunkIndex >= model.TotalChunks)
+        {
+            return BadRequest(new { error = "Os dados do envio em partes vieram inválidos." });
+        }
+
+        if (model.TotalSize <= 0 || model.TotalSize > ChunkedEvidenceUploadMaxBytes)
+        {
+            return BadRequest(new { error = $"Envie arquivos com até {ChunkedEvidenceUploadMaxMegabytes} MB no acervo de evidências." });
+        }
+
+        if (model.Chunk.Length > EvidenceUploadChunkSizeBytes)
+        {
+            return BadRequest(new { error = "Um dos trechos do vídeo ficou maior que o permitido para envio." });
+        }
+
+        if (!IsAcceptedEvidenceFile(model.FileName, model.ContentType))
+        {
+            return BadRequest(new { error = "Esse formato não é aceito no acervo. Use foto, vídeo ou documento compatível." });
+        }
+
+        var allowance = await evidenceStoragePlanService.BuildAllowanceAsync(GetCurrentUserId());
+        if (!allowance.CanUpload)
+        {
+            return Conflict(new { error = allowance.Message });
+        }
+
+        var child = await GetOwnedChildAsync(model.ChildId);
+        CleanupExpiredEvidenceChunks();
+
+        var uploadFolder = GetEvidenceChunkFolder(model.UploadId);
+        Directory.CreateDirectory(uploadFolder);
+
+        var chunkPath = Path.Combine(uploadFolder, $"{model.ChunkIndex:D5}.part");
+        await using (var chunkStream = System.IO.File.Create(chunkPath))
+        {
+            await model.Chunk.CopyToAsync(chunkStream);
+        }
+
+        var receivedChunks = Directory
+            .EnumerateFiles(uploadFolder, "*.part", SearchOption.TopDirectoryOnly)
+            .Count();
+
+        if (receivedChunks < model.TotalChunks)
+        {
+            return Json(new
+            {
+                ok = true,
+                completed = false,
+                receivedChunks,
+                totalChunks = model.TotalChunks
+            });
+        }
+
+        var uploadedMedia = await SaveChunkedEvidenceFileAsync(uploadFolder, model.FileName, model.ContentType, model.TotalChunks);
+        if (uploadedMedia is null)
+        {
+            DeleteDirectoryIfExists(uploadFolder);
+            return BadRequest(new { error = "O sistema não conseguiu montar o arquivo final. Tente enviar novamente." });
         }
 
         var dailyPlanId = model.DailyPlanId
@@ -759,10 +937,45 @@ public class ParentController(
         var parent = await db.Users.FirstAsync(x => x.Id == GetCurrentUserId());
         parent.LastActiveAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
-        TempData["StatusMessage"] = "Evidência salva no acervo da família.";
-        TempData["StatusKind"] = "success";
 
-        return RedirectToAction(nameof(Evidences), new { id = model.ChildId });
+        DeleteDirectoryIfExists(uploadFolder);
+
+        return Json(new
+        {
+            ok = true,
+            completed = true,
+            message = "Evidência salva no acervo da família.",
+            redirectUrl = Url.Action(nameof(Evidences), new { id = model.ChildId }) ?? $"/Parent/Evidences/{model.ChildId}"
+        });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteEvidence(Guid childId, Guid sessionId, string? returnUrl = null)
+    {
+        if (!IsSubscriptionActive())
+        {
+            return RedirectToAction(nameof(Index), new { gate = "premium" });
+        }
+
+        var session = await db.LearningSessions
+            .FirstOrDefaultAsync(x => x.Id == sessionId && x.ChildId == childId && x.Child.ParentId == GetCurrentUserId());
+
+        if (session is null)
+        {
+            TempData["StatusMessage"] = "A evidência que você tentou excluir não foi encontrada nesta criança.";
+            TempData["StatusKind"] = "warning";
+            return RedirectToLocalOrAction(returnUrl, nameof(Evidences), new { id = childId });
+        }
+
+        var mediaUrls = new[] { session.MediaUrl };
+        db.LearningSessions.Remove(session);
+        await db.SaveChangesAsync();
+        DeleteEvidenceFiles(mediaUrls);
+
+        TempData["StatusMessage"] = "Evidência removida do acervo da família.";
+        TempData["StatusKind"] = "success";
+        return RedirectToLocalOrAction(returnUrl, nameof(Evidences), new { id = childId });
     }
 
     [HttpGet]
@@ -1317,6 +1530,8 @@ public class ParentController(
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [RequestFormLimits(MultipartBodyLengthLimit = EvidenceUploadMaxBytes)]
+    [RequestSizeLimit(EvidenceUploadMaxBytes)]
     public async Task<IActionResult> LogSession(LogSessionViewModel model)
     {
         if (!IsSubscriptionActive())
@@ -1351,13 +1566,20 @@ public class ParentController(
         var uploadedMedia = default((string Url, string ContentType, string FileName)?);
         if (model.EvidenceFile is not null && model.EvidenceFile.Length > 0)
         {
+            if (model.EvidenceFile.Length > EvidenceUploadMaxBytes)
+            {
+                TempData["StatusMessage"] = $"A sessão foi salva, mas o anexo passou de {EvidenceUploadMaxMegabytes} MB e ficou fora do acervo.";
+                TempData["StatusKind"] = "warning";
+            }
+            else
+            {
             var allowance = await evidenceStoragePlanService.BuildAllowanceAsync(GetCurrentUserId());
             if (allowance.CanUpload)
             {
                 uploadedMedia = await SaveEvidenceFileAsync(model.EvidenceFile);
                 if (uploadedMedia is null)
                 {
-                    TempData["StatusMessage"] = "A sessão foi salva, mas o arquivo anexado nao entrou no acervo porque o formato nao foi aceito.";
+                    TempData["StatusMessage"] = $"A sessão foi salva, mas o arquivo anexado nao entrou no acervo. Use formato aceito e ate {EvidenceUploadMaxMegabytes} MB.";
                     TempData["StatusKind"] = "warning";
                 }
             }
@@ -1365,6 +1587,7 @@ public class ParentController(
             {
                 TempData["StatusMessage"] = $"{allowance.Message} A sessão foi registrada, mas o arquivo ficou de fora.";
                 TempData["StatusKind"] = "warning";
+            }
             }
         }
 
@@ -1480,36 +1703,265 @@ public class ParentController(
             return null;
         }
 
-        var allowedTypes = new[]
-        {
-            "image/jpeg",
-            "image/png",
-            "image/webp",
-            "image/gif",
-            "video/mp4",
-            "video/webm",
-            "video/quicktime",
-            "application/pdf",
-            "application/msword",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        };
-
-        if (!allowedTypes.Contains(file.ContentType, StringComparer.OrdinalIgnoreCase))
+        if (file.Length > EvidenceUploadMaxBytes)
         {
             return null;
         }
 
+        if (!IsAcceptedEvidenceFile(file.FileName, file.ContentType))
+        {
+            return null;
+        }
+
+        await using var sourceStream = file.OpenReadStream();
+        return await SaveEvidenceFileStreamAsync(sourceStream, file.FileName, file.ContentType);
+    }
+
+    private async Task<(string Url, string ContentType, string FileName)?> SaveChunkedEvidenceFileAsync(
+        string uploadFolder,
+        string fileName,
+        string contentType,
+        int totalChunks)
+    {
+        if (!Directory.Exists(uploadFolder))
+        {
+            return null;
+        }
+
+        if (!IsAcceptedEvidenceFile(fileName, contentType))
+        {
+            return null;
+        }
+
+        var chunkFiles = Enumerable.Range(0, totalChunks)
+            .Select(index => Path.Combine(uploadFolder, $"{index:D5}.part"))
+            .ToList();
+
+        if (chunkFiles.Any(path => !System.IO.File.Exists(path)))
+        {
+            return null;
+        }
+
+        var combinedPath = Path.Combine(uploadFolder, "combined-upload.bin");
+        await using (var combinedStream = System.IO.File.Create(combinedPath))
+        {
+            foreach (var chunkFile in chunkFiles)
+            {
+                await using var readStream = System.IO.File.OpenRead(chunkFile);
+                await readStream.CopyToAsync(combinedStream);
+            }
+        }
+
+        var combinedInfo = new FileInfo(combinedPath);
+        if (!combinedInfo.Exists || combinedInfo.Length == 0 || combinedInfo.Length > ChunkedEvidenceUploadMaxBytes)
+        {
+            return null;
+        }
+
+        await using var finalReadStream = System.IO.File.OpenRead(combinedPath);
+        return await SaveEvidenceFileStreamAsync(finalReadStream, fileName, contentType);
+    }
+
+    private async Task<(string Url, string ContentType, string FileName)?> SaveEvidenceFileStreamAsync(
+        Stream sourceStream,
+        string fileName,
+        string? contentType)
+    {
+        var safeOriginalFileName = Path.GetFileName(fileName);
+        var extension = Path.GetExtension(safeOriginalFileName);
+        var normalizedContentType = NormalizeEvidenceContentType(extension, contentType);
+
         var uploadsFolder = Path.Combine(environment.WebRootPath, "uploads", "session-evidence");
         Directory.CreateDirectory(uploadsFolder);
 
-        var extension = Path.GetExtension(file.FileName);
         var safeFileName = $"{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}{extension}";
         var physicalPath = Path.Combine(uploadsFolder, safeFileName);
 
         await using var stream = System.IO.File.Create(physicalPath);
-        await file.CopyToAsync(stream);
+        await sourceStream.CopyToAsync(stream);
 
-        return ($"/uploads/session-evidence/{safeFileName}", file.ContentType, file.FileName);
+        return ($"/uploads/session-evidence/{safeFileName}", normalizedContentType, safeOriginalFileName);
+    }
+
+    private async Task<string?> TrySaveEvidenceThumbnailAsync(string mediaUrl, string? thumbnailDataUrl)
+    {
+        if (!TryResolveEvidencePhysicalPath(mediaUrl, out var mediaPhysicalPath) ||
+            string.IsNullOrWhiteSpace(thumbnailDataUrl))
+        {
+            return null;
+        }
+
+        var commaIndex = thumbnailDataUrl.IndexOf(',');
+        if (commaIndex <= 0 || commaIndex >= thumbnailDataUrl.Length - 1)
+        {
+            return null;
+        }
+
+        var base64Payload = thumbnailDataUrl[(commaIndex + 1)..];
+        byte[] thumbnailBytes;
+        try
+        {
+            thumbnailBytes = Convert.FromBase64String(base64Payload);
+        }
+        catch
+        {
+            return null;
+        }
+
+        if (thumbnailBytes.Length == 0 || thumbnailBytes.Length > 2 * 1024 * 1024)
+        {
+            return null;
+        }
+
+        var thumbnailPhysicalPath = BuildEvidenceThumbnailPhysicalPath(mediaPhysicalPath);
+        await System.IO.File.WriteAllBytesAsync(thumbnailPhysicalPath, thumbnailBytes);
+        return BuildEvidenceThumbnailUrl(mediaUrl);
+    }
+
+    private static bool IsAcceptedEvidenceFile(string? fileName, string? contentType)
+    {
+        var extension = Path.GetExtension(fileName ?? string.Empty);
+        var hasAcceptedExtension = AllowedEvidenceExtensions.Contains(extension);
+        var hasAcceptedContentType =
+            !string.IsNullOrWhiteSpace(contentType) &&
+            AllowedEvidenceContentTypes.Contains(contentType);
+
+        return hasAcceptedExtension || hasAcceptedContentType;
+    }
+
+    private static bool IsVideoContentType(string? contentType)
+    {
+        return !string.IsNullOrWhiteSpace(contentType) &&
+               contentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeEvidenceContentType(string? extension, string? contentType)
+    {
+        if (!string.IsNullOrWhiteSpace(contentType) &&
+            !string.Equals(contentType, "application/octet-stream", StringComparison.OrdinalIgnoreCase))
+        {
+            return contentType;
+        }
+
+        return (extension ?? string.Empty).ToLowerInvariant() switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".webp" => "image/webp",
+            ".gif" => "image/gif",
+            ".heic" => "image/heic",
+            ".heif" => "image/heif",
+            ".mp4" or ".m4v" => "video/mp4",
+            ".mov" => "video/quicktime",
+            ".webm" => "video/webm",
+            ".3gp" => "video/3gpp",
+            ".3g2" => "video/3gpp2",
+            ".pdf" => "application/pdf",
+            ".doc" => "application/msword",
+            ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            _ => contentType ?? "application/octet-stream"
+        };
+    }
+
+    private string GetEvidenceChunkRoot()
+    {
+        return Path.Combine(environment.ContentRootPath, "App_Data", "evidence-chunks", GetCurrentUserId().ToString("N"));
+    }
+
+    private string GetEvidenceChunkFolder(string uploadId)
+    {
+        return Path.Combine(GetEvidenceChunkRoot(), uploadId);
+    }
+
+    private void CleanupExpiredEvidenceChunks()
+    {
+        var chunkRoot = GetEvidenceChunkRoot();
+        if (!Directory.Exists(chunkRoot))
+        {
+            return;
+        }
+
+        foreach (var folder in Directory.GetDirectories(chunkRoot))
+        {
+            try
+            {
+                var lastWriteUtc = Directory.GetLastWriteTimeUtc(folder);
+                if (lastWriteUtc < DateTime.UtcNow.AddHours(-12))
+                {
+                    Directory.Delete(folder, recursive: true);
+                }
+            }
+            catch
+            {
+                // Ignore cleanup issues so they do not block the upload itself.
+            }
+        }
+    }
+
+    private static void DeleteDirectoryIfExists(string path)
+    {
+        if (!Directory.Exists(path))
+        {
+            return;
+        }
+
+        Directory.Delete(path, recursive: true);
+    }
+
+    private string GetEvidenceThumbnailUrl(string mediaUrl)
+    {
+        if (!TryResolveEvidencePhysicalPath(mediaUrl, out var mediaPhysicalPath))
+        {
+            return string.Empty;
+        }
+
+        var thumbnailPhysicalPath = BuildEvidenceThumbnailPhysicalPath(mediaPhysicalPath);
+        if (!System.IO.File.Exists(thumbnailPhysicalPath))
+        {
+            return string.Empty;
+        }
+
+        return BuildEvidenceThumbnailUrl(mediaUrl);
+    }
+
+    private bool TryResolveEvidencePhysicalPath(string mediaUrl, out string physicalPath)
+    {
+        physicalPath = string.Empty;
+        if (string.IsNullOrWhiteSpace(environment.WebRootPath) ||
+            string.IsNullOrWhiteSpace(mediaUrl) ||
+            !mediaUrl.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var relativePath = mediaUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
+        var candidatePath = Path.GetFullPath(Path.Combine(environment.WebRootPath, relativePath));
+        var webRoot = Path.GetFullPath(environment.WebRootPath);
+        if (!candidatePath.StartsWith(webRoot, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        physicalPath = candidatePath;
+        return true;
+    }
+
+    private static string BuildEvidenceThumbnailPhysicalPath(string mediaPhysicalPath)
+    {
+        var directory = Path.GetDirectoryName(mediaPhysicalPath) ?? string.Empty;
+        var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(mediaPhysicalPath);
+        return Path.Combine(directory, $"{fileNameWithoutExtension}.thumb.jpg");
+    }
+
+    private static string BuildEvidenceThumbnailUrl(string mediaUrl)
+    {
+        var extension = Path.GetExtension(mediaUrl);
+        if (string.IsNullOrWhiteSpace(extension))
+        {
+            return $"{mediaUrl}.thumb.jpg";
+        }
+
+        return mediaUrl[..^extension.Length] + ".thumb.jpg";
     }
 
     private IActionResult? ResolveLocalReturn(string? returnUrl)
@@ -1537,12 +1989,14 @@ public class ParentController(
         var items = sessions
             .Select(session => new EvidenceAssetViewModel
             {
+                ChildId = child.Id,
                 SessionId = session.Id,
                 LoggedAt = session.LoggedAt,
                 Title = string.IsNullOrWhiteSpace(session.Wins) ? "Evidência salva" : session.Wins,
                 Theme = session.Notes,
                 Notes = session.Notes,
                 MediaUrl = session.MediaUrl,
+                ThumbnailUrl = GetEvidenceThumbnailUrl(session.MediaUrl),
                 MediaContentType = session.MediaContentType,
                 FileName = session.MediaFileName
             })
@@ -3185,6 +3639,12 @@ public class ParentController(
             }
 
             System.IO.File.Delete(physicalPath);
+
+            var thumbnailPhysicalPath = BuildEvidenceThumbnailPhysicalPath(physicalPath);
+            if (System.IO.File.Exists(thumbnailPhysicalPath))
+            {
+                System.IO.File.Delete(thumbnailPhysicalPath);
+            }
         }
     }
 
