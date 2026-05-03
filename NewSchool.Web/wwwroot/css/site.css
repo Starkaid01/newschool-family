@@ -2191,6 +2191,31 @@ code {
   gap: 10px;
 }
 
+.mini-child-more {
+  border-radius: 18px;
+  border: 1px solid rgba(23, 32, 52, 0.08);
+  background: rgba(255, 255, 255, 0.82);
+  overflow: hidden;
+}
+
+.mini-child-more summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 12px 14px;
+  font-weight: 700;
+  color: #172034;
+}
+
+.mini-child-more summary::-webkit-details-marker {
+  display: none;
+}
+
+.mini-child-more-body {
+  display: grid;
+  gap: 10px;
+  padding: 0 14px 14px;
+}
+
 .mini-child-avatar,
 .child-avatar {
   display: inline-flex;
@@ -2803,6 +2828,23 @@ code {
   width: 100%;
 }
 
+.form-submit-align-wrap {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.form-submit-align-wrap .btn-primary,
+.form-submit-align-wrap .btn-secondary {
+  width: 100%;
+}
+
+@media (min-width: 900px) {
+  .form-submit-align-wrap .btn-primary,
+  .form-submit-align-wrap .btn-secondary {
+    width: auto;
+  }
+}
+
 @media (min-width: 900px) {
   .academy-card-grid,
   .curriculum-mobile-grid,
@@ -3096,6 +3138,40 @@ code {
   min-width: 96px;
 }
 
+.modal-open {
+  overflow: hidden;
+}
+
+.evidence-viewer-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+
+.evidence-viewer-modal[hidden] {
+  display: none;
+}
+
+.evidence-viewer-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(23, 32, 52, 0.52);
+  backdrop-filter: blur(6px);
+}
+
+.evidence-viewer-dialog {
+  position: relative;
+  width: min(960px, 100%);
+  max-height: calc(100vh - 36px);
+  overflow: auto;
+  z-index: 1;
+  box-shadow: 0 24px 60px rgba(23, 32, 52, 0.22);
+}
+
 .evidence-viewer-stage {
   display: grid;
   gap: 12px;
@@ -3329,6 +3405,15 @@ code {
   display: none;
 }
 
+.child-next-actions-card {
+  gap: 16px;
+}
+
+.weekly-reading-card-compact {
+  display: grid;
+  gap: 10px;
+}
+
 .phase-sequence-list {
   display: grid;
   gap: 10px;
@@ -3391,6 +3476,14 @@ code {
 .danger-zone-card {
   border: 1px solid rgba(143, 61, 42, 0.12);
   box-shadow: 0 18px 40px rgba(143, 61, 42, 0.08);
+}
+
+.evidence-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 @media (min-width: 860px) {

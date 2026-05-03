@@ -6,6 +6,38 @@ namespace NewSchool.Web.Services;
 
 public class ConsistencyService(ApplicationDbContext db)
 {
+    public async Task<FamilyConsistencyViewModel> BuildDashboardSnapshotAsync(Guid parentId)
+    {
+        var today = DateTime.Today;
+        var monthStart = new DateTime(today.Year, today.Month, 1);
+
+        var activeDates = await db.LearningSessions
+            .Where(x =>
+                x.Child.ParentId == parentId &&
+                x.LoggedAt >= monthStart &&
+                x.LoggedAt < today.AddDays(1))
+            .Select(x => x.LoggedAt)
+            .ToListAsync();
+
+        var distinctDates = activeDates
+            .Select(x => x.Date)
+            .Distinct()
+            .OrderBy(x => x)
+            .ToList();
+
+        var activeDaysThisMonth = distinctDates.Count(date => date >= monthStart && date <= today);
+        var expectedActiveDays = Math.Max(1, today.Day);
+
+        return new FamilyConsistencyViewModel
+        {
+            CurrentStreakDays = CalculateCurrentStreak(distinctDates, today),
+            BestStreakDays = CalculateBestStreak(distinctDates),
+            ActiveDaysThisMonth = activeDaysThisMonth,
+            ExpectedActiveDays = expectedActiveDays,
+            ConsistencyPercent = (int)Math.Round((double)activeDaysThisMonth / expectedActiveDays * 100)
+        };
+    }
+
     public async Task<FamilyConsistencyViewModel> BuildFamilyConsistencyAsync(Guid parentId, Guid? focusChildId = null)
     {
         var today = DateTime.Today;

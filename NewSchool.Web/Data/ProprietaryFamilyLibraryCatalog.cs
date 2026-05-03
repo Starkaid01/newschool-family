@@ -534,6 +534,96 @@ public static class ProprietaryFamilyLibraryCatalog
                 [
                     "Página 1\nATIVIDADE: CHECKLIST DE ESTUDO\n\nAntes de começar:\n[ ] Separei o material certo.\n[ ] Li a missão do dia.\n[ ] Sei qual é o primeiro passo.\n\nDurante a tarefa:\n[ ] Fiquei na mesma missão até terminar.\n[ ] Pedi ajuda só depois de tentar.\n[ ] Revisei o que escrevi.",
                     "Página 2\nAUTOCHECAGEM FINAL\n\nO que fiz bem hoje?\n________________________________\n\nO que preciso melhorar amanhã?\n________________________________\n\nQual será meu primeiro passo na próxima lição?\n________________________________"
+                ]),
+
+            Printable(
+                "0F7A4E8F-CC7C-4F3E-B6D2-BD81918FD7A4",
+                "sondagem-de-letras-e-tracos",
+                "Sondagem de Letras e Traços",
+                "Avaliação diagnóstica",
+                "letras, som inicial, traçado, observação",
+                "Sondagem autoral para 3 a 4 anos com observação de letra inicial, traçado grande e nomeação simples.",
+                3,
+                4,
+                "Educação Infantil",
+                [
+                    "Página 1\nSONDAGEM: LETRAS E TRAÇOS\n\n1. Diga o nome da criança e peça que ela encontre a primeira letra.\n2. Mostre três letras grandes e observe qual ela reconhece.\n3. Peça um traçado grande no ar e outro no papel.\n\nRegistro do adulto:\nReconheceu a letra do nome?  sim / com ajuda / ainda não\nSeguiu o traçado?  sim / com ajuda / ainda não\nNomeou um objeto com o mesmo som?  sim / com ajuda / ainda não",
+                    "Página 2\nOBSERVAÇÃO FINAL\n\nO que ficou fácil hoje?\n________________________________\n\nO que precisa voltar na próxima semana?\n________________________________\n\nMeta curta para a próxima aula:\n________________________________"
+                ]),
+
+            Printable(
+                "903A1D78-0B11-40E1-95D8-6E4C4FB6A5D0",
+                "sondagem-de-contagem-e-grupos",
+                "Sondagem de Contagem e Grupos",
+                "Avaliação diagnóstica",
+                "contagem, quantidade, grupos, comparação",
+                "Sondagem autoral para 5 a 6 anos que mede contagem real, comparação de grupos e explicação curta.",
+                5,
+                6,
+                "Educação Infantil",
+                [
+                    "Página 1\nSONDAGEM: CONTAGEM E GRUPOS\n\nMonte 3 grupos reais com objetos.\nGrupo A: 4 itens\nGrupo B: 6 itens\nGrupo C: 8 itens\n\nPeça que a criança:\n1. Conte tocando um por um.\n2. Diga qual grupo tem mais.\n3. Diga qual grupo tem menos.\n\nRegistro do adulto:\nContou sem pular itens?  sim / com ajuda / ainda não\nComparou grupos?  sim / com ajuda / ainda não",
+                    "Página 2\nFECHAMENTO\n\nA criança explicou o raciocínio?\n________________________________\n\nErro mais comum observado:\n________________________________\n\nPróxima meta de matemática:\n________________________________"
+                ]),
+
+            Printable(
+                "E7F4A0C2-6D0D-485C-9B60-9DAAABF53C4A",
+                "avaliacao-de-reconto-e-sequencia",
+                "Avaliação de Reconto e Sequência",
+                "Avaliação diagnóstica",
+                "reconto, sequência, personagem, problema, solução",
+                "Avaliação autoral para 7 a 8 anos que verifica reconto em ordem, personagem, problema e solução.",
+                7,
+                8,
+                "Ensino Fundamental",
+                [
+                    "Página 1\nAVALIAÇÃO: RECONTO E SEQUÊNCIA\n\nDepois da leitura, peça que a criança complete:\nQuem é o personagem principal?\n________________________________\n\nQual problema apareceu?\n________________________________\n\nO que aconteceu primeiro?\n________________________________",
+                    "Página 2\nMEIO E FIM\n\nO que aconteceu depois?\n________________________________\n\nComo a história terminou?\n________________________________\n\nRegistro do adulto:\nManteve a ordem?  sim / com ajuda / ainda não\nSeparou essencial de detalhe?  sim / com ajuda / ainda não"
+                ]),
+
+            Printable(
+                "2EDC8FC7-29BE-4E98-A3DB-C8A58940F96E",
+                "avaliacao-de-ideia-central-e-provas",
+                "Avaliação de Ideia Central e Provas",
+                "Avaliação diagnóstica",
+                "ideia central, detalhe, prova textual, síntese",
+                "Avaliação autoral para 9 a 10 anos que mede síntese, ideia central e dois detalhes que provam a resposta.",
+                9,
+                10,
+                "Ensino Fundamental",
+                [
+                    "Página 1\nAVALIAÇÃO: IDEIA CENTRAL\n\nDepois do texto, peça:\n1. Escreva a ideia central em uma frase.\n2. Escolha dois detalhes que realmente sustentam essa ideia.\n\nIdeia central:\n________________________________\n\nDetalhe 1:\n________________________________\n\nDetalhe 2:\n________________________________",
+                    "Página 2\nRUBRICA RÁPIDA\n\nA resposta foi clara?  sim / com ajuda / ainda não\nOs detalhes realmente provam a ideia?  sim / com ajuda / ainda não\nA criança evitou copiar tudo?  sim / com ajuda / ainda não\n\nPróximo foco de linguagem:\n________________________________"
+                ]),
+
+            Printable(
+                "C24E1FA5-9918-4C1E-B55D-510AB49079D9",
+                "avaliacao-de-tese-e-duas-fontes",
+                "Avaliação de Tese e Duas Fontes",
+                "Avaliação diagnóstica",
+                "tese, prova, fonte, comparação, conclusão",
+                "Avaliação autoral para 11 a 12 anos que verifica tese curta, uso de duas fontes e conclusão própria.",
+                11,
+                12,
+                "Ensino Fundamental",
+                [
+                    "Pagina 1\nAVALIACAO: TESE E FONTES\n\nTema comum das leituras:\n______________________________\n\nMinha tese:\n______________________________\n______________________________\n\nFonte 1: dado ou prova principal\n______________________________\n______________________________",
+                    "Pagina 2\nFONTE 2 E CONCLUSAO\n\nFonte 2: dado ou explicacao principal\n______________________________\n______________________________\n\nMinha conclusao final em palavras proprias:\n______________________________\n______________________________\n\nRegistro do adulto:\nUsou duas fontes?  sim / com ajuda / ainda nao"
+                ]),
+
+            Printable(
+                "A7C83EC6-1E4E-47BF-A88D-3F0C8A96E130",
+                "avaliacao-de-argumento-e-projeto-integrador",
+                "Avaliação de Argumento e Projeto Integrador",
+                "Avaliação diagnóstica",
+                "argumento, objecao, orçamento, projeto, decisão",
+                "Avaliação autoral para 13 a 14 anos que junta tese, contra-argumento e decisão prática em um mini projeto.",
+                13,
+                14,
+                "Ensino Fundamental",
+                [
+                    "Pagina 1\nAVALIACAO: ARGUMENTO E DECISAO\n\nProblema estudado:\n______________________________\n\nMinha tese:\n______________________________\n______________________________\n\nUma objecao real a esta tese:\n______________________________\n______________________________",
+                    "Pagina 2\nPROJETO INTEGRADOR\n\nEscolha um pequeno cenario real e tome uma decisao justificada.\nCenario:\n______________________________\n\nMelhor escolha:\n______________________________\n\nNumero, fato ou evidência que sustenta a escolha:\n______________________________\n\nRegistro do adulto:\nSustentou a posicao com clareza?  sim / com ajuda / ainda nao"
                 ])
         ];
     }

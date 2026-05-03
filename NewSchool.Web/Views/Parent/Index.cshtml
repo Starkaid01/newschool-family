@@ -5,8 +5,6 @@
     var nextChild = Model.Children.FirstOrDefault(child => !child.PlanCompletedToday) ?? Model.Children.FirstOrDefault();
     var statusMessage = TempData["StatusMessage"]?.ToString();
     var statusKind = TempData["StatusKind"]?.ToString();
-    var billingState = ViewBag.Billing?.ToString();
-    var returnUrl = Url.Action("Index", "Parent") ?? "/Parent/Index";
 }
 
 @Html.AntiForgeryToken()
@@ -25,28 +23,19 @@
         </div>
 
         <div class="family-hero-side">
-            <div class="hero-status-card @(Model.Storage.HasPaidPlan ? "success" : string.Empty)">
-                <span class="app-status @(Model.Storage.HasPaidPlan ? "success" : "neutral")">@Model.Storage.CurrentPlanName</span>
-                <strong>@Model.Storage.UsedFiles de @Model.Storage.FileLimit arquivo(s)</strong>
-                <p>@Model.Storage.CurrentPlanSummary</p>
-                <p class="storage-helper-text">@Model.Storage.UploadNotice</p>
+            <div class="hero-status-card">
+                <span class="app-status neutral">Hoje sem improviso</span>
+                <strong>@Model.TotalChildren criança(s) no fluxo</strong>
+                <p>@Model.MinutesThisWeek minutos concluídos nesta semana e @Model.Consistency.CurrentStreakDays dia(s) seguidos de constância.</p>
                 <div class="hero-action-row">
                     @if (nextChild is not null)
                     {
                         <a class="btn-secondary" asp-action="Evidences" asp-route-id="@nextChild.Id">Abrir acervo</a>
+                        <a class="btn-secondary" asp-action="Plans">Ver planos</a>
                     }
                     else
                     {
-                        <a class="btn-secondary" href="#storage-plans">Ver planos</a>
-                    }
-
-                    @if (Model.Storage.CanManageBilling)
-                    {
-                        <button class="btn-secondary" type="button" onclick="openPortal()">Gerenciar cobrança</button>
-                    }
-                    else
-                    {
-                        <button class="btn-primary" type="button" onclick="startCheckout('files_200', '', '@returnUrl')">Ampliar para 200</button>
+                        <a class="btn-secondary" asp-action="Plans">Ver planos</a>
                     }
                 </div>
             </div>
@@ -65,21 +54,6 @@
         <section class="app-inline-message warning">
             <strong>Checkout cancelado.</strong>
             <span>O sistema segue livre. Você só precisa voltar aqui quando quiser ampliar o acervo.</span>
-        </section>
-    }
-
-    @if (billingState == "updated")
-    {
-        <section class="app-inline-message">
-            <strong>Plano atualizado.</strong>
-            <span>O limite do acervo mudou e já vale para a família.</span>
-        </section>
-    }
-    else if (billingState == "return")
-    {
-        <section class="app-inline-message">
-            <strong>Cobrança revisada.</strong>
-            <span>Você voltou da área da Stripe e o app continua pronto para uso.</span>
         </section>
     }
 
@@ -108,7 +82,7 @@
                 <p>Com um único cadastro, o sistema já monta a rotina, o currículo anual e a primeira aula do dia. O acervo começa no gratuito e só cresce de plano se a família realmente precisar de mais espaço.</p>
                 <div class="hero-action-row">
                     <a class="btn-primary" asp-action="CreateChild">Cadastrar criança</a>
-                    <a class="btn-secondary" href="#storage-plans">Ver planos do acervo</a>
+                    <a class="btn-secondary" asp-action="Plans">Ver planos do acervo</a>
                 </div>
             </article>
         </section>
@@ -176,74 +150,6 @@
         </section>
     }
 
-    <section class="app-card" id="storage-plans">
-        <div class="section-heading-row">
-            <div>
-                <span class="app-kicker">Acervo da família</span>
-                <h2>Planos de armazenamento</h2>
-            </div>
-            <span class="app-status neutral">@Model.Storage.CurrentPlanStatusLabel</span>
-        </div>
-
-        <div class="storage-meta-row">
-            <strong>@Model.Storage.UsedFiles de @Model.Storage.FileLimit arquivo(s)</strong>
-            <span>@Model.Storage.RemainingFiles restante(s)</span>
-        </div>
-        <div class="storage-progress-track" aria-hidden="true">
-            <div class="storage-progress-fill" style="width:@Model.Storage.UsagePercent%"></div>
-        </div>
-        <p class="storage-helper-text">@Model.Storage.UploadNotice</p>
-        <p class="storage-helper-text">@Model.Storage.UpgradeHint</p>
-
-        <div class="storage-plan-grid">
-            @foreach (var plan in Model.Storage.Plans)
-            {
-                var extraInputId = $"extra-{plan.PlanCode}";
-                <article class="storage-plan-card @(plan.IsCurrent ? "current" : string.Empty)">
-                    <span class="app-kicker">@plan.Name</span>
-                    <h3>@plan.PriceLabel</h3>
-                    <strong>@plan.CapacityLabel</strong>
-                    <p>@plan.Description</p>
-
-                    @if (plan.SupportsExtraBlocks)
-                    {
-                        <div class="storage-extra-stack">
-                            <label for="@extraInputId">Acima de 5.000 arquivos</label>
-                            <input id="@extraInputId"
-                                   class="input"
-                                   type="number"
-                                   min="0"
-                                   max="100"
-                                   step="1"
-                                   value="@(plan.IsCurrent ? Model.Storage.ExtraBlocks : 0)" />
-                            <p class="storage-helper-text">@Model.Storage.ExtraBlockSummary</p>
-                        </div>
-                    }
-
-                    @if (string.Equals(plan.PlanCode, "free", StringComparison.OrdinalIgnoreCase))
-                    {
-                        <button class="btn-secondary" type="button" disabled>Plano gratuito</button>
-                    }
-                    else
-                    {
-                        <button class="@(plan.IsCurrent ? "btn-secondary" : "btn-primary")"
-                                type="button"
-                                onclick="startCheckout('@plan.PlanCode', '@(plan.SupportsExtraBlocks ? extraInputId : string.Empty)', '@returnUrl')">
-                            @(plan.IsCurrent && !plan.SupportsExtraBlocks ? "Plano atual" : plan.ButtonLabel)
-                        </button>
-                    }
-                </article>
-            }
-        </div>
-
-        @if (Model.Storage.CanManageBilling)
-        {
-            <div class="hero-action-row">
-                <button class="btn-secondary" type="button" onclick="openPortal()">Gerenciar cobrança na Stripe</button>
-            </div>
-        }
-    </section>
-
     @if (Model.Children.Count > 0)
     {
         <section class="child-strip-section" id="children-section">
@@ -273,16 +179,22 @@
                         </span>
                         <div class="mini-child-actions">
                             <a class="btn-secondary" asp-action="Child" asp-route-id="@child.Id">Abrir hoje</a>
-                            <a class="btn-secondary" asp-action="Curriculum" asp-route-id="@child.Id">Plano anual</a>
-                            <a class="btn-secondary" asp-action="EditChild" asp-route-id="@child.Id">Editar</a>
-                            <form method="post"
-                                  asp-action="DeleteChild"
-                                  asp-route-id="@child.Id"
-                                  class="inline-action-form"
-                                  onsubmit="return confirm('Tem certeza que deseja excluir esta criança e todo o histórico dela?');">
-                                @Html.AntiForgeryToken()
-                                <button class="btn-danger" type="submit">Excluir</button>
-                            </form>
+                            <details class="mini-child-more">
+                                <summary>Mais opções</summary>
+                                <div class="mini-child-more-body">
+                                    <a class="btn-secondary" asp-action="Curriculum" asp-route-id="@child.Id">Plano anual</a>
+                                    <a class="btn-secondary" asp-action="Evidences" asp-route-id="@child.Id">Evidências</a>
+                                    <a class="btn-secondary" asp-action="EditChild" asp-route-id="@child.Id">Editar</a>
+                                    <form method="post"
+                                          asp-action="DeleteChild"
+                                          asp-route-id="@child.Id"
+                                          class="inline-action-form"
+                                          onsubmit="return confirm('Tem certeza que deseja excluir esta criança e todo o histórico dela?');">
+                                        @Html.AntiForgeryToken()
+                                        <button class="btn-danger" type="submit">Excluir</button>
+                                    </form>
+                                </div>
+                            </details>
                         </div>
                     </article>
                 }
@@ -290,77 +202,3 @@
         </section>
     }
 </section>
-
-@section Scripts {
-    <script>
-        function getToken() {
-            return document.querySelector('input[name="__RequestVerificationToken"]').value;
-        }
-
-        function readExtraBlocks(inputId) {
-            if (!inputId) {
-                return 0;
-            }
-
-            const input = document.getElementById(inputId);
-            if (!input) {
-                return 0;
-            }
-
-            const value = parseInt(input.value || '0', 10);
-            return Number.isFinite(value) && value > 0 ? value : 0;
-        }
-
-        async function startCheckout(planCode, extraInputId = '', returnUrl = '@returnUrl') {
-            const response = await fetch('/billing/create-checkout', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'RequestVerificationToken': getToken()
-                },
-                body: JSON.stringify({
-                    planCode,
-                    extraBlocks: readExtraBlocks(extraInputId),
-                    returnUrl
-                })
-            });
-
-            const data = await response.json();
-            if (!response.ok) {
-                alert(data.error || 'Nao foi possivel iniciar a cobranca.');
-                return;
-            }
-
-            if (data.url) {
-                window.location.href = data.url;
-                return;
-            }
-
-            if (data.redirectUrl) {
-                window.location.href = data.redirectUrl;
-                return;
-            }
-
-            window.location.reload();
-        }
-
-        async function openPortal() {
-            const response = await fetch('/billing/create-portal-session', {
-                method: 'POST',
-                headers: {
-                    'RequestVerificationToken': getToken()
-                }
-            });
-
-            const data = await response.json();
-            if (!response.ok) {
-                alert(data.error || 'Nao foi possivel abrir a area de cobranca.');
-                return;
-            }
-
-            if (data.url) {
-                window.location.href = data.url;
-            }
-        }
-    </script>
-}

@@ -41,3 +41,17 @@ public class CreateStorageCheckoutRequest
     public int ExtraBlocks { get; set; }
     public string? ReturnUrl { get; set; }
 }
+
+public class CreateBillingPortalRequest
+{
+    public string? ReturnUrl { get; set; }
+}
+
+public class ParentPlansViewModel
+{
+    public string ParentName { get; set; } = string.Empty;
+    public string ReturnUrl { get; set; } = string.Empty;
+    public string? BillingState { get; set; }
+    public string? CheckoutState { get; set; }
+    public EvidenceStorageSummaryViewModel Storage { get; set; } = new();
+}

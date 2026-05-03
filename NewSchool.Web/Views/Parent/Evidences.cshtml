@@ -4,6 +4,7 @@
     var statusMessage = TempData["StatusMessage"]?.ToString();
     var statusKind = TempData["StatusKind"]?.ToString();
     var returnUrl = Url.Action("Evidences", "Parent", new { id = Model.ChildId }) ?? $"/Parent/Evidences/{Model.ChildId}";
+    var hasEvidenceItems = Model.Items.Count > 0;
 }
 
 <section class="child-app-shell child-app-shell-simple">
@@ -41,74 +42,6 @@
                 <p>Aqui a família salva o que quiser sem poluir a rotina de ensino: foto, vídeo, PDF e documento.</p>
             </div>
         </article>
-    </section>
-
-    <section class="app-card">
-        <div class="section-heading-row">
-            <div>
-                <span class="app-kicker">Limite da família</span>
-                <h2>@Model.Storage.CurrentPlanName</h2>
-            </div>
-            <span class="app-status @(Model.Storage.HasPaidPlan ? "success" : "neutral")">@Model.Storage.CurrentPlanStatusLabel</span>
-        </div>
-
-        <div class="storage-meta-row">
-            <strong>@Model.Storage.UsedFiles de @Model.Storage.FileLimit arquivo(s)</strong>
-            <span>@Model.Storage.RemainingFiles restante(s)</span>
-        </div>
-        <div class="storage-progress-track" aria-hidden="true">
-            <div class="storage-progress-fill" style="width:@Model.Storage.UsagePercent%"></div>
-        </div>
-        <p class="storage-helper-text">@Model.Storage.UploadNotice</p>
-        <p class="storage-helper-text">@Model.Storage.UpgradeHint</p>
-
-        <div class="storage-plan-grid">
-            @foreach (var plan in Model.Storage.Plans)
-            {
-                var extraInputId = $"extra-{plan.PlanCode}";
-                <article class="storage-plan-card @(plan.IsCurrent ? "current" : string.Empty)">
-                    <span class="app-kicker">@plan.Name</span>
-                    <h3>@plan.PriceLabel</h3>
-                    <strong>@plan.CapacityLabel</strong>
-                    <p>@plan.Description</p>
-
-                    @if (plan.SupportsExtraBlocks)
-                    {
-                        <div class="storage-extra-stack">
-                            <label for="@extraInputId">Acima de 5.000 arquivos</label>
-                            <input id="@extraInputId"
-                                   class="input"
-                                   type="number"
-                                   min="0"
-                                   max="100"
-                                   step="1"
-                                   value="@(plan.IsCurrent ? Model.Storage.ExtraBlocks : 0)" />
-                            <p class="storage-helper-text">@Model.Storage.ExtraBlockSummary</p>
-                        </div>
-                    }
-
-                    @if (string.Equals(plan.PlanCode, "free", StringComparison.OrdinalIgnoreCase))
-                    {
-                        <button class="btn-secondary" type="button" disabled>Plano gratuito</button>
-                    }
-                    else
-                    {
-                        <button class="@(plan.IsCurrent ? "btn-secondary" : "btn-primary")"
-                                type="button"
-                                onclick="startCheckout('@plan.PlanCode', '@(plan.SupportsExtraBlocks ? extraInputId : string.Empty)', '@returnUrl')">
-                            @(plan.IsCurrent && !plan.SupportsExtraBlocks ? "Plano atual" : plan.ButtonLabel)
-                        </button>
-                    }
-                </article>
-            }
-        </div>
-
-        @if (Model.Storage.CanManageBilling)
-        {
-            <div class="hero-action-row">
-                <button class="btn-secondary" type="button" onclick="openPortal()">Gerenciar cobrança na Stripe</button>
-            </div>
-        }
     </section>
 
     <section class="family-highlight-grid">
@@ -158,11 +91,11 @@
                 <p class="storage-helper-text">
                     @if (Model.Storage.CanUpload)
                     {
-                        @:Você ainda pode guardar @Model.Storage.RemainingFiles arquivo(s) com o plano atual.
+                        @:Você ainda pode guardar @Model.Storage.RemainingFiles arquivo(s) no acervo da família inteira com o plano atual.
                     }
                     else
                     {
-                        @:O limite foi atingido. Faça upgrade para voltar a enviar arquivos.
+                        @:O limite do acervo da família inteira foi atingido. Faça upgrade para voltar a enviar arquivos.
                     }
                 </p>
                 <p class="storage-helper-text">Envie foto, vídeo ou documento com até 95 MB. Para vídeo, MP4 e MOV funcionam melhor no celular.</p>
@@ -171,8 +104,9 @@
                     <div id="chunk-upload-progress-fill" class="storage-progress-fill" style="width:0%"></div>
                 </div>
             </div>
-            <div class="form-submit-align">
+            <div class="form-submit-align form-submit-align-wrap">
                 <button id="evidence-upload-submit" class="btn-primary" type="submit" disabled="@(Model.Storage.CanUpload ? null : "disabled")">Salvar evidência</button>
+                <a class="btn-secondary" asp-action="Plans">Ver planos</a>
             </div>
         </form>
     </section>
@@ -206,30 +140,36 @@
         </form>
     </section>
 
-    <section id="evidence-viewer-panel" class="app-card evidence-viewer-panel" hidden>
-        <div class="section-heading-row">
-            <div>
-                <span class="app-kicker">Visualização</span>
-                <h2 id="evidence-viewer-title">Arquivo selecionado</h2>
-            </div>
-            <button id="evidence-viewer-close" class="btn-secondary evidence-viewer-close" type="button">Fechar</button>
-        </div>
+    @if (hasEvidenceItems)
+    {
+        <div id="evidence-viewer-modal" class="evidence-viewer-modal" hidden>
+            <div class="evidence-viewer-backdrop" data-evidence-modal-close="true"></div>
+            <section id="evidence-viewer-panel" class="app-card evidence-viewer-panel evidence-viewer-dialog" role="dialog" aria-modal="true" aria-labelledby="evidence-viewer-title">
+                <div class="section-heading-row">
+                    <div>
+                        <span class="app-kicker">Visualização</span>
+                        <h2 id="evidence-viewer-title">Arquivo selecionado</h2>
+                    </div>
+                    <button id="evidence-viewer-close" class="btn-secondary evidence-viewer-close" type="button">Fechar</button>
+                </div>
 
-        <p id="evidence-viewer-meta" class="guided-lesson-parent"></p>
-        <div id="evidence-viewer-stage" class="evidence-viewer-stage"></div>
-        <p id="evidence-viewer-notes" class="guided-lesson-parent" hidden></p>
+                <p id="evidence-viewer-meta" class="guided-lesson-parent"></p>
+                <div id="evidence-viewer-stage" class="evidence-viewer-stage"></div>
+                <p id="evidence-viewer-notes" class="guided-lesson-parent" hidden></p>
 
-        <div class="evidence-viewer-actions">
-            <a id="evidence-viewer-download" class="btn-secondary" href="#" download>Baixar</a>
-            <form id="evidence-delete-form" method="post" asp-action="DeleteEvidence" class="evidence-delete-form">
-                @Html.AntiForgeryToken()
-                <input type="hidden" name="childId" value="@Model.ChildId" />
-                <input type="hidden" id="evidence-delete-session-id" name="sessionId" value="" />
-                <input type="hidden" name="returnUrl" value="@returnUrl" />
-                <button class="btn-secondary evidence-delete-button" type="submit">Excluir</button>
-            </form>
+                <div class="evidence-viewer-actions">
+                    <a id="evidence-viewer-download" class="btn-secondary" href="#" download>Baixar</a>
+                    <form id="evidence-delete-form" method="post" asp-action="DeleteEvidence" class="evidence-delete-form">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="childId" value="@Model.ChildId" />
+                        <input type="hidden" id="evidence-delete-session-id" name="sessionId" value="" />
+                        <input type="hidden" name="returnUrl" value="@returnUrl" />
+                        <button class="btn-secondary evidence-delete-button" type="submit">Excluir</button>
+                    </form>
+                </div>
+            </section>
         </div>
-    </section>
+    }
 
     <section class="app-card">
         <div class="section-heading-row">
@@ -237,14 +177,18 @@
                 <span class="app-kicker">Acervo</span>
                 <h2>Anexos salvos</h2>
             </div>
-            <span class="app-status neutral">@Model.TotalItems resultado(s)</span>
+            <span class="app-status neutral">@Model.TotalMatchingItems resultado(s)</span>
         </div>
 
         @if (Model.Items.Count == 0)
         {
             <div class="empty-evidence-card">
-                <strong>Nenhum anexo encontrado</strong>
-                <p>Salve a primeira evidência ou ajuste o filtro.</p>
+                <strong>@(Model.TotalItems == 0 ? "Nenhum anexo salvo ainda" : "Nenhum resultado com este filtro")</strong>
+                <p>
+                    @(Model.TotalItems == 0
+                        ? "Esta criança ainda não tem foto, vídeo ou documento gravado no acervo. Assim que o upload terminar de verdade, o arquivo aparece aqui automaticamente."
+                        : "A criança já tem arquivos no acervo, mas este filtro não encontrou nada. Ajuste a busca ou o tipo para ver os anexos certos.")
+                </p>
             </div>
         }
         else
@@ -261,6 +205,7 @@
                                 data-notes="@item.Notes"
                                 data-media-url="@item.MediaUrl"
                                 data-media-content-type="@item.MediaContentType"
+                                data-thumbnail-url="@item.ThumbnailUrl"
                                 data-type-label="@item.TypeLabel"
                                 data-file-name="@item.FileName"
                                 data-logged-at="@item.LoggedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")">
@@ -313,6 +258,37 @@
                     </article>
                 }
             </div>
+
+            @if (Model.TotalPages > 1)
+            {
+                <nav class="evidence-pagination" aria-label="Páginas do acervo">
+                    @if (Model.HasPreviousPage)
+                    {
+                        <a class="btn-secondary"
+                           asp-action="Evidences"
+                           asp-route-id="@Model.ChildId"
+                           asp-route-q="@Model.SearchQuery"
+                           asp-route-type="@Model.SelectedType"
+                           asp-route-page="@(Model.PageNumber - 1)">
+                            Ver anteriores
+                        </a>
+                    }
+
+                    <span class="app-status neutral">Página @Model.PageNumber de @Model.TotalPages</span>
+
+                    @if (Model.HasNextPage)
+                    {
+                        <a class="btn-secondary"
+                           asp-action="Evidences"
+                           asp-route-id="@Model.ChildId"
+                           asp-route-q="@Model.SearchQuery"
+                           asp-route-type="@Model.SelectedType"
+                           asp-route-page="@(Model.PageNumber + 1)">
+                            Ver mais
+                        </a>
+                    }
+                </nav>
+            }
         }
     </section>
 </section>
@@ -321,72 +297,6 @@
     <script>
         function getToken() {
             return document.querySelector('input[name="__RequestVerificationToken"]').value;
-        }
-
-        function readExtraBlocks(inputId) {
-            if (!inputId) {
-                return 0;
-            }
-
-            const input = document.getElementById(inputId);
-            if (!input) {
-                return 0;
-            }
-
-            const value = parseInt(input.value || '0', 10);
-            return Number.isFinite(value) && value > 0 ? value : 0;
-        }
-
-        async function startCheckout(planCode, extraInputId = '', returnUrl = '@returnUrl') {
-            const response = await fetch('/billing/create-checkout', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'RequestVerificationToken': getToken()
-                },
-                body: JSON.stringify({
-                    planCode,
-                    extraBlocks: readExtraBlocks(extraInputId),
-                    returnUrl
-                })
-            });
-
-            const data = await response.json();
-            if (!response.ok) {
-                alert(data.error || 'Nao foi possivel iniciar a cobranca.');
-                return;
-            }
-
-            if (data.url) {
-                window.location.href = data.url;
-                return;
-            }
-
-            if (data.redirectUrl) {
-                window.location.href = data.redirectUrl;
-                return;
-            }
-
-            window.location.reload();
-        }
-
-        async function openPortal() {
-            const response = await fetch('/billing/create-portal-session', {
-                method: 'POST',
-                headers: {
-                    'RequestVerificationToken': getToken()
-                }
-            });
-
-            const data = await response.json();
-            if (!response.ok) {
-                alert(data.error || 'Nao foi possivel abrir a area de cobranca.');
-                return;
-            }
-
-            if (data.url) {
-                window.location.href = data.url;
-            }
         }
 
         function isProbablyVideoFile(file) {
@@ -514,18 +424,72 @@
             }
         }
 
-        function createEvidenceViewerElement(kind, mediaUrl, mediaContentType, title, fileName) {
+        function createEvidenceViewerFallback(fileName, message) {
+            const fallback = document.createElement('div');
+            fallback.className = 'evidence-document-card large evidence-viewer-document-card';
+
+            const strong = document.createElement('strong');
+            strong.textContent = 'Arquivo salvo';
+            fallback.appendChild(strong);
+
+            const file = document.createElement('span');
+            file.textContent = fileName || 'Arquivo da família';
+            fallback.appendChild(file);
+
+            const helper = document.createElement('p');
+            helper.textContent = message || 'Se a visualização não abrir aqui, use o botão Baixar logo abaixo.';
+            fallback.appendChild(helper);
+
+            return fallback;
+        }
+
+        function inferEvidenceKind(mediaContentType, fileName, mediaUrl) {
+            if ((mediaContentType || '').startsWith('video/')) {
+                return 'video';
+            }
+
+            if ((mediaContentType || '').startsWith('image/')) {
+                return 'image';
+            }
+
+            if ((mediaContentType || '').startsWith('application/pdf')) {
+                return 'pdf';
+            }
+
+            const source = (fileName || mediaUrl || '').toLowerCase();
+            if (['.mp4', '.mov', '.m4v', '.webm', '.3gp', '.3g2'].some((extension) => source.endsWith(extension))) {
+                return 'video';
+            }
+
+            if (['.jpg', '.jpeg', '.png', '.webp', '.gif', '.heic', '.heif'].some((extension) => source.endsWith(extension))) {
+                return 'image';
+            }
+
+            if (source.endsWith('.pdf')) {
+                return 'pdf';
+            }
+
+            return 'document';
+        }
+
+        function createEvidenceViewerElement(kind, mediaUrl, mediaContentType, title, fileName, thumbnailUrl) {
             if (kind === 'video') {
                 const video = document.createElement('video');
                 video.className = 'evidence-viewer-media';
                 video.controls = true;
                 video.preload = 'metadata';
                 video.playsInline = true;
-                const source = document.createElement('source');
-                source.src = mediaUrl;
-                source.type = mediaContentType || 'video/mp4';
-                video.appendChild(source);
+                video.src = mediaUrl;
+                if (thumbnailUrl) {
+                    video.poster = thumbnailUrl;
+                }
                 video.append('Seu navegador não conseguiu reproduzir este vídeo aqui. Use o botão Baixar.');
+                video.addEventListener('error', () => {
+                    const replacement = createEvidenceViewerFallback(
+                        fileName,
+                        'Este vídeo não abriu no visualizador agora. Use Baixar para assistir no aparelho ou tente novamente em instantes.');
+                    video.replaceWith(replacement);
+                }, { once: true });
                 return video;
             }
 
@@ -537,7 +501,7 @@
                 return image;
             }
 
-            if ((mediaContentType || '').startsWith('application/pdf')) {
+            if (kind === 'pdf') {
                 const frame = document.createElement('iframe');
                 frame.className = 'evidence-viewer-document';
                 frame.src = `${mediaUrl}#view=FitH`;
@@ -545,22 +509,34 @@
                 return frame;
             }
 
-            const fallback = document.createElement('div');
-            fallback.className = 'evidence-document-card large evidence-viewer-document-card';
+            return createEvidenceViewerFallback(fileName, 'Este tipo de arquivo abre melhor pelo botão Baixar logo abaixo.');
+        }
 
-            const strong = document.createElement('strong');
-            strong.textContent = 'Documento';
-            fallback.appendChild(strong);
+        async function persistGeneratedThumbnail(childId, sessionId, thumbnailDataUrl) {
+            if (!childId || !sessionId || !thumbnailDataUrl) {
+                return null;
+            }
 
-            const file = document.createElement('span');
-            file.textContent = fileName || 'Arquivo salvo';
-            fallback.appendChild(file);
+            const formData = new FormData();
+            formData.append('__RequestVerificationToken', getToken());
+            formData.append('ChildId', childId);
+            formData.append('SessionId', sessionId);
+            formData.append('ThumbnailDataUrl', thumbnailDataUrl);
 
-            const helper = document.createElement('p');
-            helper.textContent = 'Este tipo de arquivo abre melhor pelo botão Baixar logo abaixo.';
-            fallback.appendChild(helper);
+            const response = await fetch('@(Url.Action("SaveEvidenceThumbnail", "Parent") ?? "/Parent/SaveEvidenceThumbnail")', {
+                method: 'POST',
+                headers: {
+                    'RequestVerificationToken': getToken()
+                },
+                body: formData
+            });
 
-            return fallback;
+            if (!response.ok) {
+                return null;
+            }
+
+            const payload = await response.json().catch(() => null);
+            return payload?.thumbnailUrl || null;
         }
 
         async function hydratePendingEvidenceVideoThumbnails() {
@@ -568,6 +544,9 @@
             for (const frame of pendingFrames) {
                 const videoUrl = frame.getAttribute('data-video-url');
                 const title = frame.getAttribute('data-video-title') || 'Miniatura do vídeo';
+                const ownerButton = frame.closest('.evidence-open-button');
+                const childId = ownerButton?.getAttribute('data-child-id') || '';
+                const sessionId = ownerButton?.getAttribute('data-session-id') || '';
                 if (!videoUrl) {
                     continue;
                 }
@@ -586,6 +565,12 @@
                 image.alt = title;
                 frame.appendChild(image);
 
+                const persistedThumbnailUrl = await persistGeneratedThumbnail(childId, sessionId, thumbnailDataUrl);
+                if (persistedThumbnailUrl && ownerButton) {
+                    ownerButton.setAttribute('data-thumbnail-url', persistedThumbnailUrl);
+                    frame.setAttribute('data-generate-thumbnail', 'false');
+                }
+
                 const badge = document.createElement('span');
                 badge.className = 'evidence-play-badge';
                 badge.textContent = 'Assistir';
@@ -593,6 +578,7 @@
             }
         }
 
+        const evidenceViewerModal = document.getElementById('evidence-viewer-modal');
         const evidenceViewerPanel = document.getElementById('evidence-viewer-panel');
         const evidenceViewerStage = document.getElementById('evidence-viewer-stage');
         const evidenceViewerTitle = document.getElementById('evidence-viewer-title');
@@ -604,7 +590,7 @@
         const evidenceViewerClose = document.getElementById('evidence-viewer-close');
 
         function closeEvidenceViewer() {
-            if (!evidenceViewerPanel || !evidenceViewerStage) {
+            if (!evidenceViewerModal || !evidenceViewerPanel || !evidenceViewerStage) {
                 return;
             }
 
@@ -614,11 +600,12 @@
             }
 
             evidenceViewerStage.innerHTML = '';
-            evidenceViewerPanel.hidden = true;
+            evidenceViewerModal.hidden = true;
+            document.body.classList.remove('modal-open');
         }
 
         function openEvidenceViewer(button) {
-            if (!evidenceViewerPanel || !evidenceViewerStage || !evidenceViewerTitle || !evidenceViewerMeta || !evidenceViewerDownload || !evidenceDeleteSessionInput) {
+            if (!evidenceViewerModal || !evidenceViewerPanel || !evidenceViewerStage || !evidenceViewerTitle || !evidenceViewerMeta || !evidenceViewerDownload || !evidenceDeleteSessionInput) {
                 return;
             }
 
@@ -630,16 +617,11 @@
             const loggedAt = button.getAttribute('data-logged-at') || '';
             const sessionId = button.getAttribute('data-session-id') || '';
             const fileName = button.getAttribute('data-file-name') || 'arquivo';
-
-            let kind = 'document';
-            if (mediaContentType.startsWith('video/')) {
-                kind = 'video';
-            } else if (mediaContentType.startsWith('image/')) {
-                kind = 'image';
-            }
+            const thumbnailUrl = button.getAttribute('data-thumbnail-url') || '';
+            const kind = inferEvidenceKind(mediaContentType, fileName, mediaUrl);
 
             evidenceViewerStage.innerHTML = '';
-            evidenceViewerStage.appendChild(createEvidenceViewerElement(kind, mediaUrl, mediaContentType, title, fileName));
+            evidenceViewerStage.appendChild(createEvidenceViewerElement(kind, mediaUrl, mediaContentType, title, fileName, thumbnailUrl));
 
             evidenceViewerTitle.textContent = title;
             evidenceViewerMeta.textContent = `${typeLabel} • ${loggedAt}`;
@@ -652,8 +634,8 @@
                 evidenceViewerNotes.textContent = notes;
             }
 
-            evidenceViewerPanel.hidden = false;
-            evidenceViewerPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            evidenceViewerModal.hidden = false;
+            document.body.classList.add('modal-open');
         }
 
         document.querySelectorAll('.evidence-open-button').forEach((button) => {
@@ -663,6 +645,16 @@
         if (evidenceViewerClose) {
             evidenceViewerClose.addEventListener('click', closeEvidenceViewer);
         }
+
+        document.querySelectorAll('[data-evidence-modal-close="true"]').forEach((target) => {
+            target.addEventListener('click', closeEvidenceViewer);
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && evidenceViewerModal && !evidenceViewerModal.hidden) {
+                closeEvidenceViewer();
+            }
+        });
 
         if (evidenceDeleteForm) {
             evidenceDeleteForm.addEventListener('submit', (event) => {

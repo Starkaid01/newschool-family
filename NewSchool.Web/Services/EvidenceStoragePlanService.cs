@@ -414,13 +414,6 @@ public class EvidenceStoragePlanService(
     private string ResolveStoredPlanCode(AppUser user)
     {
         var normalized = NormalizePlanCode(user.StoragePlanCode);
-        if (string.Equals(normalized, FreePlanCode, StringComparison.OrdinalIgnoreCase) &&
-            (!string.IsNullOrWhiteSpace(user.StripeSubscriptionId) || !string.IsNullOrWhiteSpace(user.StripeCustomerId)) &&
-            user.SubscriptionStatus is "active" or "trialing" or "past_due" or "unpaid")
-        {
-            return Files5000PlanCode;
-        }
-
         if (!string.IsNullOrWhiteSpace(normalized))
         {
             return normalized;

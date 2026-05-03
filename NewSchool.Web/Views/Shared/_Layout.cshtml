@@ -13,10 +13,16 @@
             || string.Equals(action, "Curriculum", StringComparison.OrdinalIgnoreCase)
             || string.Equals(action, "Evolution", StringComparison.OrdinalIgnoreCase)
             || string.Equals(action, "Dossier", StringComparison.OrdinalIgnoreCase));
+    var evidencesActive = string.Equals(controller, "Parent", StringComparison.OrdinalIgnoreCase)
+        && (string.Equals(action, "Evidences", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(action, "EvidenceHome", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(action, "UploadEvidence", StringComparison.OrdinalIgnoreCase));
     var academyActive =
         (string.Equals(controller, "Parent", StringComparison.OrdinalIgnoreCase)
          && string.Equals(action, "Academy", StringComparison.OrdinalIgnoreCase))
         || string.Equals(controller, "Library", StringComparison.OrdinalIgnoreCase);
+    var plansActive = string.Equals(controller, "Parent", StringComparison.OrdinalIgnoreCase)
+        && string.Equals(action, "Plans", StringComparison.OrdinalIgnoreCase);
     var rawTitle = ViewData["Title"]?.ToString();
     var pageTitle = string.IsNullOrWhiteSpace(rawTitle)
         ? "NewSchool Family"
@@ -89,10 +95,11 @@
                         }
                         else
                         {
-                            <a class="@(dashboardActive ? "is-active" : string.Empty)" asp-controller="Parent" asp-action="Index">Inicio</a>
+                            <a class="@(dashboardActive ? "is-active" : string.Empty)" asp-controller="Parent" asp-action="Index">Painel</a>
                             <a class="@(childrenActive ? "is-active" : string.Empty)" asp-controller="Parent" asp-action="Index" asp-fragment="children-section">Filhos</a>
-                            <a class="@(reportsActive ? "is-active" : string.Empty)" asp-controller="Parent" asp-action="WeeklyReport">Progresso</a>
+                            <a class="@(evidencesActive ? "is-active" : string.Empty)" asp-controller="Parent" asp-action="EvidenceHome">Evidências</a>
                             <a class="@(academyActive ? "is-active" : string.Empty)" asp-controller="Library" asp-action="Index">Biblioteca</a>
+                            <a class="@(plansActive ? "is-active" : string.Empty)" asp-controller="Parent" asp-action="Plans">Planos</a>
                         }
                     </nav>
 
@@ -119,10 +126,11 @@
     @if (isAuthenticatedParent)
     {
         <nav class="app-bottom-dock" aria-label="Navegacao principal da familia">
-            <a class="@(dashboardActive ? "is-active" : string.Empty)" asp-controller="Parent" asp-action="Index">Inicio</a>
+            <a class="@(dashboardActive ? "is-active" : string.Empty)" asp-controller="Parent" asp-action="Index">Painel</a>
             <a class="@(childrenActive ? "is-active" : string.Empty)" asp-controller="Parent" asp-action="Index" asp-fragment="children-section">Filhos</a>
-            <a class="@(reportsActive ? "is-active" : string.Empty)" asp-controller="Parent" asp-action="WeeklyReport">Progresso</a>
+            <a class="@(evidencesActive ? "is-active" : string.Empty)" asp-controller="Parent" asp-action="EvidenceHome">Evidências</a>
             <a class="@(academyActive ? "is-active" : string.Empty)" asp-controller="Library" asp-action="Index">Biblioteca</a>
+            <a class="@(plansActive ? "is-active" : string.Empty)" asp-controller="Parent" asp-action="Plans">Planos</a>
         </nav>
     }
 
