@@ -36,7 +36,10 @@ BEGIN
         ReactivationEmailSentAt datetime2 NULL,
         PaymentRecoveryEmailSentAt datetime2 NULL,
         DailyReminderMessageSentAt datetime2 NULL,
-        ProgressRiskMessageSentAt datetime2 NULL
+        ProgressRiskMessageSentAt datetime2 NULL,
+        PasswordResetTokenHash nvarchar(200) NOT NULL CONSTRAINT DF_NS_AppUsers_PasswordResetTokenHash DEFAULT '',
+        PasswordResetRequestedAt datetime2 NULL,
+        PasswordResetExpiresAt datetime2 NULL
     );
     CREATE UNIQUE INDEX IX_NS_AppUsers_Email ON dbo.NS_AppUsers (Email);
     CREATE UNIQUE INDEX IX_NS_AppUsers_ReferralCode ON dbo.NS_AppUsers (ReferralCode);
@@ -145,6 +148,21 @@ END;
 IF COL_LENGTH('dbo.NS_AppUsers', 'ProgressRiskMessageSentAt') IS NULL
 BEGIN
     ALTER TABLE dbo.NS_AppUsers ADD ProgressRiskMessageSentAt datetime2 NULL;
+END;
+
+IF COL_LENGTH('dbo.NS_AppUsers', 'PasswordResetTokenHash') IS NULL
+BEGIN
+    ALTER TABLE dbo.NS_AppUsers ADD PasswordResetTokenHash nvarchar(200) NOT NULL CONSTRAINT DF_NS_AppUsers_PasswordResetTokenHash_Alter DEFAULT '';
+END;
+
+IF COL_LENGTH('dbo.NS_AppUsers', 'PasswordResetRequestedAt') IS NULL
+BEGIN
+    ALTER TABLE dbo.NS_AppUsers ADD PasswordResetRequestedAt datetime2 NULL;
+END;
+
+IF COL_LENGTH('dbo.NS_AppUsers', 'PasswordResetExpiresAt') IS NULL
+BEGIN
+    ALTER TABLE dbo.NS_AppUsers ADD PasswordResetExpiresAt datetime2 NULL;
 END;
 
 IF OBJECT_ID(N'dbo.NS_ChildProfiles', N'U') IS NULL
@@ -683,6 +701,10 @@ BEGIN
         MediaUrl nvarchar(500) NOT NULL CONSTRAINT DF_NS_LearningSessions_MediaUrl DEFAULT '',
         MediaContentType nvarchar(120) NOT NULL CONSTRAINT DF_NS_LearningSessions_MediaContentType DEFAULT '',
         MediaFileName nvarchar(260) NOT NULL CONSTRAINT DF_NS_LearningSessions_MediaFileName DEFAULT '',
+        MediaStorageProvider nvarchar(40) NOT NULL CONSTRAINT DF_NS_LearningSessions_MediaStorageProvider DEFAULT '',
+        MediaStorageKey nvarchar(600) NOT NULL CONSTRAINT DF_NS_LearningSessions_MediaStorageKey DEFAULT '',
+        MediaThumbnailUrl nvarchar(500) NOT NULL CONSTRAINT DF_NS_LearningSessions_MediaThumbnailUrl DEFAULT '',
+        MediaThumbnailStorageKey nvarchar(600) NOT NULL CONSTRAINT DF_NS_LearningSessions_MediaThumbnailStorageKey DEFAULT '',
         CONSTRAINT FK_NS_LearningSessions_NS_ChildProfiles_ChildId
             FOREIGN KEY (ChildId) REFERENCES dbo.NS_ChildProfiles(Id) ON DELETE NO ACTION,
         CONSTRAINT FK_NS_LearningSessions_NS_DailyPlans_DailyPlanId
@@ -705,6 +727,60 @@ END;
 IF COL_LENGTH('dbo.NS_LearningSessions', 'MediaFileName') IS NULL
 BEGIN
     ALTER TABLE dbo.NS_LearningSessions ADD MediaFileName nvarchar(260) NOT NULL CONSTRAINT DF_NS_LearningSessions_MediaFileName_Alter DEFAULT '';
+END;
+
+IF COL_LENGTH('dbo.NS_LearningSessions', 'MediaStorageProvider') IS NULL
+BEGIN
+    ALTER TABLE dbo.NS_LearningSessions ADD MediaStorageProvider nvarchar(40) NOT NULL CONSTRAINT DF_NS_LearningSessions_MediaStorageProvider_Alter DEFAULT '';
+END;
+
+IF COL_LENGTH('dbo.NS_LearningSessions', 'MediaStorageKey') IS NULL
+BEGIN
+    ALTER TABLE dbo.NS_LearningSessions ADD MediaStorageKey nvarchar(600) NOT NULL CONSTRAINT DF_NS_LearningSessions_MediaStorageKey_Alter DEFAULT '';
+END;
+
+IF COL_LENGTH('dbo.NS_LearningSessions', 'MediaThumbnailUrl') IS NULL
+BEGIN
+    ALTER TABLE dbo.NS_LearningSessions ADD MediaThumbnailUrl nvarchar(500) NOT NULL CONSTRAINT DF_NS_LearningSessions_MediaThumbnailUrl_Alter DEFAULT '';
+END;
+
+IF COL_LENGTH('dbo.NS_LearningSessions', 'MediaThumbnailStorageKey') IS NULL
+BEGIN
+    ALTER TABLE dbo.NS_LearningSessions ADD MediaThumbnailStorageKey nvarchar(600) NOT NULL CONSTRAINT DF_NS_LearningSessions_MediaThumbnailStorageKey_Alter DEFAULT '';
+END;
+
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.indexes
+    WHERE name = 'IX_NS_LearningSessions_ChildId_LoggedAt'
+      AND object_id = OBJECT_ID(N'dbo.NS_LearningSessions')
+)
+BEGIN
+    CREATE INDEX IX_NS_LearningSessions_ChildId_LoggedAt
+        ON dbo.NS_LearningSessions (ChildId, LoggedAt);
+END;
+
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.indexes
+    WHERE name = 'IX_NS_LearningSessions_ChildId_WithMedia'
+      AND object_id = OBJECT_ID(N'dbo.NS_LearningSessions')
+)
+BEGIN
+    CREATE INDEX IX_NS_LearningSessions_ChildId_WithMedia
+        ON dbo.NS_LearningSessions (ChildId)
+        WHERE MediaUrl <> '';
+END;
+
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.indexes
+    WHERE name = 'IX_NS_DailyPlanBlockCompletions_ChildId_DailyPlanId'
+      AND object_id = OBJECT_ID(N'dbo.NS_DailyPlanBlockCompletions')
+)
+BEGIN
+    CREATE INDEX IX_NS_DailyPlanBlockCompletions_ChildId_DailyPlanId
+        ON dbo.NS_DailyPlanBlockCompletions (ChildId, DailyPlanId);
 END;
 
 IF OBJECT_ID(N'dbo.NS_ChildRoutineObservations', N'U') IS NULL

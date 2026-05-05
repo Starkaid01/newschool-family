@@ -1,8 +1,9 @@
 @using System.Linq
 @model NewSchool.Web.Models.ParentDashboardViewModel
 @{
-    ViewData["Title"] = "Painel";
+    ViewData["Title"] = "Hoje";
     var nextChild = Model.Children.FirstOrDefault(child => !child.PlanCompletedToday) ?? Model.Children.FirstOrDefault();
+    var hasMultipleChildren = Model.Children.Count > 1;
     var statusMessage = TempData["StatusMessage"]?.ToString();
     var statusKind = TempData["StatusKind"]?.ToString();
 }
@@ -10,53 +11,6 @@
 @Html.AntiForgeryToken()
 
 <section class="family-app-shell family-app-shell-simple">
-    <section class="family-hero-card family-hero-card-simple">
-        <div class="family-hero-copy">
-            <span class="app-kicker">Painel da família</span>
-            <h1>@Model.ParentName, tudo pronto para ensinar hoje.</h1>
-            <p>Abra uma criança, siga as lições em ordem e marque concluído. O currículo inteiro continua livre. A cobrança entra só quando a família quer guardar mais fotos, vídeos e documentos no acervo.</p>
-            <div class="hero-chip-row">
-                <span class="app-soft-pill">aula guiada</span>
-                <span class="app-soft-pill">currículo anual</span>
-                <span class="app-soft-pill">acervo separado</span>
-            </div>
-        </div>
-
-        <div class="family-hero-side">
-            <div class="hero-status-card">
-                <span class="app-status neutral">Hoje sem improviso</span>
-                <strong>@Model.TotalChildren criança(s) no fluxo</strong>
-                <p>@Model.MinutesThisWeek minutos concluídos nesta semana e @Model.Consistency.CurrentStreakDays dia(s) seguidos de constância.</p>
-                <div class="hero-action-row">
-                    @if (nextChild is not null)
-                    {
-                        <a class="btn-secondary" asp-action="Evidences" asp-route-id="@nextChild.Id">Abrir acervo</a>
-                        <a class="btn-secondary" asp-action="Plans">Ver planos</a>
-                    }
-                    else
-                    {
-                        <a class="btn-secondary" asp-action="Plans">Ver planos</a>
-                    }
-                </div>
-            </div>
-        </div>
-    </section>
-
-    @if ((string?)ViewBag.Checkout == "success")
-    {
-        <section class="app-inline-message">
-            <strong>Pagamento confirmado.</strong>
-            <span>Seu plano de armazenamento está sendo atualizado no acervo da família.</span>
-        </section>
-    }
-    else if ((string?)ViewBag.Checkout == "cancel")
-    {
-        <section class="app-inline-message warning">
-            <strong>Checkout cancelado.</strong>
-            <span>O sistema segue livre. Você só precisa voltar aqui quando quiser ampliar o acervo.</span>
-        </section>
-    }
-
     @if (!string.IsNullOrWhiteSpace(statusMessage))
     {
         <section class="app-inline-message @(string.Equals(statusKind, "warning", StringComparison.OrdinalIgnoreCase) ? "warning" : string.Empty)">
@@ -65,13 +19,75 @@
         </section>
     }
 
-    @if (!string.IsNullOrWhiteSpace(Model.GateMessage))
+    @if ((string?)ViewBag.Checkout == "success")
     {
         <section class="app-inline-message">
-            <strong>Modelo atualizado.</strong>
-            <span>@Model.GateMessage</span>
+            <strong>Pagamento confirmado.</strong>
+            <span>O limite do acervo da família está sendo atualizado.</span>
         </section>
     }
+    else if ((string?)ViewBag.Checkout == "cancel")
+    {
+        <section class="app-inline-message warning">
+            <strong>Checkout cancelado.</strong>
+            <span>O sistema continua livre. O upgrade só serve para ampliar o acervo de fotos, vídeos e documentos.</span>
+        </section>
+    }
+
+    <section class="child-hero-card child-hero-card-simple dashboard-hero-compact">
+        <div class="child-identity-row">
+            <div class="child-identity-copy">
+                <span class="app-kicker">Hoje</span>
+                <h1>
+                    @if (Model.Children.Count == 0)
+                    {
+                        @:Comece cadastrando a primeira criança.
+                    }
+                    else if (hasMultipleChildren)
+                    {
+                        @:Escolha quem vai estudar agora.
+                    }
+                    else
+                    {
+                        @:Abra a lição de @(nextChild?.FullName ?? "sua criança") e siga sem montar nada.
+                    }
+                </h1>
+                <p>
+                    @if (Model.Children.Count == 0)
+                    {
+                        @:Assim que a primeira criança entrar, o sistema já monta aula do dia, currículo, biblioteca e evidências no lugar certo.
+                    }
+                    else if (hasMultipleChildren)
+                    {
+                        @:Cada criança abaixo já abre na lição certa. O pai só precisa tocar em Abrir hoje na criança que ainda falta estudar.
+                    }
+                    else
+                    {
+                        @:O sistema já deixou a próxima lição pronta. Conclua uma por vez e guarde evidências só quando realmente fizer sentido.
+                    }
+                </p>
+            </div>
+            <span class="app-status neutral">@Model.TotalChildren criança(s)</span>
+        </div>
+
+        <div class="hero-action-row">
+            @if (Model.Children.Count == 0)
+            {
+                <a class="btn-primary" asp-action="CreateChild">Cadastrar criança</a>
+                <a class="btn-secondary" asp-action="Plans">Ver planos</a>
+            }
+            else if (hasMultipleChildren)
+            {
+                <a class="btn-primary" href="#children-section">Ver crianças</a>
+                <a class="btn-secondary" asp-action="EvidenceHome">Abrir evidências</a>
+            }
+            else if (nextChild is not null)
+            {
+                <a class="btn-primary" asp-action="Child" asp-route-id="@nextChild.Id">Abrir hoje</a>
+                <a class="btn-secondary" asp-action="Curriculum" asp-route-id="@nextChild.Id">Ver currículo</a>
+            }
+        </div>
+    </section>
 
     @if (Model.Children.Count == 0)
     {
@@ -79,7 +95,7 @@
             <article class="app-card">
                 <span class="app-kicker">Primeiro passo</span>
                 <h2>Cadastre a primeira criança</h2>
-                <p>Com um único cadastro, o sistema já monta a rotina, o currículo anual e a primeira aula do dia. O acervo começa no gratuito e só cresce de plano se a família realmente precisar de mais espaço.</p>
+                <p>O sistema cria a aula do dia, o currículo anual, a biblioteca guiada e o acervo inicial assim que a criança entra.</p>
                 <div class="hero-action-row">
                     <a class="btn-primary" asp-action="CreateChild">Cadastrar criança</a>
                     <a class="btn-secondary" asp-action="Plans">Ver planos do acervo</a>
@@ -89,74 +105,11 @@
     }
     else
     {
-        <section class="family-highlight-grid family-highlight-grid-simple">
-            <article class="today-child-card">
-                <div class="today-child-card-top">
-                    <div>
-                        <span class="app-kicker">Hoje</span>
-                        <h2>@(nextChild?.FullName ?? "Escolha uma criança")</h2>
-                    </div>
-                    <span class="app-status @(nextChild?.PlanCompletedToday == true ? "success" : "warning")">
-                        @(nextChild?.PlanCompletedToday == true ? "feito hoje" : "próxima ação")
-                    </span>
-                </div>
-
-                @if (nextChild is null)
-                {
-                    <p>Nenhuma criança encontrada.</p>
-                }
-                else
-                {
-                    <p class="today-theme">@nextChild.CurrentFocus</p>
-                    <p class="today-explainer">@nextChild.WeeklyHeadline</p>
-                    <div class="hero-action-row">
-                        <a class="btn-primary" asp-action="Child" asp-route-id="@nextChild.Id">Abrir lições do dia</a>
-                        <a class="btn-secondary" asp-action="Curriculum" asp-route-id="@nextChild.Id">Ver currículo</a>
-                    </div>
-                }
-            </article>
-
-            <article class="overview-card overview-card-guide">
-                <span class="app-kicker">Use assim hoje</span>
-                <h2>O app conduz a família em 3 passos</h2>
-
-                <div class="simple-steps-list compact">
-                    <article class="simple-step-item">
-                        <strong>1. Abra a criança certa</strong>
-                        <p>Comece sempre em <strong>Abrir hoje</strong>. A lição atual já sobe primeiro.</p>
-                    </article>
-                    <article class="simple-step-item">
-                        <strong>2. Conclua uma lição por vez</strong>
-                        <p>Leia o passo a passo, use o material indicado e toque em <strong>Concluir lição</strong>.</p>
-                    </article>
-                    <article class="simple-step-item">
-                        <strong>3. Guarde só o que importa</strong>
-                        <p>Fotos, vídeos e documentos ficam em <strong>Evidências</strong>, sem poluir a aula.</p>
-                    </article>
-                </div>
-
-                <div class="hero-chip-row dashboard-mini-strip">
-                    <span class="app-soft-pill">@Model.TotalChildren criança(s)</span>
-                    <span class="app-soft-pill">@Model.MinutesThisWeek min nesta semana</span>
-                    <span class="app-soft-pill">@Model.Consistency.CurrentStreakDays dia(s) seguidos</span>
-                    <span class="app-soft-pill">@Model.Consistency.ConsistencyPercent% de constância</span>
-                </div>
-
-                <div class="hero-action-row">
-                    <a class="btn-secondary" asp-action="Academy" asp-route-childId="@nextChild?.Id">Biblioteca certa</a>
-                    <a class="btn-secondary" asp-action="Evidences" asp-route-id="@nextChild?.Id">Evidências</a>
-                </div>
-            </article>
-        </section>
-    }
-
-    @if (Model.Children.Count > 0)
-    {
         <section class="child-strip-section" id="children-section">
             <div class="section-heading-row">
                 <div>
                     <span class="app-kicker">Crianças</span>
-                    <h2>Escolha quem vai estudar agora</h2>
+                    <h2>Quem vai estudar agora</h2>
                 </div>
                 <a class="btn-secondary" asp-action="CreateChild">Adicionar criança</a>
             </div>
@@ -167,22 +120,24 @@
                     var childInitial = string.IsNullOrWhiteSpace(child.FullName)
                         ? "C"
                         : child.FullName.Trim()[0].ToString().ToUpperInvariant();
+
                     <article class="mini-child-card mini-child-card-actionable">
                         <span class="mini-child-avatar">@childInitial</span>
                         <div>
                             <strong>@child.FullName</strong>
-                            <span>@child.Age anos • @child.DailyStudyMinutes min/dia</span>
-                            <span>@child.CurrentFocus</span>
+                            <span>@child.SchoolPlacementLabel • @child.DailyStudyMinutes min/dia</span>
+                            <span>Hoje: @(child.PlanCompletedToday ? "dia concluído" : child.CurrentFocus)</span>
                         </div>
-                        <span class="app-status @(child.PlanCompletedToday ? "success" : "neutral")">
-                            @(child.PlanCompletedToday ? "feito hoje" : "próximo passo")
+                        <span class="app-status @(child.PlanCompletedToday ? "success" : "warning")">
+                            @(child.PlanCompletedToday ? "feito hoje" : child.IsPreparingTodayPlan ? "preparando" : "pronto agora")
                         </span>
                         <div class="mini-child-actions">
-                            <a class="btn-secondary" asp-action="Child" asp-route-id="@child.Id">Abrir hoje</a>
+                            <a class="btn-primary" asp-action="Child" asp-route-id="@child.Id">@(child.PlanCompletedToday ? "Revisar hoje" : "Abrir hoje")</a>
+                            <a class="btn-secondary" asp-action="Curriculum" asp-route-id="@child.Id">Currículo</a>
                             <details class="mini-child-more">
-                                <summary>Mais opções</summary>
+                                <summary>Mais</summary>
                                 <div class="mini-child-more-body">
-                                    <a class="btn-secondary" asp-action="Curriculum" asp-route-id="@child.Id">Plano anual</a>
+                                    <a class="btn-secondary" asp-controller="Library" asp-action="Index" asp-route-childId="@child.Id">Biblioteca</a>
                                     <a class="btn-secondary" asp-action="Evidences" asp-route-id="@child.Id">Evidências</a>
                                     <a class="btn-secondary" asp-action="EditChild" asp-route-id="@child.Id">Editar</a>
                                     <form method="post"
@@ -200,5 +155,27 @@
                 }
             </div>
         </section>
+
+        <details class="micro-sequence-details dashboard-guide-details">
+            <summary>Ver como usar o sistema sem se perder</summary>
+            <div class="simple-steps-list compact">
+                <article class="simple-step-item">
+                    <strong>1. Hoje</strong>
+                    <p>Toque em <strong>Abrir hoje</strong> na criança certa. O sistema já deixa a lição atual na ordem correta.</p>
+                </article>
+                <article class="simple-step-item">
+                    <strong>2. Currículo</strong>
+                    <p>Abra só quando quiser entender a unidade atual, a prova da etapa e o que vem depois.</p>
+                </article>
+                <article class="simple-step-item">
+                    <strong>3. Biblioteca</strong>
+                    <p>Use quando precisar de leitura, apostila ou folha para imprimir ligada à fase da criança.</p>
+                </article>
+                <article class="simple-step-item">
+                    <strong>4. Evidências</strong>
+                    <p>Guarde foto, vídeo ou documento depois da lição, sem misturar isso com a rotina de ensinar.</p>
+                </article>
+            </div>
+        </details>
     }
 </section>

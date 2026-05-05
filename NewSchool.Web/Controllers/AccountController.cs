@@ -12,14 +12,18 @@ public class AccountController(
     EmailAutomationService emailAutomationService) : Controller
 {
     [HttpGet]
-    public IActionResult Login()
+    public IActionResult Login(string? returnUrl = null)
     {
         if (User.Identity?.IsAuthenticated == true)
         {
             return RedirectToRoleHome();
         }
 
-        return View(new LoginViewModel());
+        return View(new LoginViewModel
+        {
+            ReturnUrl = returnUrl ?? string.Empty,
+            StatusMessage = TempData["StatusMessage"]?.ToString()
+        });
     }
 
     [HttpGet]
@@ -60,7 +64,7 @@ public class AccountController(
         var user = await authService.AuthenticateAsync(model.Email, model.Password);
         if (user is null)
         {
-            model.ErrorMessage = "Email ou senha invalidos.";
+            model.ErrorMessage = "Email ou senha invalidos. Se voce nao lembra a senha, use \"Esqueci minha senha\" para redefinir o acesso.";
             return View(model);
         }
 
@@ -68,9 +72,85 @@ public class AccountController(
             CookieAuthenticationDefaults.AuthenticationScheme,
             authService.CreatePrincipal(user));
 
+        if (!string.IsNullOrWhiteSpace(model.ReturnUrl) && Url.IsLocalUrl(model.ReturnUrl))
+        {
+            return Redirect(model.ReturnUrl);
+        }
+
         return user.Role == Domain.UserRole.Admin
             ? RedirectToAction("Index", "Admin")
             : RedirectToAction("Index", "Parent");
+    }
+
+    [HttpGet]
+    public IActionResult ForgotPassword()
+    {
+        if (User.Identity?.IsAuthenticated == true)
+        {
+            return RedirectToRoleHome();
+        }
+
+        return View(new ForgotPasswordViewModel());
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ForgotPassword(ForgotPasswordViewModel model)
+    {
+        if (!ModelState.IsValid)
+        {
+            return View(model);
+        }
+
+        var result = await authService.GeneratePasswordResetTokenAsync(model.Email);
+        if (result.User is not null && !string.IsNullOrWhiteSpace(result.Token))
+        {
+            await emailAutomationService.SendPasswordResetEmailAsync(result.User, result.Token);
+        }
+
+        model.StatusMessage = "Se o email existir no sistema, voce vai receber um link de redefinicao em instantes.";
+        ModelState.Clear();
+        model.Email = string.Empty;
+        return View(model);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ResetPassword(string email, string token)
+    {
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(token))
+        {
+            return RedirectToAction(nameof(ForgotPassword));
+        }
+
+        var isValid = await authService.IsPasswordResetTokenValidAsync(email, token);
+        var vm = new ResetPasswordViewModel
+        {
+            Email = email,
+            Token = token,
+            ErrorMessage = isValid ? null : "Esse link de redefinicao expirou ou nao e mais valido."
+        };
+
+        return View(vm);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ResetPassword(ResetPasswordViewModel model)
+    {
+        if (!ModelState.IsValid)
+        {
+            return View(model);
+        }
+
+        var result = await authService.ResetPasswordAsync(model.Email, model.Token, model.Password);
+        if (!result.Success)
+        {
+            model.ErrorMessage = result.Error;
+            return View(model);
+        }
+
+        TempData["StatusMessage"] = "Senha redefinida. Agora voce ja pode entrar com a nova senha.";
+        return RedirectToAction(nameof(Login));
     }
 
     [HttpPost]

@@ -5,6 +5,7 @@ public class ChildDetailsViewModel
     public Guid ChildId { get; set; }
     public string FullName { get; set; } = string.Empty;
     public int Age { get; set; }
+    public string SchoolPlacementLabel { get; set; } = string.Empty;
     public int DailyStudyMinutes { get; set; }
     public string Notes { get; set; } = string.Empty;
     public string SupportProfileLabel { get; set; } = string.Empty;
@@ -48,6 +49,8 @@ public class ChildDetailsViewModel
     public TomorrowLessonPreviewViewModel TomorrowLesson { get; set; } = new();
     public WeeklyStudySnapshotViewModel WeeklyStudy { get; set; } = new();
     public string EvidenceCenterUrl { get; set; } = string.Empty;
+    public string SchoolReportUrl { get; set; } = string.Empty;
+    public string ReinforcementUrl { get; set; } = string.Empty;
     public FamilyLibraryCurriculumBridgeViewModel LibraryBridge { get; set; } = new();
     public List<SystemCurriculumTrackViewModel> SystemCurriculumTracks { get; set; } = new();
     public DailyTrailViewModel TodayTrail { get; set; } = new();
@@ -57,10 +60,25 @@ public class ChildDetailsViewModel
     public string TomorrowPreviewUrl { get; set; } = string.Empty;
     public bool HasTomorrowPlanPreview { get; set; }
     public int TomorrowPlanBlocksCount { get; set; }
+    public string DashboardUrl { get; set; } = string.Empty;
+    public string CreateChildUrl { get; set; } = string.Empty;
+    public bool IsPreparingTodayPlan { get; set; }
+    public bool IsPreparingTomorrowPlan { get; set; }
+    public int AutoRefreshSeconds { get; set; }
+    public List<ChildQuickSwitchViewModel> FamilyChildren { get; set; } = new();
     public AdaptiveRoutineSnapshotViewModel AdaptiveSnapshot { get; set; } = new();
     public LogSessionViewModel LogSession { get; set; } = new();
     public SkillCheckupFormViewModel SkillCheckups { get; set; } = new();
     public SkillReadinessFormViewModel ReadinessChecks { get; set; } = new();
+}
+
+public class ChildQuickSwitchViewModel
+{
+    public Guid ChildId { get; set; }
+    public string FullName { get; set; } = string.Empty;
+    public string ShortLabel { get; set; } = string.Empty;
+    public bool IsCurrent { get; set; }
+    public string TodayUrl { get; set; } = string.Empty;
 }
 
 public class PlanBlockViewModel
@@ -232,6 +250,7 @@ public class ChildCurriculumViewModel
     public List<string> AvailableAreas { get; set; } = new();
     public string PrintUrl { get; set; } = string.Empty;
     public string EvidenceCenterUrl { get; set; } = string.Empty;
+    public string SchoolReportUrl { get; set; } = string.Empty;
     public string AcademyUrl { get; set; } = string.Empty;
     public FamilyLibraryCurriculumBridgeViewModel LibraryBridge { get; set; } = new();
     public FamilyLibraryAnnualSpineViewModel AnnualReadingSpine { get; set; } = new();
@@ -239,6 +258,7 @@ public class ChildCurriculumViewModel
     public string TeaTracksUrl { get; set; } = string.Empty;
     public List<TeaTrackQuickLinkViewModel> TeaTrackQuickLinks { get; set; } = new();
     public AnnualCurriculumViewModel AnnualPlan { get; set; } = new();
+    public List<SchoolPhaseClosureViewModel> PhaseClosures { get; set; } = new();
     public List<SystemCurriculumTrackViewModel> SystemCurriculumTracks { get; set; } = new();
     public WeeklyRoadmapViewModel WeeklyRoadmap { get; set; } = new();
     public List<SkillProgressViewModel> SkillProgress { get; set; } = new();

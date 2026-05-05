@@ -36,6 +36,9 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<FamilyLibraryPage> FamilyLibraryPages => Set<FamilyLibraryPage>();
     public DbSet<FamilyLibraryUserState> FamilyLibraryUserStates => Set<FamilyLibraryUserState>();
     public DbSet<ChildLibraryReadingProgress> ChildLibraryReadingProgressEntries => Set<ChildLibraryReadingProgress>();
+    public DbSet<ChildLessonAssessment> ChildLessonAssessments => Set<ChildLessonAssessment>();
+    public DbSet<ChildLessonAssessmentItem> ChildLessonAssessmentItems => Set<ChildLessonAssessmentItem>();
+    public DbSet<UserNotification> UserNotifications => Set<UserNotification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -72,6 +75,9 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         modelBuilder.Entity<FamilyLibraryPage>().ToTable("NS_FamilyLibraryPages");
         modelBuilder.Entity<FamilyLibraryUserState>().ToTable("NS_FamilyLibraryUserStates");
         modelBuilder.Entity<ChildLibraryReadingProgress>().ToTable("NS_ChildLibraryReadingProgress");
+        modelBuilder.Entity<ChildLessonAssessment>().ToTable("NS_ChildLessonAssessments");
+        modelBuilder.Entity<ChildLessonAssessmentItem>().ToTable("NS_ChildLessonAssessmentItems");
+        modelBuilder.Entity<UserNotification>().ToTable("NS_UserNotifications");
 
         modelBuilder.Entity<AppUser>()
             .HasIndex(x => x.Email)
@@ -91,6 +97,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         modelBuilder.Entity<AppUser>().Property(x => x.StripeCustomerId).HasMaxLength(100);
         modelBuilder.Entity<AppUser>().Property(x => x.StripeSubscriptionId).HasMaxLength(100);
         modelBuilder.Entity<AppUser>().Property(x => x.StoragePlanCode).HasMaxLength(40);
+        modelBuilder.Entity<AppUser>().Property(x => x.PasswordResetTokenHash).HasMaxLength(200);
 
         modelBuilder.Entity<AppUser>()
             .Property(x => x.Role)
@@ -100,6 +107,16 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .WithMany(x => x.Referrals)
             .HasForeignKey(x => x.ReferredByUserId)
             .OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<AppUser>()
+            .HasMany(x => x.Notifications)
+            .WithOne(x => x.User)
+            .HasForeignKey(x => x.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<AppUser>()
+            .HasMany(x => x.SentNotifications)
+            .WithOne(x => x.SentByAdmin)
+            .HasForeignKey(x => x.SentByAdminId)
+            .OnDelete(DeleteBehavior.NoAction);
 
         modelBuilder.Entity<ChildProfile>().Property(x => x.FullName).HasMaxLength(160);
         modelBuilder.Entity<ChildProfile>().Property(x => x.Notes).HasMaxLength(1000);
@@ -108,6 +125,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         modelBuilder.Entity<ChildProfile>().Property(x => x.LearningProfile).HasMaxLength(40);
         modelBuilder.Entity<ChildProfile>().Property(x => x.GuidanceStyle).HasMaxLength(40);
         modelBuilder.Entity<ChildProfile>().Property(x => x.SupportProfile).HasConversion<string>().HasMaxLength(20);
+        modelBuilder.Entity<ChildProfile>()
+            .HasIndex(x => x.ParentId);
         modelBuilder.Entity<ChildDevelopmentProfile>().Property(x => x.StrengthsSummary).HasMaxLength(800);
         modelBuilder.Entity<ChildDevelopmentProfile>().Property(x => x.SupportSummary).HasMaxLength(800);
         modelBuilder.Entity<ChildTeaProfile>().Property(x => x.CommunicationProfile).HasMaxLength(220);
@@ -197,6 +216,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         modelBuilder.Entity<DailyPlanBlockCompletion>()
             .HasIndex(x => new { x.ChildId, x.DailyPlanBlockId })
             .IsUnique();
+        modelBuilder.Entity<DailyPlanBlockCompletion>()
+            .HasIndex(x => new { x.ChildId, x.DailyPlanId });
         modelBuilder.Entity<DailyPlanBlockCompletion>()
             .HasOne(x => x.Child)
             .WithMany(x => x.TaskCompletions)
@@ -319,6 +340,59 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .WithMany()
             .HasForeignKey(x => x.MaterialId)
             .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<ChildLessonAssessment>().Property(x => x.PhaseLabel).HasMaxLength(80);
+        modelBuilder.Entity<ChildLessonAssessment>().Property(x => x.SubjectLabel).HasMaxLength(80);
+        modelBuilder.Entity<ChildLessonAssessment>().Property(x => x.LessonTitle).HasMaxLength(260);
+        modelBuilder.Entity<ChildLessonAssessment>().Property(x => x.UnitTitle).HasMaxLength(260);
+        modelBuilder.Entity<ChildLessonAssessment>().Property(x => x.AssessmentTitle).HasMaxLength(260);
+        modelBuilder.Entity<ChildLessonAssessment>().Property(x => x.PrintableHeadline).HasMaxLength(260);
+        modelBuilder.Entity<ChildLessonAssessment>().Property(x => x.PrintableSummary).HasMaxLength(1200);
+        modelBuilder.Entity<ChildLessonAssessment>()
+            .Property(x => x.Domain)
+            .HasConversion<string>()
+            .HasMaxLength(40);
+        modelBuilder.Entity<ChildLessonAssessment>()
+            .HasIndex(x => new { x.ChildId, x.DailyPlanBlockId })
+            .IsUnique();
+        modelBuilder.Entity<ChildLessonAssessment>()
+            .HasOne(x => x.Child)
+            .WithMany()
+            .HasForeignKey(x => x.ChildId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<ChildLessonAssessment>()
+            .HasOne(x => x.ParentUser)
+            .WithMany()
+            .HasForeignKey(x => x.ParentUserId)
+            .OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<ChildLessonAssessment>()
+            .HasOne(x => x.DailyPlan)
+            .WithMany()
+            .HasForeignKey(x => x.DailyPlanId)
+            .OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<ChildLessonAssessment>()
+            .HasOne(x => x.DailyPlanBlock)
+            .WithMany()
+            .HasForeignKey(x => x.DailyPlanBlockId)
+            .OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<ChildLessonAssessmentItem>().Property(x => x.Prompt).HasMaxLength(1200);
+        modelBuilder.Entity<ChildLessonAssessmentItem>().Property(x => x.ExpectedAnswer).HasMaxLength(1200);
+        modelBuilder.Entity<ChildLessonAssessmentItem>().Property(x => x.TeacherNote).HasMaxLength(800);
+        modelBuilder.Entity<ChildLessonAssessmentItem>()
+            .HasIndex(x => new { x.AssessmentId, x.SortOrder })
+            .IsUnique();
+        modelBuilder.Entity<ChildLessonAssessmentItem>()
+            .HasOne(x => x.Assessment)
+            .WithMany(x => x.Items)
+            .HasForeignKey(x => x.AssessmentId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<UserNotification>().Property(x => x.Title).HasMaxLength(180);
+        modelBuilder.Entity<UserNotification>().Property(x => x.Message).HasMaxLength(1500);
+        modelBuilder.Entity<UserNotification>().Property(x => x.NotificationLevel).HasMaxLength(20);
+        modelBuilder.Entity<UserNotification>().Property(x => x.ActionUrl).HasMaxLength(500);
+        modelBuilder.Entity<UserNotification>()
+            .HasIndex(x => new { x.UserId, x.CreatedAt });
+        modelBuilder.Entity<UserNotification>()
+            .HasIndex(x => new { x.UserId, x.ReadAt });
 
         modelBuilder.Entity<CurriculumTemplate>().Property(x => x.Title).HasMaxLength(180);
         modelBuilder.Entity<CurriculumTemplate>().Property(x => x.GoalTrack).HasMaxLength(40);
@@ -538,6 +612,15 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         modelBuilder.Entity<LearningSession>().Property(x => x.MediaUrl).HasMaxLength(500);
         modelBuilder.Entity<LearningSession>().Property(x => x.MediaContentType).HasMaxLength(120);
         modelBuilder.Entity<LearningSession>().Property(x => x.MediaFileName).HasMaxLength(260);
+        modelBuilder.Entity<LearningSession>().Property(x => x.MediaStorageProvider).HasMaxLength(40);
+        modelBuilder.Entity<LearningSession>().Property(x => x.MediaStorageKey).HasMaxLength(600);
+        modelBuilder.Entity<LearningSession>().Property(x => x.MediaThumbnailUrl).HasMaxLength(500);
+        modelBuilder.Entity<LearningSession>().Property(x => x.MediaThumbnailStorageKey).HasMaxLength(600);
+        modelBuilder.Entity<LearningSession>()
+            .HasIndex(x => new { x.ChildId, x.LoggedAt });
+        modelBuilder.Entity<LearningSession>()
+            .HasIndex(x => x.ChildId)
+            .HasFilter("[MediaUrl] <> ''");
         modelBuilder.Entity<ChildRoutineObservation>().Property(x => x.ContextPeriod).HasMaxLength(120);
         modelBuilder.Entity<ChildRoutineObservation>().Property(x => x.Antecedent).HasMaxLength(1200);
         modelBuilder.Entity<ChildRoutineObservation>().Property(x => x.ChildReaction).HasMaxLength(1200);

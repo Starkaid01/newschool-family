@@ -1,12 +1,18 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using NewSchool.Web.Data;
 using NewSchool.Web.Domain;
 using NewSchool.Web.Models;
 
 namespace NewSchool.Web.Services;
 
-public class SystemCurriculumLibraryService(ApplicationDbContext db)
+public class SystemCurriculumLibraryService(
+    ApplicationDbContext db,
+    IMemoryCache memoryCache,
+    ProprietaryCurriculumBlueprintService proprietaryCurriculumBlueprintService)
 {
+    private static readonly TimeSpan TrackCacheDuration = TimeSpan.FromMinutes(10);
+
     public async Task<List<SystemCurriculumTrackViewModel>> BuildAsync(ChildProfile? child)
     {
         var age = child is null
@@ -15,8 +21,15 @@ public class SystemCurriculumLibraryService(ApplicationDbContext db)
         var goalTrack = child?.FamilyGoalTrack ?? "balanced_growth";
         var currentPhaseIndex = GetCurrentPhaseIndex(DateTime.Today.Month);
         var currentUnitNumber = GetPhaseMonthSlot(DateTime.Today.Month);
+        var cacheKey = $"system-curriculum:{age}:{goalTrack}:{currentPhaseIndex}:{currentUnitNumber}";
+
+        if (memoryCache.TryGetValue(cacheKey, out List<SystemCurriculumTrackViewModel>? cachedTracks) && cachedTracks is not null)
+        {
+            return cachedTracks;
+        }
 
         var templates = await db.CurriculumTemplates
+            .AsNoTracking()
             .Where(x => x.Age == age)
             .Where(x => x.SupportScope == CurriculumSupportScope.General)
             .Where(x => x.FunctionalTrack == FunctionalSupportTrack.Base)
@@ -26,51 +39,44 @@ public class SystemCurriculumLibraryService(ApplicationDbContext db)
             .ToListAsync();
 
         var tracks = new List<SystemCurriculumTrackViewModel>();
-        foreach (var domain in new[]
-                 {
-                     LearningDomain.Language,
-                     LearningDomain.Math,
-                     LearningDomain.World,
-                     LearningDomain.ExecutiveFunction
-                 })
+        foreach (var domain in CurriculumStructure.AnnualSubjectOrder)
         {
             var chosenTemplates = SelectTrackTemplates(templates, domain, goalTrack);
-            var phaseTemplates = GetPhaseTemplates(chosenTemplates, currentPhaseIndex);
-            var leadTemplate = phaseTemplates.FirstOrDefault() ?? chosenTemplates.FirstOrDefault();
-            if (leadTemplate is null)
+            var subjectBlueprint = proprietaryCurriculumBlueprintService.BuildSubject(age, domain);
+            var currentPhaseBlueprint = subjectBlueprint.Phases.ElementAtOrDefault(currentPhaseIndex);
+            var currentUnitBlueprint = currentPhaseBlueprint?.Units.FirstOrDefault();
+
+            if (chosenTemplates.Count == 0 && currentUnitBlueprint is null)
             {
                 continue;
             }
 
-            var phaseSequences = BuildPhaseSequences(chosenTemplates, currentPhaseIndex, currentUnitNumber);
+            var phaseSequences = BuildPhaseSequences(subjectBlueprint, chosenTemplates, currentPhaseIndex, currentUnitNumber);
             var currentUnit = phaseSequences
                 .FirstOrDefault(sequence => sequence.IsCurrent)?
-                .Units.FirstOrDefault(unit => unit.IsCurrent)
+                .Units
+                .FirstOrDefault(unit => unit.IsCurrent)
                 ?? phaseSequences.FirstOrDefault(sequence => sequence.IsCurrent)?.Units.FirstOrDefault();
 
             tracks.Add(new SystemCurriculumTrackViewModel
             {
-                Title = BuildTrackTitle(domain),
-                DomainLabel = FormatDomain(domain),
-                DomainChipClass = GetChip(domain),
-                AgeBandLabel = age <= 5
-                    ? "educação infantil"
-                    : age <= 8
-                        ? "fundamental inicial"
-                        : age <= 10
-                            ? "fundamental em crescimento"
-                            : "fundamental final",
+                Title = subjectBlueprint.TrackTitle,
+                DomainLabel = subjectBlueprint.SubjectLabel,
+                DomainChipClass = CurriculumStructure.GetDomainChipClass(domain),
+                AgeBandLabel = subjectBlueprint.SchoolPlacementLabel,
+                SchoolPlacementLabel = subjectBlueprint.SchoolPlacementLabel,
                 CurrentPhaseLabel = $"{currentPhaseIndex + 1}ª etapa do ano",
-                YearGoal = BuildYearGoal(domain, age),
+                YearGoal = subjectBlueprint.YearGoal,
                 CurrentFocus = currentUnit is null
-                    ? BuildCurrentFocus(phaseTemplates, domain, age)
+                    ? BuildCurrentFocus(chosenTemplates, domain, age)
                     : $"{currentUnit.UnitLabel} • {currentUnit.Title}",
-                ParentMethod = currentUnit?.ParentGuide ?? leadTemplate.ParentGuide,
+                ParentMethod = currentUnit?.ParentGuide ?? currentUnitBlueprint?.ParentGuide ?? subjectBlueprint.ParentMethod,
                 TotalLessons = chosenTemplates.Count,
-                ExampleSkills = phaseTemplates.Select(x => x.Title).Distinct().Take(3).ToList(),
+                ExampleSkills = currentUnit?.LessonTitles.Take(3).ToList()
+                    ?? chosenTemplates.Select(x => x.Title).Distinct().Take(3).ToList(),
                 Materials = currentUnit?.Materials.Count > 0
                     ? currentUnit.Materials.Take(4).ToList()
-                    : phaseTemplates
+                    : chosenTemplates
                         .SelectMany(x => SplitMaterials(x.Materials))
                         .Distinct(StringComparer.OrdinalIgnoreCase)
                         .Take(4)
@@ -80,6 +86,7 @@ public class SystemCurriculumLibraryService(ApplicationDbContext db)
             });
         }
 
+        memoryCache.Set(cacheKey, tracks, TrackCacheDuration);
         return tracks;
     }
 
@@ -117,113 +124,68 @@ public class SystemCurriculumLibraryService(ApplicationDbContext db)
     }
 
     private static List<SystemCurriculumPhaseSequenceViewModel> BuildPhaseSequences(
+        ProprietaryCurriculumSubjectBlueprintViewModel subjectBlueprint,
         IReadOnlyList<CurriculumTemplate> templates,
         int currentPhaseIndex,
         int currentUnitNumber)
     {
-        if (templates.Count == 0)
+        if (subjectBlueprint.Phases.Count == 0)
         {
             return [];
         }
 
-        var chunkSize = (int)Math.Ceiling(templates.Count / 4d);
-        var result = new List<SystemCurriculumPhaseSequenceViewModel>();
-        for (var index = 0; index < 4; index++)
+        var templateChunks = ChunkTemplatesByPhase(templates, subjectBlueprint.Phases.Count);
+        var result = new List<SystemCurriculumPhaseSequenceViewModel>(subjectBlueprint.Phases.Count);
+        foreach (var phase in subjectBlueprint.Phases)
         {
-            var chunk = templates
-                .Skip(index * chunkSize)
-                .Take(chunkSize)
+            var chunk = templateChunks.ElementAtOrDefault(phase.PhaseNumber - 1) ?? [];
+            var units = phase.Units
+                .Select(unit => new SystemCurriculumUnitViewModel
+                {
+                    PhaseLabel = unit.PhaseLabel,
+                    SchoolPlacementLabel = unit.SchoolPlacementLabel,
+                    SubjectLabel = unit.SubjectLabel,
+                    UnitNumber = unit.UnitNumber,
+                    UnitLabel = unit.UnitLabel,
+                    Title = unit.Title,
+                    Summary = unit.Summary,
+                        Objective = unit.Objective,
+                        ParentGuide = unit.ParentGuide,
+                        TaskTitle = unit.LessonTitles.FirstOrDefault() ?? unit.Title,
+                        TaskPrompt = unit.TaskPrompt,
+                        CompletionSignal = unit.CompletionSignal,
+                        OptionalEvidenceNote = unit.OptionalEvidenceNote,
+                        IsCurrent = phase.PhaseNumber - 1 == currentPhaseIndex,
+                    SkillCodes = chunk
+                        .Where(template => template.Domain == subjectBlueprint.Domain)
+                        .Select(template => template.SkillCode)
+                        .Where(code => !string.IsNullOrWhiteSpace(code))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .Take(6)
+                        .ToList(),
+                    LessonTitles = unit.LessonTitles.ToList(),
+                    Materials = unit.Materials.ToList()
+                })
                 .ToList();
-            if (chunk.Count == 0)
-            {
-                continue;
-            }
 
-            var units = BuildUnits(chunk, index, currentPhaseIndex, currentUnitNumber);
+            if (units.Count > 0 && units.All(unit => !unit.IsCurrent) && phase.PhaseNumber - 1 == currentPhaseIndex)
+            {
+                units[0].IsCurrent = true;
+            }
 
             result.Add(new SystemCurriculumPhaseSequenceViewModel
             {
-                PhaseLabel = $"{index + 1}ª etapa",
-                Summary = BuildPhaseSummary(index, chunk),
-                IsCurrent = index == currentPhaseIndex,
+                PhaseLabel = phase.PhaseLabel,
+                Summary = phase.Summary,
+                IsCurrent = phase.PhaseNumber - 1 == currentPhaseIndex,
                 UnitCount = units.Count,
-                LessonCount = chunk.Count,
-                Skills = chunk.Select(x => x.Title).Distinct().Take(4).ToList(),
+                LessonCount = units.Sum(unit => unit.LessonTitles.Count),
+                Skills = units.SelectMany(unit => unit.LessonTitles).Distinct().Take(4).ToList(),
                 Units = units
             });
         }
 
         return result;
-    }
-
-    private static List<SystemCurriculumUnitViewModel> BuildUnits(
-        IReadOnlyList<CurriculumTemplate> phaseTemplates,
-        int phaseIndex,
-        int currentPhaseIndex,
-        int currentUnitNumber)
-    {
-        if (phaseTemplates.Count == 0)
-        {
-            return [];
-        }
-
-        var chunkSize = (int)Math.Ceiling(phaseTemplates.Count / 3d);
-        var units = new List<SystemCurriculumUnitViewModel>();
-        for (var index = 0; index < 3; index++)
-        {
-            var unitTemplates = phaseTemplates
-                .Skip(index * chunkSize)
-                .Take(chunkSize)
-                .ToList();
-            if (unitTemplates.Count == 0)
-            {
-                continue;
-            }
-
-            var leadTemplate = unitTemplates.First();
-            var lessonTitles = unitTemplates
-                .Select(template => template.Title)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .Take(4)
-                .ToList();
-            var materials = unitTemplates
-                .SelectMany(template => SplitMaterials(template.Materials))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .Take(5)
-                .ToList();
-            var unitLabel = $"Unidade {units.Count + 1}";
-
-            units.Add(new SystemCurriculumUnitViewModel
-            {
-                PhaseLabel = $"{phaseIndex + 1}ª etapa",
-                UnitNumber = units.Count + 1,
-                UnitLabel = unitLabel,
-                Title = leadTemplate.Title,
-                Summary = BuildUnitSummary(unitTemplates),
-                ParentGuide = leadTemplate.ParentGuide,
-                TaskTitle = leadTemplate.Title,
-                TaskPrompt = leadTemplate.ChildMission,
-                CompletionSignal = BuildUnitCompletionSignal(leadTemplate),
-                OptionalEvidenceNote = string.IsNullOrWhiteSpace(leadTemplate.EvidencePrompt)
-                    ? "Se a família quiser guardar memória depois, pode salvar foto, vídeo curto ou observação na página de Evidências."
-                    : leadTemplate.EvidencePrompt,
-                IsCurrent = phaseIndex == currentPhaseIndex && units.Count + 1 == Math.Clamp(currentUnitNumber, 1, 3),
-                SkillCodes = unitTemplates
-                    .Select(template => template.SkillCode)
-                    .Where(code => !string.IsNullOrWhiteSpace(code))
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToList(),
-                LessonTitles = lessonTitles,
-                Materials = materials
-            });
-        }
-
-        if (units.Count > 0 && units.All(unit => !unit.IsCurrent) && phaseIndex == currentPhaseIndex)
-        {
-            units[0].IsCurrent = true;
-        }
-
-        return units;
     }
 
     private static IEnumerable<string> SplitMaterials(string value)
@@ -232,48 +194,6 @@ public class SystemCurriculumLibraryService(ApplicationDbContext db)
             .Split([',', ';', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Where(x => x.Length > 2);
     }
-
-    private static string BuildUnitSummary(IReadOnlyList<CurriculumTemplate> templates)
-    {
-        var lessonTitles = templates
-            .Select(template => template.Title)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(2)
-            .ToList();
-
-        if (lessonTitles.Count == 0)
-        {
-            return "Sequência curta da etapa organizada para a família só abrir e conduzir.";
-        }
-
-        if (lessonTitles.Count == 1)
-        {
-            return $"Nesta unidade a criança trabalha {lessonTitles[0].ToLowerInvariant()} com passos curtos e repetição guiada.";
-        }
-
-        return $"Nesta unidade entram {lessonTitles[0].ToLowerInvariant()} e {lessonTitles[1].ToLowerInvariant()}, sem pular etapa nem misturar matéria demais.";
-    }
-
-    private static string BuildUnitCompletionSignal(CurriculumTemplate leadTemplate)
-    {
-        return leadTemplate.Domain switch
-        {
-            LearningDomain.Language => $"A unidade avança quando a criança consegue {leadTemplate.Title.ToLowerInvariant()} em resposta oral, leitura guiada ou escrita curta com menos ajuda.",
-            LearningDomain.Math => $"A unidade avança quando a criança consegue {leadTemplate.Title.ToLowerInvariant()} usando material concreto ou registro curto sem travar no meio.",
-            LearningDomain.World => $"A unidade avança quando a criança consegue {leadTemplate.Title.ToLowerInvariant()} e explicar a principal descoberta da atividade.",
-            LearningDomain.ExecutiveFunction => $"A unidade avança quando a criança consegue {leadTemplate.Title.ToLowerInvariant()} até o fim da rotina combinada, com mais autonomia.",
-            _ => $"A unidade avança quando a criança conclui {leadTemplate.Title.ToLowerInvariant()} com clareza."
-        };
-    }
-
-    private static string BuildTrackTitle(LearningDomain domain) => domain switch
-    {
-        LearningDomain.Language => "Linguagem em casa",
-        LearningDomain.Math => "Matemática no cotidiano",
-        LearningDomain.World => "Brasil, mundo e descoberta",
-        LearningDomain.ExecutiveFunction => "Autonomia para estudar",
-        _ => "Trilha do sistema"
-    };
 
     private static string BuildCurrentFocus(
         IReadOnlyList<CurriculumTemplate> templates,
@@ -292,8 +212,12 @@ public class SystemCurriculumLibraryService(ApplicationDbContext db)
             LearningDomain.Language => "leitura, escrita e reconto com clareza",
             LearningDomain.Math when age <= 5 => "contagem, comparação e material concreto",
             LearningDomain.Math => "cálculo com sentido e problemas simples",
-            LearningDomain.World when age <= 5 => "natureza, Brasil e observação",
-            LearningDomain.World => "história, geografia e investigação",
+            LearningDomain.Science when age <= 5 => "natureza, corpo e observação",
+            LearningDomain.Science => "pergunta, experimento e conclusão",
+            LearningDomain.History when age <= 5 => "família, memória e sequência",
+            LearningDomain.History => "tempo, fontes e acontecimentos",
+            LearningDomain.Geography when age <= 5 => "casa, bairro e orientação",
+            LearningDomain.Geography => "mapa, região e território",
             LearningDomain.ExecutiveFunction when age <= 5 => "rotina, foco e pequenas responsabilidades",
             LearningDomain.ExecutiveFunction => "planejamento, conclusão e revisão",
             _ => "avanço equilibrado"
@@ -308,54 +232,50 @@ public class SystemCurriculumLibraryService(ApplicationDbContext db)
             LearningDomain.Language => "Fortalecer leitura, escrita guiada e compreensão.",
             LearningDomain.Math when age <= 5 => "Construir número, quantidade e comparação com material real.",
             LearningDomain.Math => "Consolidar cálculo, raciocínio e resolução de problemas.",
-            LearningDomain.World when age <= 5 => "Ampliar repertório de Brasil, natureza e vida cotidiana.",
-            LearningDomain.World => "Conectar história, ciência, geografia e cultura de forma viva.",
+            LearningDomain.Science when age <= 5 => "Explorar natureza, corpo, animais e fenômenos simples com curiosidade guiada.",
+            LearningDomain.Science => "Construir investigação, observação e linguagem científica acessível.",
+            LearningDomain.History when age <= 5 => "Perceber rotina, memória, tempo e mudanças da vida cotidiana.",
+            LearningDomain.History => "Organizar fatos, fontes, sequência e interpretação histórica.",
+            LearningDomain.Geography when age <= 5 => "Explorar casa, bairro, clima e referências do espaço próximo.",
+            LearningDomain.Geography => "Ler mapas, regiões, território e relações entre lugar e sociedade.",
             LearningDomain.ExecutiveFunction when age <= 5 => "Criar rotina, atenção e autonomia básica.",
             LearningDomain.ExecutiveFunction => "Ganhar autonomia para iniciar, concluir e revisar o estudo.",
             _ => "Crescer com constância ao longo do ano."
         };
     }
 
-    private static string BuildPhaseSummary(int phaseIndex, IReadOnlyList<CurriculumTemplate> templates)
-    {
-        var lead = templates.FirstOrDefault();
-        if (lead is null)
-        {
-            return string.Empty;
-        }
-
-        var prefix = phaseIndex switch
-        {
-            0 => "Começo do ano",
-            1 => "Ampliação",
-            2 => "Consolidação",
-            _ => "Fechamento"
-        };
-
-        return $"{prefix}: {lead.Goal}";
-    }
-
-    private static string FormatDomain(LearningDomain domain) => domain switch
-    {
-        LearningDomain.Language => "Linguagem",
-        LearningDomain.Math => "Matemática",
-        LearningDomain.World => "Brasil e mundo",
-        LearningDomain.ExecutiveFunction => "Autonomia",
-        _ => "Geral"
-    };
-
-    private static string GetChip(LearningDomain domain) => domain switch
-    {
-        LearningDomain.Language => "track-communication",
-        LearningDomain.Math => "track-academic",
-        LearningDomain.World => "success",
-        LearningDomain.ExecutiveFunction => "track-dailyliving",
-        _ => "neutral"
-    };
-
     private static int GetPhaseMonthSlot(int month)
     {
         return Math.Clamp(((Math.Max(month, 1) - 1) % 3) + 1, 1, 3);
+    }
+
+    private static List<IReadOnlyList<CurriculumTemplate>> ChunkTemplatesByPhase(
+        IReadOnlyList<CurriculumTemplate> templates,
+        int phaseCount)
+    {
+        if (phaseCount <= 0)
+        {
+            return [];
+        }
+
+        if (templates.Count == 0)
+        {
+            return Enumerable.Range(0, phaseCount)
+                .Select(_ => (IReadOnlyList<CurriculumTemplate>)[])
+                .ToList();
+        }
+
+        var chunkSize = (int)Math.Ceiling(templates.Count / (double)phaseCount);
+        var chunks = new List<IReadOnlyList<CurriculumTemplate>>(phaseCount);
+        for (var index = 0; index < phaseCount; index++)
+        {
+            chunks.Add(templates
+                .Skip(index * chunkSize)
+                .Take(chunkSize)
+                .ToList());
+        }
+
+        return chunks;
     }
 
     private static int GetCurrentPhaseIndex(int month) => month switch

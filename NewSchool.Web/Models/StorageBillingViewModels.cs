@@ -20,6 +20,8 @@ public class EvidenceStorageSummaryViewModel
     public string UploadNotice { get; set; } = string.Empty;
     public string UpgradeHint { get; set; } = string.Empty;
     public bool CanManageBilling { get; set; }
+    public bool CanBuyExtraStorage { get; set; }
+    public EvidenceStoragePlanCardViewModel? ExtraStoragePlan { get; set; }
     public List<EvidenceStoragePlanCardViewModel> Plans { get; set; } = new();
 }
 
@@ -32,6 +34,9 @@ public class EvidenceStoragePlanCardViewModel
     public string Description { get; set; } = string.Empty;
     public bool IsCurrent { get; set; }
     public bool SupportsExtraBlocks { get; set; }
+    public bool IsAddon { get; set; }
+    public bool IsAvailable { get; set; } = true;
+    public string HelperText { get; set; } = string.Empty;
     public string ButtonLabel { get; set; } = string.Empty;
 }
 

@@ -4,6 +4,13 @@ public class CuratedTaskSuggestionViewModel
 {
     public string Slug { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
+    public string SchoolPlacementLabel { get; set; } = string.Empty;
+    public string CurriculumSubjectLabel { get; set; } = string.Empty;
+    public string CurriculumUnitLabel { get; set; } = string.Empty;
+    public string CurriculumUnitTitle { get; set; } = string.Empty;
+    public string CurriculumLessonTitle { get; set; } = string.Empty;
+    public int CurriculumLessonNumber { get; set; }
+    public int CurriculumLessonCount { get; set; }
     public string FitReason { get; set; } = string.Empty;
     public string Goal { get; set; } = string.Empty;
     public string ParentGuide { get; set; } = string.Empty;

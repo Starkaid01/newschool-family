@@ -66,6 +66,7 @@ public class LearningPlanService(
         {
             var needsUpgrade = existing.Blocks.Count < 4 ||
                                existing.Theme.StartsWith("Dia de crescimento", StringComparison.OrdinalIgnoreCase) ||
+                               IsLegacyDailyTheme(existing.Theme, age) ||
                                (child.SupportProfile != SupportProfile.General &&
                                 existing.Blocks.All(x => x.FunctionalTrack == FunctionalSupportTrack.Base)) ||
                                (await HasActiveRecoveryPlanAsync(child.Id, targetDate) && !existing.IsRecoveryPlan) ||
@@ -325,9 +326,10 @@ public class LearningPlanService(
 
             AddIfAvailable(chosen, PickFromDomain(domainMap, progressMap, LearningDomain.Math, targetDate, seed + 1, supportProfile, familyGoalTrack, teachingMethodology, portugueseGuidance));
 
+            var knowledgeDomain = CurriculumStructure.GetKnowledgeDomainForDay(targetDate.DayOfWeek);
             var thirdDomain = PickProfileDomain(learningProfile, targetDate.DayOfWeek is DayOfWeek.Tuesday or DayOfWeek.Thursday
                 ? LearningDomain.ExecutiveFunction
-                : LearningDomain.World);
+                : knowledgeDomain);
             AddIfAvailable(chosen, PickFromDomain(domainMap, progressMap, thirdDomain, targetDate, seed + 2, supportProfile, familyGoalTrack, teachingMethodology, portugueseGuidance));
 
             var fourthDomain = guidanceStyle == "autonomy"
@@ -335,7 +337,7 @@ public class LearningPlanService(
                 : age <= 4
                 ? LearningDomain.ExecutiveFunction
                 : targetDate.DayOfWeek is DayOfWeek.Wednesday or DayOfWeek.Friday
-                    ? LearningDomain.World
+                    ? knowledgeDomain
                     : LearningDomain.Language;
 
             AddPortugueseGuidedTemplates(
@@ -379,9 +381,9 @@ public class LearningPlanService(
     {
         return learningProfile switch
         {
-            "hands_on" => LearningDomain.World,
+            "hands_on" => LearningDomain.Science,
             "story_based" => LearningDomain.Language,
-            "visual" => LearningDomain.Math,
+            "visual" => LearningDomain.Geography,
             "movement" => LearningDomain.ExecutiveFunction,
             _ => fallback
         };
@@ -871,13 +873,39 @@ public class LearningPlanService(
             4 => ["Palavras que brincam", "Quantidades do cotidiano", "Memoria, atencao e combinados", "Animais, plantas e descobertas"],
             5 => ["Letras que ganham som", "Numeros que contam historias", "Meu mundo e minhas perguntas", "Jogos de foco e autonomia"],
             6 => ["Leio e explico", "Matematica para a vida real", "Organizo e resolvo", "Observo, comparo e descubro"],
-            7 => ["Leio, escrevo e argumento", "Problemas com estrategia", "Ciencia em casa", "Autonomia com pensamento forte"],
+            7 => ["Leio, escrevo e argumento", "Problemas com estrategia", "Ciências, história e geografia", "Autonomia com pensamento forte"],
             8 => ["Projetos e pesquisas guiadas", "Leitura com sentido", "Matematica com estrategia", "Explico o que descobri"],
-            9 => ["Textos, ideias e repertorio", "Problemas em varias etapas", "Investigacao e registro", "Rotina com mais autonomia"],
-            _ => ["Compreendo, produzo e apresento", "Raciocinio academico", "Projetos do mundo real", "Autonomia com responsabilidade"]
+            9 => ["Textos, ideias e repertorio", "Problemas em varias etapas", "Ciências, história e geografia em projeto", "Rotina com mais autonomia"],
+            10 => ["Compreendo, interpreto e argumento", "Raciocinio academico com clareza", "Projetos guiados de mundo e investigação", "Autonomia com organização de estudo"],
+            11 => ["Fontes, comparação e síntese", "Estratégias matemáticas em várias etapas", "Ciências e território em investigação", "Autonomia com método de estudo"],
+            12 => ["Vozes, contraste e interpretação", "Problemas, prova e justificativa", "História, geografia e ciências em análise", "Autonomia com revisão e constância"],
+            13 => ["Tese, análise e refutação", "Modelagem, dados e raciocínio", "Mundo contemporâneo em projeto", "Autonomia com responsabilidade crescente"],
+            _ => ["Síntese, posicionamento e autoria", "Raciocínio formal e tomada de decisão", "Projetos integrados de ciências, história e geografia", "Autonomia com responsabilidade acadêmica"]
         };
 
         return themes[targetDate.DayOfYear % themes.Length];
+    }
+
+    private static bool IsLegacyDailyTheme(string? theme, int age)
+    {
+        if (string.IsNullOrWhiteSpace(theme))
+        {
+            return false;
+        }
+
+        if (age < 10)
+        {
+            return false;
+        }
+
+        return theme switch
+        {
+            "Compreendo, produzo e apresento" => true,
+            "Raciocinio academico" => true,
+            "Projetos de ciências, história e geografia" => true,
+            "Autonomia com responsabilidade" => true,
+            _ => false
+        };
     }
 
     private static string BuildParentSummary(
@@ -895,7 +923,9 @@ public class LearningPlanService(
         {
             LearningDomain.Language => "linguagem",
             LearningDomain.Math => "matematica",
-            LearningDomain.World => "mundo real",
+            LearningDomain.Science => "ciencias",
+            LearningDomain.History => "historia",
+            LearningDomain.Geography => "geografia",
             _ => "funcao executiva"
         }).Distinct().ToList();
 
@@ -1063,7 +1093,7 @@ public class LearningPlanService(
     {
         "montessori" when template.Domain is LearningDomain.Math or LearningDomain.ExecutiveFunction => -8,
         "montessori" when template.GoalTrack is "math_foundations" or "autonomy" => -6,
-        "charlotte_mason" when template.Domain is LearningDomain.Language or LearningDomain.World => -8,
+        "charlotte_mason" when template.Domain is LearningDomain.Language or LearningDomain.Science or LearningDomain.History or LearningDomain.Geography => -8,
         "charlotte_mason" when template.GoalTrack is "literacy" or "science_discovery" => -5,
         "classical" when template.Domain is LearningDomain.Language or LearningDomain.Math => -7,
         "classical" when template.GoalTrack is "literacy" or "math_foundations" => -5,
@@ -1086,7 +1116,7 @@ public class LearningPlanService(
         "montessori" when domain == LearningDomain.Math => "Comece com manipulacao concreta e deixe a crianca repetir o gesto antes de nomear a regra.",
         "montessori" when domain == LearningDomain.Language => "Apresente pouco de cada vez, com convite curto e autonomia para repetir.",
         "charlotte_mason" when domain == LearningDomain.Language => "Prefira leitura viva, conversa breve e reconto com palavras proprias.",
-        "charlotte_mason" when domain == LearningDomain.World => "Traga observacao real, natureza, imagem forte e narracao curta.",
+        "charlotte_mason" when domain is LearningDomain.Science or LearningDomain.History or LearningDomain.Geography => "Traga observacao real, imagem forte, narracao curta e conversa guiada sobre o tema.",
         "classical" when domain == LearningDomain.Language => "Faça modelagem oral, repeticao curta e resposta em frase completa.",
         "classical" when domain == LearningDomain.Math => "Peça que a crianca verbalize o passo, a regra e a justificativa da resposta.",
         "singapore_math" when goalTrack == "math_foundations" || domain == LearningDomain.Math => "Respeite a sequencia concreto, desenho e simbolo antes de formalizar o algoritmo.",
@@ -1096,7 +1126,7 @@ public class LearningPlanService(
     private static string BuildMethodologyMaterials(string teachingMethodology, LearningDomain domain) => teachingMethodology switch
     {
         "montessori" when domain is LearningDomain.Math or LearningDomain.Language => "Separe bandeja simples, objetos manipulaveis e material em quantidade enxuta.",
-        "charlotte_mason" when domain is LearningDomain.Language or LearningDomain.World => "Inclua livro vivo, imagem forte ou objeto real para conversa e narracao.",
+        "charlotte_mason" when domain is LearningDomain.Language or LearningDomain.Science or LearningDomain.History or LearningDomain.Geography => "Inclua livro vivo, imagem forte ou objeto real para conversa e narracao.",
         "classical" => "Tenha quadro de apoio, cartoes de memoria curta ou caderno de resposta estruturada.",
         "singapore_math" when domain == LearningDomain.Math => "Inclua objetos para agrupar, barras desenhadas ou esboço visual do problema.",
         _ => string.Empty

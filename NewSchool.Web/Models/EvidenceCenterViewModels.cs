@@ -22,6 +22,7 @@ public class ChildEvidenceCenterViewModel
     public int TotalPages { get; set; } = 1;
     public bool HasPreviousPage => PageNumber > 1;
     public bool HasNextPage => PageNumber < TotalPages;
+    public bool DirectUploadEnabled { get; set; }
     public EvidenceStorageSummaryViewModel Storage { get; set; } = new();
     public UploadEvidenceViewModel Upload { get; set; } = new();
     public List<EvidenceAssetViewModel> Items { get; set; } = new();
@@ -115,5 +116,24 @@ public class SaveEvidenceThumbnailViewModel
 {
     public Guid ChildId { get; set; }
     public Guid SessionId { get; set; }
+    public string ThumbnailDataUrl { get; set; } = string.Empty;
+}
+
+public class PrepareEvidenceUploadViewModel
+{
+    public Guid ChildId { get; set; }
+    public Guid? DailyPlanId { get; set; }
+    public string FileName { get; set; } = string.Empty;
+    public string ContentType { get; set; } = string.Empty;
+    public long TotalSize { get; set; }
+}
+
+public class CompleteEvidenceUploadViewModel
+{
+    public Guid ChildId { get; set; }
+    public Guid? DailyPlanId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Notes { get; set; } = string.Empty;
+    public string UploadToken { get; set; } = string.Empty;
     public string ThumbnailDataUrl { get; set; } = string.Empty;
 }

@@ -37,16 +37,45 @@ internal static class FamilyLibraryMaterialClassifier
         "ligue",
         "logica",
         "lógica",
+        "marque",
         "matematica",
         "matemática",
+        "complete",
+        "conte",
+        "corresponda",
+        "cubra",
+        "circule",
         "pintar",
         "portugues",
         "português",
         "quiz",
+        "quantidade",
+        "escreva",
         "seu corpo",
         "timeline",
+        "trace",
         "tracado",
         "traçado"
+    ];
+
+    private static readonly string[] StoryCues =
+    [
+        "historia",
+        "história",
+        "conto",
+        "aventura",
+        "fabula",
+        "fábula",
+        "narrativa",
+        "personagem",
+        "selva",
+        "floresta",
+        "menino",
+        "menina",
+        "esquilo",
+        "gato",
+        "perdao",
+        "perdão"
     ];
 
     public static bool IsPrintable(
@@ -58,8 +87,37 @@ internal static class FamilyLibraryMaterialClassifier
         string description)
     {
         var searchable = NormalizeText($"{title} {category} {sourceRelativePath} {skillFocus} {description}");
+        var normalizedTitle = NormalizeText(title);
+        var normalizedCategory = NormalizeText(category);
+        var normalizedSourcePath = NormalizeText(sourceRelativePath);
+
+        if (normalizedTitle.StartsWith("leituras de ", StringComparison.Ordinal)
+            || normalizedCategory.Contains("leituras-base do curriculo", StringComparison.Ordinal)
+            || normalizedSourcePath.StartsWith("author/leituras-", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (normalizedTitle.StartsWith("apostila de ", StringComparison.Ordinal)
+            || normalizedTitle.StartsWith("caderno de avaliacao de ", StringComparison.Ordinal)
+            || normalizedCategory.Contains("apostila do curriculo", StringComparison.Ordinal)
+            || normalizedCategory.Contains("avaliacao por unidade", StringComparison.Ordinal)
+            || normalizedSourcePath.StartsWith("author/apostila-", StringComparison.Ordinal)
+            || normalizedSourcePath.StartsWith("author/avaliacao-", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
         var printableScore = ScoreMatches(searchable, PrintableCues);
         var bookScore = ScoreMatches(searchable, BookCues);
+        var storyScore = ScoreMatches(searchable, StoryCues);
+
+        if (normalizedCategory.Contains("livrinhos", StringComparison.Ordinal)
+            && printableScore >= 2
+            && storyScore == 0)
+        {
+            return true;
+        }
 
         if (bookScore >= 2 && printableScore == 0)
         {

@@ -9,7 +9,9 @@ public class ProprietaryLessonPacketService
         CuratedTaskTemplate task,
         ChildProfile child,
         DailyPlanBlock block,
-        int age)
+        int age,
+        ProprietaryCurriculumUnitBlueprintViewModel? currentUnit,
+        ProprietaryCurriculumLessonBlueprintViewModel? currentLesson)
     {
         var firstName = GetFirstName(child.FullName);
 
@@ -103,7 +105,7 @@ public class ProprietaryLessonPacketService
             "math-equation-scenario-decision" => BuildEquationScenarioPacket(firstName),
             "world-public-problem-and-proposal" => BuildPublicProblemPacket(),
             "executive-project-checkpoint-adjustment" => BuildProjectCheckpointPacket(firstName),
-            _ => BuildFallbackPacket(task, block, age)
+            _ => BuildFallbackPacket(task, block, age, currentUnit, currentLesson)
         };
     }
 
@@ -3599,57 +3601,107 @@ public class ProprietaryLessonPacketService
     private static ProprietaryLessonPacketViewModel BuildFallbackPacket(
         CuratedTaskTemplate task,
         DailyPlanBlock block,
-        int age)
+        int age,
+        ProprietaryCurriculumUnitBlueprintViewModel? currentUnit,
+        ProprietaryCurriculumLessonBlueprintViewModel? currentLesson)
     {
-        var subjectLabel = block.Domain switch
-        {
-            LearningDomain.Language => "Linguagem",
-            LearningDomain.Math => "Matematica",
-            LearningDomain.World => "Mundo real",
-            LearningDomain.ExecutiveFunction => "Autonomia",
-            _ => "Curriculo"
-        };
+        var subjectLabel = currentUnit?.SubjectLabel ?? CurriculumStructure.FormatDomainLabel(block.Domain);
 
-        var coreMaterialLabel = block.Domain switch
+        var coreMaterialLabel = CurriculumStructure.GetAnalyticsDomain(block.Domain) switch
         {
             LearningDomain.Language => "Leia agora",
             LearningDomain.Math => "Resolva agora",
-            LearningDomain.World => "Observe agora",
+            LearningDomain.Science => "Investigue agora",
+            LearningDomain.History => "Entenda agora",
+            LearningDomain.Geography => "Localize agora",
             LearningDomain.ExecutiveFunction => "Organize agora",
             _ => "Licao de hoje"
         };
 
+        var resolvedLessonTitle = string.IsNullOrWhiteSpace(currentLesson?.Title)
+            ? task.Title
+            : currentLesson.Title;
+        var resolvedPlacement = currentUnit is null
+            ? $"{subjectLabel} • trilha proprietaria • faixa de {age} anos"
+            : $"{currentUnit.SubjectLabel} • {currentUnit.SchoolPlacementLabel} • {currentUnit.UnitLabel.ToLowerInvariant()}";
+        var resolvedUnitTitle = currentUnit?.Title ?? task.Title;
+        var resolvedSummary = currentUnit?.Summary ?? currentLesson?.Goal ?? task.Goal;
+        var resolvedObjective = currentLesson?.Goal ?? currentUnit?.Objective ?? task.ExpectedOutcome;
+        var resolvedPrompt = currentLesson?.AnchorQuestion ?? currentUnit?.TaskPrompt ?? task.ChildPrompt;
+        var resolvedCompletion = currentLesson?.CompletionDefinition ?? currentUnit?.CompletionSignal ?? $"Marque como concluida quando a crianca atingir isto: {task.ExpectedOutcome}";
+        var materialBase = currentUnit?.Materials.Count > 0 == true
+            ? string.Join(", ", currentUnit.Materials)
+            : task.MaterialsSummary;
+
         return new ProprietaryLessonPacketViewModel
         {
-            CurriculumPlacement = $"{subjectLabel} • trilha proprietaria • faixa de {age} anos",
-            UnitTitle = task.Title,
-            UnitSummary = task.Goal,
-            OpeningForAdult = $"Use a licao de hoje como uma missao curta e concreta. {task.ParentGuide}",
-            AnchorQuestion = string.IsNullOrWhiteSpace(task.ChildPrompt)
-                ? "Qual e a resposta mais clara que voce consegue dar para esta licao?"
-                : task.ChildPrompt,
-            CoreMaterialLabel = coreMaterialLabel,
-            CoreMaterialTitle = "Base da licao",
-            CoreMaterialParagraphs =
-            [
-                task.Goal,
-                $"Material base: {task.MaterialsSummary}",
-                $"Ao terminar, verifique isto: {task.ExpectedOutcome}"
-            ],
-            AdultSteps = SplitLines(task.TaskSteps),
-            AdultQuestions =
-            [
-                string.IsNullOrWhiteSpace(task.ChildPrompt)
-                    ? "O que voce entendeu que precisa fazer agora?"
-                    : task.ChildPrompt
-            ],
-            AcceptableAnswers =
-            [
-                task.ExpectedOutcome
-            ],
-            PracticeTask = $"Execute a licao usando: {task.MaterialsSummary}",
-            CompletionDefinition = $"Marque como concluida quando a crianca atingir isto: {task.ExpectedOutcome}"
+            CurriculumPlacement = resolvedPlacement,
+            UnitTitle = resolvedUnitTitle,
+            UnitSummary = resolvedSummary,
+            OpeningForAdult = !string.IsNullOrWhiteSpace(currentLesson?.OpeningForAdult)
+                ? currentLesson.OpeningForAdult
+                : currentUnit is null
+                ? $"Use a licao de hoje como uma missao curta e concreta. {task.ParentGuide}"
+                : $"Diga: \"Hoje vamos trabalhar {resolvedLessonTitle.ToLowerInvariant()} dentro de {currentUnit.UnitLabel.ToLowerInvariant()} de {currentUnit.SubjectLabel.ToLowerInvariant()}.\" {currentUnit.ParentGuide}",
+            AnchorQuestion = !string.IsNullOrWhiteSpace(currentLesson?.AnchorQuestion)
+                ? currentLesson.AnchorQuestion
+                : string.IsNullOrWhiteSpace(task.ChildPrompt)
+                    ? $"Qual e a resposta mais clara que voce consegue dar para {resolvedLessonTitle.ToLowerInvariant()}?"
+                    : resolvedPrompt,
+            CoreMaterialLabel = currentLesson?.CoreMaterialLabel ?? coreMaterialLabel,
+            CoreMaterialTitle = currentLesson?.CoreMaterialTitle ?? "Base da licao",
+            CoreMaterialParagraphs = currentLesson?.CoreMaterialParagraphs.Count > 0
+                ? currentLesson.CoreMaterialParagraphs
+                :
+                [
+                    resolvedObjective,
+                    $"Material base: {materialBase}",
+                    $"Ao terminar, verifique isto: {resolvedCompletion}"
+                ],
+            AdultSteps = currentLesson?.AdultSteps.Count > 0
+                ? currentLesson.AdultSteps
+                : SplitLines(task.TaskSteps).Count > 0
+                ? SplitLines(task.TaskSteps)
+                : BuildFallbackSteps(currentUnit, resolvedLessonTitle),
+            AdultQuestions = currentLesson?.AdultQuestions.Count > 0
+                ? currentLesson.AdultQuestions
+                :
+                [
+                    string.IsNullOrWhiteSpace(task.ChildPrompt)
+                        ? "O que voce entendeu que precisa fazer agora?"
+                        : resolvedPrompt
+                ],
+            AcceptableAnswers = currentLesson?.AcceptableAnswers.Count > 0
+                ? currentLesson.AcceptableAnswers
+                :
+                [
+                    resolvedObjective
+                ],
+            PracticeTask = !string.IsNullOrWhiteSpace(currentLesson?.PracticeTask)
+                ? currentLesson.PracticeTask
+                : currentUnit is null
+                ? $"Execute a licao usando: {task.MaterialsSummary}"
+                : $"Execute {resolvedLessonTitle.ToLowerInvariant()} usando: {materialBase}.",
+            CompletionDefinition = resolvedCompletion
         };
+    }
+
+    private static List<string> BuildFallbackSteps(
+        ProprietaryCurriculumUnitBlueprintViewModel? currentUnit,
+        string lessonTitle)
+    {
+        if (currentUnit is null)
+        {
+            return [];
+        }
+
+        return
+        [
+            $"Explique para a crianca o objetivo de {lessonTitle.ToLowerInvariant()} em uma frase curta.",
+            $"Execute a parte principal de {lessonTitle.ToLowerInvariant()} com apoio proporcional e sem adiantar a proxima licao.",
+            $"Feche {lessonTitle.ToLowerInvariant()} com registro curto, resposta oral ou folha final, conforme a materia.",
+            $"Confira se a crianca mostrou o sinal de avance combinado em {currentUnit.UnitLabel.ToLowerInvariant()}."
+        ];
     }
 
     private static List<string> SplitLines(string value)

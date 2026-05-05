@@ -15,6 +15,10 @@ public class LearningSession
     public string MediaUrl { get; set; } = string.Empty;
     public string MediaContentType { get; set; } = string.Empty;
     public string MediaFileName { get; set; } = string.Empty;
+    public string MediaStorageProvider { get; set; } = string.Empty;
+    public string MediaStorageKey { get; set; } = string.Empty;
+    public string MediaThumbnailUrl { get; set; } = string.Empty;
+    public string MediaThumbnailStorageKey { get; set; } = string.Empty;
     public ICollection<LearningBlockFeedback> BlockFeedbacks { get; set; } = new List<LearningBlockFeedback>();
     public ICollection<ChildRoutineObservation> RoutineObservations { get; set; } = new List<ChildRoutineObservation>();
 }

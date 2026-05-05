@@ -11,6 +11,12 @@ public static class CurriculumCatalog
 
         foreach (var profile in Profiles)
         {
+            var scienceCore = BuildScienceCoreTitles(profile);
+            var scienceTrack = BuildScienceTrackTitles(profile);
+            var historyCore = BuildHistoryCoreTitles(profile);
+            var historyTrack = BuildHistoryTrackTitles(profile);
+            var geographyCore = BuildGeographyCoreTitles(profile);
+            var geographyTrack = BuildGeographyTrackTitles(profile);
             var teaCommonCommunication = profile.TeaCommonCommunication.Count > 0
                 ? profile.TeaCommonCommunication
                 : BuildTeaTrackTitles(profile.Age, CurriculumSupportScope.TeaCommon, FunctionalSupportTrack.Communication);
@@ -40,32 +46,36 @@ public static class CurriculumCatalog
             AddSeries(items, counters, profile.Age, LearningDomain.Language, CurriculumSupportScope.General, FunctionalSupportTrack.Base, "literacy", profile.LanguageTrack, 2, "trilha forte de alfabetizacao", "fonica, fluencia e producao escrita");
             AddSeries(items, counters, profile.Age, LearningDomain.Math, CurriculumSupportScope.General, FunctionalSupportTrack.Base, "balanced_growth", profile.MathCore, 2, "base matematica do ano", "numero, problema e representacao");
             AddSeries(items, counters, profile.Age, LearningDomain.Math, CurriculumSupportScope.General, FunctionalSupportTrack.Base, "math_foundations", profile.MathTrack, 2, "trilha forte de matematica base", "concreto, estrategia e registro");
-            AddSeries(items, counters, profile.Age, LearningDomain.World, CurriculumSupportScope.General, FunctionalSupportTrack.Base, "balanced_growth", profile.WorldCore, 3, "repertorio de mundo real", "observacao, pergunta e descoberta");
-            AddSeries(items, counters, profile.Age, LearningDomain.World, CurriculumSupportScope.General, FunctionalSupportTrack.Base, "science_discovery", profile.WorldTrack, 3, "trilha de ciencias e investigacao", "hipotese, experimento e conclusao");
+            AddSeries(items, counters, profile.Age, LearningDomain.Science, CurriculumSupportScope.General, FunctionalSupportTrack.Base, "balanced_growth", scienceCore, 3, "repertorio de ciencias e observacao", "observacao, pergunta e descoberta");
+            AddSeries(items, counters, profile.Age, LearningDomain.Science, CurriculumSupportScope.General, FunctionalSupportTrack.Base, "science_discovery", scienceTrack, 3, "trilha de ciencias e investigacao", "hipotese, experimento e conclusao");
+            AddSeries(items, counters, profile.Age, LearningDomain.History, CurriculumSupportScope.General, FunctionalSupportTrack.Base, "balanced_growth", historyCore, 3, "repertorio de tempo, memoria e acontecimentos", "sequencia, memoria e explicacao");
+            AddSeries(items, counters, profile.Age, LearningDomain.History, CurriculumSupportScope.General, FunctionalSupportTrack.Base, "balanced_growth", historyTrack, 3, "trilha de historia e leitura do tempo", "fato, ordem e causa");
+            AddSeries(items, counters, profile.Age, LearningDomain.Geography, CurriculumSupportScope.General, FunctionalSupportTrack.Base, "balanced_growth", geographyCore, 3, "repertorio de espaco, lugar e territorio", "localizacao, comparacao e relacao com o lugar");
+            AddSeries(items, counters, profile.Age, LearningDomain.Geography, CurriculumSupportScope.General, FunctionalSupportTrack.Base, "balanced_growth", geographyTrack, 3, "trilha de geografia e leitura do lugar", "mapa, territorio e relacao com o ambiente");
             AddSeries(items, counters, profile.Age, LearningDomain.ExecutiveFunction, CurriculumSupportScope.General, FunctionalSupportTrack.Base, "balanced_growth", profile.ExecutiveCore, 2, "base de foco e autonomia", "rotina, iniciacao e fechamento");
             AddSeries(items, counters, profile.Age, LearningDomain.ExecutiveFunction, CurriculumSupportScope.General, FunctionalSupportTrack.Base, "autonomy", profile.ExecutiveTrack, 2, "trilha forte de autonomia", "planejamento, foco e autorregulacao");
 
             AddSeries(items, counters, profile.Age, LearningDomain.Language, CurriculumSupportScope.TeaCommon, FunctionalSupportTrack.Communication, "literacy", teaCommonCommunication, 2, "base de comunicacao funcional", "comunicacao, compreensao e resposta funcional");
             AddSeries(items, counters, profile.Age, LearningDomain.ExecutiveFunction, CurriculumSupportScope.TeaCommon, FunctionalSupportTrack.Regulation, "autonomy", teaCommonRegulation, 2, "base de previsibilidade, regulacao e rotina", "transicao, autorregulacao e previsibilidade");
-            AddSeries(items, counters, profile.Age, LearningDomain.World, CurriculumSupportScope.TeaCommon, FunctionalSupportTrack.Sensory, "science_discovery", BuildTeaTrackTitles(profile.Age, CurriculumSupportScope.TeaCommon, FunctionalSupportTrack.Sensory), 3, "base de leitura sensorial do ambiente", "ajuste sensorial, pausa e retorno");
+            AddSeries(items, counters, profile.Age, LearningDomain.Science, CurriculumSupportScope.TeaCommon, FunctionalSupportTrack.Sensory, "science_discovery", BuildTeaTrackTitles(profile.Age, CurriculumSupportScope.TeaCommon, FunctionalSupportTrack.Sensory), 3, "base de leitura sensorial do ambiente", "ajuste sensorial, pausa e retorno");
             AddSeries(items, counters, profile.Age, LearningDomain.ExecutiveFunction, CurriculumSupportScope.TeaCommon, FunctionalSupportTrack.DailyLiving, "autonomy", BuildTeaTrackTitles(profile.Age, CurriculumSupportScope.TeaCommon, FunctionalSupportTrack.DailyLiving), 2, "base de vida diaria e sequencias funcionais", "cuidado, organizacao e rotina funcional");
             AddSeries(items, counters, profile.Age, LearningDomain.Math, CurriculumSupportScope.TeaCommon, FunctionalSupportTrack.AcademicAdapted, "math_foundations", BuildTeaTrackTitles(profile.Age, CurriculumSupportScope.TeaCommon, FunctionalSupportTrack.AcademicAdapted), 2, "base academica com acesso adaptado", "entrada na tarefa, resposta funcional e generalizacao");
 
             AddSeries(items, counters, profile.Age, LearningDomain.Language, CurriculumSupportScope.TeaLevel1, FunctionalSupportTrack.Communication, "literacy", teaLevel1Communication, 2, "comunicacao pragmatica e ampliacao da linguagem", "comunicacao social, linguagem e contexto");
             AddSeries(items, counters, profile.Age, LearningDomain.ExecutiveFunction, CurriculumSupportScope.TeaLevel1, FunctionalSupportTrack.Regulation, "autonomy", teaLevel1Regulation, 2, "flexibilidade, autonomia e organizacao do estudo", "planejamento, flexibilidade e autonomia");
-            AddSeries(items, counters, profile.Age, LearningDomain.World, CurriculumSupportScope.TeaLevel1, FunctionalSupportTrack.Sensory, "science_discovery", BuildTeaTrackTitles(profile.Age, CurriculumSupportScope.TeaLevel1, FunctionalSupportTrack.Sensory), 3, "integracao sensorial com mais autorrelato", "percepcao do ambiente, ajuste e retorno");
+            AddSeries(items, counters, profile.Age, LearningDomain.Science, CurriculumSupportScope.TeaLevel1, FunctionalSupportTrack.Sensory, "science_discovery", BuildTeaTrackTitles(profile.Age, CurriculumSupportScope.TeaLevel1, FunctionalSupportTrack.Sensory), 3, "integracao sensorial com mais autorrelato", "percepcao do ambiente, ajuste e retorno");
             AddSeries(items, counters, profile.Age, LearningDomain.ExecutiveFunction, CurriculumSupportScope.TeaLevel1, FunctionalSupportTrack.DailyLiving, "autonomy", BuildTeaTrackTitles(profile.Age, CurriculumSupportScope.TeaLevel1, FunctionalSupportTrack.DailyLiving), 2, "vida diaria com mais planejamento e flexibilidade", "organizacao funcional, sequencia e autonomia");
             AddSeries(items, counters, profile.Age, LearningDomain.Math, CurriculumSupportScope.TeaLevel1, FunctionalSupportTrack.AcademicAdapted, "math_foundations", BuildTeaTrackTitles(profile.Age, CurriculumSupportScope.TeaLevel1, FunctionalSupportTrack.AcademicAdapted), 2, "acesso academico adaptado com mais generalizacao", "estrategia, transferencia e explicacao guiada");
 
             AddSeries(items, counters, profile.Age, LearningDomain.Language, CurriculumSupportScope.TeaLevel2, FunctionalSupportTrack.Communication, "literacy", teaLevel2Communication, 2, "comunicacao funcional com apoio visual", "pedido, resposta funcional e ampliacao gradual");
             AddSeries(items, counters, profile.Age, LearningDomain.ExecutiveFunction, CurriculumSupportScope.TeaLevel2, FunctionalSupportTrack.Regulation, "autonomy", teaLevel2Regulation, 2, "rotina guiada, passos menores e apoio visual intenso", "previsibilidade, regulacao e sequencia guiada");
-            AddSeries(items, counters, profile.Age, LearningDomain.World, CurriculumSupportScope.TeaLevel2, FunctionalSupportTrack.Sensory, "science_discovery", BuildTeaTrackTitles(profile.Age, CurriculumSupportScope.TeaLevel2, FunctionalSupportTrack.Sensory), 3, "regulacao sensorial com apoio visual intenso", "preparo do corpo, pausa e reorganizacao");
+            AddSeries(items, counters, profile.Age, LearningDomain.Science, CurriculumSupportScope.TeaLevel2, FunctionalSupportTrack.Sensory, "science_discovery", BuildTeaTrackTitles(profile.Age, CurriculumSupportScope.TeaLevel2, FunctionalSupportTrack.Sensory), 3, "regulacao sensorial com apoio visual intenso", "preparo do corpo, pausa e reorganizacao");
             AddSeries(items, counters, profile.Age, LearningDomain.ExecutiveFunction, CurriculumSupportScope.TeaLevel2, FunctionalSupportTrack.DailyLiving, "autonomy", BuildTeaTrackTitles(profile.Age, CurriculumSupportScope.TeaLevel2, FunctionalSupportTrack.DailyLiving), 2, "vida diaria com passos menores e reforcadores frequentes", "autocuidado, rotina e transicao guiada");
             AddSeries(items, counters, profile.Age, LearningDomain.Math, CurriculumSupportScope.TeaLevel2, FunctionalSupportTrack.AcademicAdapted, "math_foundations", BuildTeaTrackTitles(profile.Age, CurriculumSupportScope.TeaLevel2, FunctionalSupportTrack.AcademicAdapted), 2, "acesso academico altamente apoiado", "pareamento, apoio visual e resposta guiada");
 
             AddSeries(items, counters, profile.Age, LearningDomain.Language, CurriculumSupportScope.TeaLevel3, FunctionalSupportTrack.Communication, "literacy", teaLevel3Communication, 2, "comunicacao funcional altamente estruturada", "associacao direta, resposta funcional e comunicacao alternativa");
             AddSeries(items, counters, profile.Age, LearningDomain.ExecutiveFunction, CurriculumSupportScope.TeaLevel3, FunctionalSupportTrack.Regulation, "autonomy", teaLevel3Regulation, 2, "seguranca, rotina muito estruturada e vida diaria", "previsibilidade, regulacao primaria e conclusao concreta");
-            AddSeries(items, counters, profile.Age, LearningDomain.World, CurriculumSupportScope.TeaLevel3, FunctionalSupportTrack.Sensory, "science_discovery", BuildTeaTrackTitles(profile.Age, CurriculumSupportScope.TeaLevel3, FunctionalSupportTrack.Sensory), 3, "seguranca sensorial e preparacao para aprender", "ambiente seguro, entrada sensorial e retorno funcional");
+            AddSeries(items, counters, profile.Age, LearningDomain.Science, CurriculumSupportScope.TeaLevel3, FunctionalSupportTrack.Sensory, "science_discovery", BuildTeaTrackTitles(profile.Age, CurriculumSupportScope.TeaLevel3, FunctionalSupportTrack.Sensory), 3, "seguranca sensorial e preparacao para aprender", "ambiente seguro, entrada sensorial e retorno funcional");
             AddSeries(items, counters, profile.Age, LearningDomain.ExecutiveFunction, CurriculumSupportScope.TeaLevel3, FunctionalSupportTrack.DailyLiving, "autonomy", BuildTeaTrackTitles(profile.Age, CurriculumSupportScope.TeaLevel3, FunctionalSupportTrack.DailyLiving), 2, "vida diaria muito concreta e encadeada", "sequencia funcional, ajuda total e ganho gradual");
             AddSeries(items, counters, profile.Age, LearningDomain.Math, CurriculumSupportScope.TeaLevel3, FunctionalSupportTrack.AcademicAdapted, "math_foundations", BuildTeaTrackTitles(profile.Age, CurriculumSupportScope.TeaLevel3, FunctionalSupportTrack.AcademicAdapted), 2, "entrada academica altamente estruturada", "pareamento concreto, resposta curta e conclusao observavel");
         }
@@ -148,12 +158,93 @@ public static class CurriculumCatalog
         return skillCode;
     }
 
+    private static IReadOnlyList<string> BuildScienceCoreTitles(AgeCurriculumProfile profile) => MergeTitles(
+        profile.WorldCore.Take(1),
+        profile.Age switch
+        {
+            <= 4 => ["Natureza do dia a dia", "Corpo, sentidos e observação"],
+            5 => ["Natureza, corpo e clima", "Animais, plantas e mudanças"],
+            <= 8 => ["Observação científica do cotidiano", "Seres vivos, matéria e ambiente"],
+            <= 10 => ["Fenômenos, matéria e investigação", "Vida, ambiente e experimentação"],
+            <= 12 => ["Células, sistemas, matéria e energia", "Ecossistemas, ambiente e método científico"],
+            _ => ["Ciência, tecnologia e evidência", "Ambiente, energia e investigação responsável"]
+        });
+
+    private static IReadOnlyList<string> BuildScienceTrackTitles(AgeCurriculumProfile profile) => MergeTitles(
+        profile.WorldTrack.Take(2),
+        profile.Age switch
+        {
+            <= 4 => ["Descoberta com água, cor e mistura", "Observação guiada do quintal"],
+            5 => ["Experimento com previsão simples", "Registro de descoberta em desenho"],
+            <= 8 => ["Mini laboratório com registro", "Pergunta, hipótese e conclusão curta"],
+            <= 10 => ["Experimento com variáveis simples", "Pesquisa, síntese e apresentação científica"],
+            <= 12 => ["Investigação com duas fontes e evidência", "Estudo de problema ambiental com hipótese"],
+            _ => ["Debate entre ciência, ambiente e sociedade", "Projeto investigativo com dados e conclusão"]
+        });
+
+    private static IReadOnlyList<string> BuildHistoryCoreTitles(AgeCurriculumProfile profile) => MergeTitles(
+        profile.WorldCore.Skip(1).Take(1),
+        profile.Age switch
+        {
+            <= 4 => ["Minha família e minha rotina", "Antes e depois no cotidiano"],
+            5 => ["Sequência do dia e do calendário", "Histórias da comunidade e pertencimento"],
+            <= 8 => ["Linha do tempo e memória", "Fatos, personagens e mudança social"],
+            <= 10 => ["História do Brasil em blocos", "Causa, consequência e comparação de épocas"],
+            <= 12 => ["Fontes históricas e ponto de vista", "Brasil, sociedade e transformações"],
+            _ => ["História do Brasil e cidadania", "Processos históricos e interpretação"]
+        });
+
+    private static IReadOnlyList<string> BuildHistoryTrackTitles(AgeCurriculumProfile profile) => MergeTitles(
+        profile.Age switch
+        {
+            <= 4 => ["Sequência de fatos do dia", "História da família com antes e depois"],
+            5 => ["Rotina e calendário em sequência", "Linha do tempo da semana"],
+            <= 8 => ["Comunidade, memória e mudanças", "Linha do tempo com causa e consequência"],
+            <= 10 => ["Fatos do Brasil e sua sequência", "Fonte histórica e comparação de versões"],
+            <= 12 => ["Linha do tempo do Brasil e argumento", "Comparação de fontes sobre o mesmo fato"],
+            _ => ["Estudo de caso histórico brasileiro", "Memória, documento e interpretação crítica"]
+        });
+
+    private static IReadOnlyList<string> BuildGeographyCoreTitles(AgeCurriculumProfile profile) => MergeTitles(
+        profile.Age switch
+        {
+            <= 4 => ["Espaços da casa e do bairro", "Clima e lugar onde vivemos"],
+            5 => ["Casa, escola e vizinhança", "Mapas simples, clima e caminhos"],
+            <= 8 => ["Bairro, cidade e orientação", "Paisagem, mapa e deslocamento"],
+            <= 10 => ["Brasil, regiões e territórios", "Recursos, clima e ocupação do espaço"],
+            <= 12 => ["Regiões, população, ambiente e redes", "Território, água, energia e sociedade"],
+            _ => ["Território, economia e redes", "Brasil, ambiente e organização do espaço"]
+        });
+
+    private static IReadOnlyList<string> BuildGeographyTrackTitles(AgeCurriculumProfile profile) => MergeTitles(
+        profile.Age switch
+        {
+            <= 4 => ["Mapa simples da casa e do quarto", "Clima, caminho e referências do lugar"],
+            5 => ["Minha casa, bairro e trajeto conhecido", "Tempo, clima e referências do espaço"],
+            <= 8 => ["Mapa do entorno e pontos de referência", "Regiões, paisagens e deslocamentos"],
+            <= 10 => ["Mapa do Brasil e suas regiões", "Território, rios e formas de ocupação"],
+            <= 12 => ["Território, recursos e desigualdades", "Mapa temático e leitura de dados espaciais"],
+            _ => ["Geografia econômica e território", "Lugar, poder público e uso do espaço"]
+        });
+
+    private static IReadOnlyList<string> MergeTitles(params IEnumerable<string>[] segments)
+    {
+        return segments
+            .SelectMany(x => x)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
     private static string BuildMaterials(LearningDomain domain, string goalTrack, int age, string title) => domain switch
     {
         LearningDomain.Language when goalTrack == "literacy" => $"Cartoes, letras moveis, caderno leve e material concreto ligados a {title.ToLowerInvariant()}.",
         LearningDomain.Language => $"Livro curto, figuras, cartoes e caderno para praticar {title.ToLowerInvariant()} aos {age} anos.",
         LearningDomain.Math when goalTrack == "math_foundations" => $"Objetos para contar, representar e desenhar a ideia de {title.ToLowerInvariant()}.",
         LearningDomain.Math => $"Material concreto, quadro simples e registro curto para trabalhar {title.ToLowerInvariant()}.",
+        LearningDomain.Science => $"Objeto real, imagem forte, mini experimento ou registro simples para investigar {title.ToLowerInvariant()}.",
+        LearningDomain.History => $"Linha do tempo curta, imagem, relato familiar ou fonte simples para trabalhar {title.ToLowerInvariant()}.",
+        LearningDomain.Geography => $"Mapa simples, referência do espaço, foto, trajeto ou comparação visual ligados a {title.ToLowerInvariant()}.",
         LearningDomain.World => $"Objeto real, imagem forte ou mini experimento para explorar {title.ToLowerInvariant()}.",
         _ => $"Checklist visual, cronometro curto e apoio concreto para treinar {title.ToLowerInvariant()}."
     };
@@ -166,6 +257,9 @@ public static class CurriculumCatalog
             LearningDomain.Language => $"Conduza {title.ToLowerInvariant()} com leitura viva, conversa breve, reconto e registro curto, evitando explicacoes longas.",
             LearningDomain.Math when goalTrack == "math_foundations" => $"Comece no concreto, passe para desenho e so depois avance para simbolo ao trabalhar {title.ToLowerInvariant()}.",
             LearningDomain.Math => $"Use problema curto, raciocinio em voz alta e material concreto para dar sentido a {title.ToLowerInvariant()}.",
+            LearningDomain.Science => $"Abra com observacao, levante uma pergunta forte e feche com hipotese, teste ou conclusao simples sobre {title.ToLowerInvariant()}.",
+            LearningDomain.History => $"Conte o fato, organize a ordem dos acontecimentos e peça uma explicacao curta sobre {title.ToLowerInvariant()}.",
+            LearningDomain.Geography => $"Mostre lugar, mapa, trajeto ou paisagem e feche com comparacao simples sobre {title.ToLowerInvariant()}.",
             LearningDomain.World => $"Abra com observacao, faça uma pergunta forte e feche com fala ou registro simples sobre {title.ToLowerInvariant()}.",
             _ => $"Quebre {title.ToLowerInvariant()} em passos visiveis, combine inicio claro, ajuda medida e checagem de termino."
         };
@@ -177,6 +271,9 @@ public static class CurriculumCatalog
     {
         LearningDomain.Language => $"Missao de {age} anos: mostrar {title.ToLowerInvariant()} com fala, leitura ou escrita curta.",
         LearningDomain.Math => $"Missao de {age} anos: resolver {title.ToLowerInvariant()} explicando como pensou.",
+        LearningDomain.Science => $"Missao de {age} anos: investigar {title.ToLowerInvariant()} e contar a descoberta principal.",
+        LearningDomain.History => $"Missao de {age} anos: organizar {title.ToLowerInvariant()} e explicar o que aconteceu primeiro, depois e por quê.",
+        LearningDomain.Geography => $"Missao de {age} anos: localizar, comparar ou explicar {title.ToLowerInvariant()} usando o espaço, o mapa ou o lugar estudado.",
         LearningDomain.World => $"Missao de {age} anos: investigar {title.ToLowerInvariant()} e contar a descoberta principal.",
         _ => $"Missao de {age} anos: praticar {title.ToLowerInvariant()} ate concluir com mais autonomia."
     };
@@ -185,6 +282,9 @@ public static class CurriculumCatalog
     {
         LearningDomain.Language => $"Registrar audio, foto ou frase curta mostrando {title.ToLowerInvariant()} com clareza dentro de {evaluationStem}.",
         LearningDomain.Math => $"Registrar representacao concreta, desenho ou resolucao curta de {title.ToLowerInvariant()} dentro de {evaluationStem}.",
+        LearningDomain.Science => $"Registrar fala, foto ou observacao breve que prove {title.ToLowerInvariant()} em {evaluationStem}.",
+        LearningDomain.History => $"Registrar linha do tempo, fala guiada ou frase curta mostrando {title.ToLowerInvariant()} em {evaluationStem}.",
+        LearningDomain.Geography => $"Registrar mapa simples, comparacao visual ou explicacao curta mostrando {title.ToLowerInvariant()} em {evaluationStem}.",
         LearningDomain.World => $"Registrar fala, foto ou observacao breve que prove {title.ToLowerInvariant()} em {evaluationStem}.",
         _ => $"Registrar video curto, checklist ou autoavaliacao simples mostrando {title.ToLowerInvariant()} em {evaluationStem}."
     };

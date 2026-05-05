@@ -1,0 +1,226 @@
+@model NewSchool.Web.Models.ParentPlansViewModel
+@{
+    ViewData["Title"] = "Planos";
+}
+
+@Html.AntiForgeryToken()
+
+<section class="family-app-shell family-app-shell-simple">
+    <section class="family-hero-card family-hero-card-simple">
+        <div class="family-hero-copy">
+            <span class="app-kicker">Planos do acervo</span>
+            <h1>@Model.ParentName, escolha só o espaço que faz sentido para a família.</h1>
+            <p>O sistema inteiro continua livre. Esta página serve apenas para ampliar o acervo de fotos, vídeos e documentos quando a família quiser guardar mais provas e memórias.</p>
+            <div class="hero-chip-row">
+                <span class="app-soft-pill">sistema livre</span>
+                <span class="app-soft-pill">cobrança só no acervo</span>
+                <span class="app-soft-pill">upgrade simples</span>
+            </div>
+        </div>
+
+        <div class="family-hero-side">
+            <div class="hero-status-card @(Model.Storage.HasPaidPlan ? "success" : string.Empty)">
+                <span class="app-status @(Model.Storage.HasPaidPlan ? "success" : "neutral")">@Model.Storage.CurrentPlanName</span>
+                <strong>@Model.Storage.CurrentPlanPriceLabel</strong>
+                <p><strong>@Model.Storage.FileLimit arquivo(s)</strong> no total para a família.</p>
+                <p>@Model.Storage.CurrentPlanSummary</p>
+                <p class="storage-helper-text">@Model.Storage.UploadNotice</p>
+                @if (Model.Storage.ExtraBlocks > 0)
+                {
+                    <p class="storage-helper-text">@Model.Storage.ExtraBlockSummary</p>
+                }
+                <div class="hero-action-row">
+                    <a class="btn-secondary" asp-action="Index">Voltar ao painel</a>
+                    @if (Model.Storage.CanManageBilling)
+                    {
+                        <button class="btn-secondary" type="button" onclick="openPortal('@Model.ReturnUrl')">Gerenciar cobrança</button>
+                    }
+                </div>
+            </div>
+        </div>
+    </section>
+
+    @if (Model.CheckoutState == "success")
+    {
+        <section class="app-inline-message">
+            <strong>Pagamento confirmado.</strong>
+            <span>Seu plano do acervo está sendo atualizado.</span>
+        </section>
+    }
+    else if (Model.CheckoutState == "cancel")
+    {
+        <section class="app-inline-message warning">
+            <strong>Checkout cancelado.</strong>
+            <span>Nada mudou. O sistema continua livre e o acervo segue no plano atual.</span>
+        </section>
+    }
+
+    @if (Model.BillingState == "updated")
+    {
+        <section class="app-inline-message">
+            <strong>Plano atualizado.</strong>
+            <span>O novo limite do acervo já está valendo para a família.</span>
+        </section>
+    }
+    else if (Model.BillingState == "return")
+    {
+        <section class="app-inline-message">
+            <strong>Cobrança revisada.</strong>
+            <span>Você voltou da área da Stripe e o acervo segue pronto para uso.</span>
+        </section>
+    }
+
+    <section class="app-card">
+        <div class="section-heading-row">
+            <div>
+                <span class="app-kicker">Uso atual</span>
+                <h2>@Model.Storage.CurrentPlanStatusLabel</h2>
+            </div>
+            <span class="app-status neutral">@Model.Storage.RemainingFiles restante(s)</span>
+        </div>
+
+        <div class="storage-meta-row">
+            <strong>@Model.Storage.UsedFiles de @Model.Storage.FileLimit arquivo(s)</strong>
+            <span>@Model.Storage.RemainingFiles restante(s)</span>
+        </div>
+        <div class="storage-progress-track" aria-hidden="true">
+            <div class="storage-progress-fill" style="width:@Model.Storage.UsagePercent%"></div>
+        </div>
+        <p class="storage-helper-text">@Model.Storage.UploadNotice</p>
+        <p class="storage-helper-text">@Model.Storage.UpgradeHint</p>
+    </section>
+
+    <section class="app-card">
+        <div class="section-heading-row">
+            <div>
+                <span class="app-kicker">Escolha</span>
+                <h2>Planos disponíveis</h2>
+            </div>
+        </div>
+
+        <div class="storage-plan-grid">
+            @foreach (var plan in Model.Storage.Plans)
+            {
+                <article class="storage-plan-card @(plan.IsCurrent ? "current" : string.Empty)">
+                    <span class="app-kicker">@plan.Name</span>
+                    <h3>@plan.PriceLabel</h3>
+                    <strong>@plan.CapacityLabel</strong>
+                    <p>@plan.Description</p>
+                    @if (!string.IsNullOrWhiteSpace(plan.HelperText))
+                    {
+                        <p class="storage-helper-text">@plan.HelperText</p>
+                    }
+
+                    @if (string.Equals(plan.PlanCode, "free", StringComparison.OrdinalIgnoreCase))
+                    {
+                        <button class="btn-secondary" type="button" disabled>Plano gratuito</button>
+                    }
+                    else
+                    {
+                        <button class="@(plan.IsCurrent ? "btn-secondary" : "btn-primary")"
+                                type="button"
+                                onclick="startCheckout('@plan.PlanCode', '@Model.ReturnUrl')">
+                            @(plan.IsCurrent ? "Plano atual" : plan.ButtonLabel)
+                        </button>
+                    }
+                </article>
+            }
+        </div>
+
+        @if (Model.Storage.ExtraStoragePlan is not null)
+        {
+            <div class="section-heading-row section-heading-row-spaced">
+                <div>
+                    <span class="app-kicker">Plano adicional</span>
+                    <h2>Contratar mais espaço para 100 arquivos extras</h2>
+                </div>
+            </div>
+
+            <div class="storage-plan-grid">
+                <article class="storage-plan-card @(Model.Storage.ExtraStoragePlan.IsAvailable ? string.Empty : "current")">
+                    <span class="app-kicker">@Model.Storage.ExtraStoragePlan.Name</span>
+                    <h3>@Model.Storage.ExtraStoragePlan.PriceLabel</h3>
+                    <strong>@Model.Storage.ExtraStoragePlan.CapacityLabel</strong>
+                    <p>@Model.Storage.ExtraStoragePlan.Description</p>
+                    <p class="storage-helper-text">@Model.Storage.ExtraStoragePlan.HelperText</p>
+                    @if (Model.Storage.ExtraStoragePlan.IsAvailable)
+                    {
+                        <button class="btn-primary"
+                                type="button"
+                                onclick="startCheckout('@Model.Storage.ExtraStoragePlan.PlanCode', '@Model.ReturnUrl')">
+                            @Model.Storage.ExtraStoragePlan.ButtonLabel
+                        </button>
+                    }
+                    else
+                    {
+                        <button class="btn-secondary" type="button" disabled>@Model.Storage.ExtraStoragePlan.ButtonLabel</button>
+                    }
+                </article>
+            </div>
+        }
+    </section>
+</section>
+
+@section Scripts {
+    <script>
+        function getToken() {
+            return document.querySelector('input[name="__RequestVerificationToken"]').value;
+        }
+
+        async function startCheckout(planCode, returnUrl = '@Model.ReturnUrl') {
+            const response = await fetch('/billing/create-checkout', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': getToken()
+                },
+                body: JSON.stringify({
+                    planCode,
+                    extraBlocks: 0,
+                    returnUrl
+                })
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+                alert(data.error || 'Nao foi possivel iniciar a cobranca.');
+                return;
+            }
+
+            if (data.url) {
+                window.location.href = data.url;
+                return;
+            }
+
+            if (data.redirectUrl) {
+                window.location.href = data.redirectUrl;
+                return;
+            }
+
+            window.location.reload();
+        }
+
+        async function openPortal(returnUrl = '@Model.ReturnUrl') {
+            const response = await fetch('/billing/create-portal-session', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': getToken()
+                },
+                body: JSON.stringify({
+                    returnUrl
+                })
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+                alert(data.error || 'Nao foi possivel abrir a area de cobranca.');
+                return;
+            }
+
+            if (data.url) {
+                window.location.href = data.url;
+            }
+        }
+    </script>
+}

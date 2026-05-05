@@ -42,6 +42,13 @@ public class AnnualCurriculumSubjectViewModel
     public string ProgressChipClass { get; set; } = "neutral";
     public int ProgressPercent { get; set; }
     public List<string> Milestones { get; set; } = new();
+    public string PhaseAssessmentTitle { get; set; } = string.Empty;
+    public string PhaseStatusLabel { get; set; } = string.Empty;
+    public string PhaseStatusChipClass { get; set; } = "neutral";
+    public string PhaseReviewSummary { get; set; } = string.Empty;
+    public string PhaseClosureSummary { get; set; } = string.Empty;
+    public string LessonsProgressLabel { get; set; } = string.Empty;
+    public string AdvancementSignal { get; set; } = string.Empty;
     public FamilyLibraryRecommendationViewModel? RecommendedBook { get; set; }
     public FamilyLibraryRecommendationViewModel? RecommendedPrintable { get; set; }
 }

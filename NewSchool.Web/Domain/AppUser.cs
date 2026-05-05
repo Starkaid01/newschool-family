@@ -30,6 +30,11 @@ public class AppUser
     public DateTime? PaymentRecoveryEmailSentAt { get; set; }
     public DateTime? DailyReminderMessageSentAt { get; set; }
     public DateTime? ProgressRiskMessageSentAt { get; set; }
+    public string PasswordResetTokenHash { get; set; } = string.Empty;
+    public DateTime? PasswordResetRequestedAt { get; set; }
+    public DateTime? PasswordResetExpiresAt { get; set; }
     public ICollection<ChildProfile> Children { get; set; } = new List<ChildProfile>();
     public ICollection<AppUser> Referrals { get; set; } = new List<AppUser>();
+    public ICollection<UserNotification> Notifications { get; set; } = new List<UserNotification>();
+    public ICollection<UserNotification> SentNotifications { get; set; } = new List<UserNotification>();
 }

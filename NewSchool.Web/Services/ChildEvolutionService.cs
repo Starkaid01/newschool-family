@@ -197,7 +197,7 @@ public class ChildEvolutionService(ApplicationDbContext db)
     {
         var feedbackByDomain = sessions
             .SelectMany(session => session.BlockFeedbacks.Select(feedback => (
-                Domain: ResolveFeedbackDomain(feedback.SkillCode),
+                Domain: CurriculumStructure.GetAnalyticsDomain(ResolveFeedbackDomain(feedback.SkillCode)),
                 Score: ResolveFeedbackScore(feedback.Rating))))
             .ToList();
 
@@ -324,7 +324,7 @@ public class ChildEvolutionService(ApplicationDbContext db)
         IEnumerable<ChildSkillProgress> progressEntries)
     {
         var progressByDomain = progressEntries
-            .GroupBy(x => x.Domain)
+            .GroupBy(x => CurriculumStructure.GetAnalyticsDomain(x.Domain))
             .ToDictionary(
                 x => x.Key,
                 x => x.Any() ? (int)Math.Round(x.Average(item => item.MasteryScore)) : 0);
@@ -441,7 +441,7 @@ public class ChildEvolutionService(ApplicationDbContext db)
                 continue;
             }
 
-            var template = snapshot.Templates.FirstOrDefault(x => x.Domain == domain);
+            var template = snapshot.Templates.FirstOrDefault(x => CurriculumStructure.DomainMatches(x.Domain, domain));
             if (template is null)
             {
                 continue;
@@ -606,7 +606,10 @@ public class ChildEvolutionService(ApplicationDbContext db)
     {
         LearningDomain.Language => "Fortalece comunicacao, alfabetizacao e compreensao.",
         LearningDomain.Math => "Aumenta raciocinio e seguranca para resolver problemas.",
-        LearningDomain.World => "Amplia repertorio e curiosidade sobre o mundo.",
+        LearningDomain.Science => "Fortalece observacao, investigacao e leitura de fenomenos do cotidiano.",
+        LearningDomain.History => "Ajuda a entender tempo, memoria, causa e consequencia.",
+        LearningDomain.Geography => "Organiza leitura de mapas, lugar, territorio e ambiente.",
+        LearningDomain.World => "Amplia repertorio em ciências, história e geografia.",
         _ => "Sustenta foco, autonomia e constancia nas atividades."
     };
 
@@ -672,6 +675,21 @@ public class ChildEvolutionService(ApplicationDbContext db)
             return LearningDomain.Math;
         }
 
+        if (skillCode.Contains("-Science-", StringComparison.OrdinalIgnoreCase))
+        {
+            return LearningDomain.Science;
+        }
+
+        if (skillCode.Contains("-History-", StringComparison.OrdinalIgnoreCase))
+        {
+            return LearningDomain.History;
+        }
+
+        if (skillCode.Contains("-Geography-", StringComparison.OrdinalIgnoreCase))
+        {
+            return LearningDomain.Geography;
+        }
+
         if (skillCode.Contains("-World-", StringComparison.OrdinalIgnoreCase))
         {
             return LearningDomain.World;
@@ -682,10 +700,9 @@ public class ChildEvolutionService(ApplicationDbContext db)
 
     private static string FormatDomain(LearningDomain domain) => domain switch
     {
-        LearningDomain.Language => "Linguagem",
-        LearningDomain.Math => "Matematica",
-        LearningDomain.World => "Mundo real",
-        _ => "Funcao executiva"
+        LearningDomain.World => "Ciências, história e geografia",
+        LearningDomain.ExecutiveFunction => "Autonomia",
+        _ => CurriculumStructure.FormatDomainLabel(domain)
     };
 
     private static string FormatMonthLabel(int year, int month)
@@ -700,7 +717,16 @@ public class ChildEvolutionService(ApplicationDbContext db)
         {
             "Linguagem" => LearningDomain.Language,
             "Matematica" => LearningDomain.Math,
+            "Matemática" => LearningDomain.Math,
+            "Ciências" => LearningDomain.Science,
+            "Ciencias" => LearningDomain.Science,
+            "História" => LearningDomain.History,
+            "Historia" => LearningDomain.History,
+            "Geografia" => LearningDomain.Geography,
+            "Ciências, história e geografia" => LearningDomain.World,
+            "Ciencias, historia e geografia" => LearningDomain.World,
             "Mundo real" => LearningDomain.World,
+            "Autonomia" => LearningDomain.ExecutiveFunction,
             _ => LearningDomain.ExecutiveFunction
         };
     }

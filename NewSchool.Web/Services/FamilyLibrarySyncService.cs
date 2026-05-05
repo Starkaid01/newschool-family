@@ -220,8 +220,8 @@ ORDER BY EducationStage, Category, Title;
         while (await reader.ReadAsync(cancellationToken))
         {
             var title = reader.GetString(1);
-            var category = reader.GetString(2);
-            var educationStage = reader.GetString(3);
+            var category = FamilyLibraryTaxonomyNormalizer.NormalizeCategory(reader.GetString(2));
+            var educationStage = FamilyLibraryTaxonomyNormalizer.NormalizeEducationStage(reader.GetString(3));
             var recommendedMinAge = reader.GetInt32(4);
             var recommendedMaxAge = reader.GetInt32(5);
             var skillFocus = reader.GetString(6);

@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.EntityFrameworkCore;
 using NewSchool.Web.Data;
 using NewSchool.Web.Domain;
@@ -12,9 +13,10 @@ namespace NewSchool.Web.Services;
 
 public class FamilyLibraryService(
     ApplicationDbContext db,
-    SystemCurriculumLibraryService systemCurriculumLibraryService)
+    IMemoryCache memoryCache)
 {
     private const string WeeklyReadingCompletionKind = "weekly_reading";
+    private static readonly TimeSpan LibraryIndexCacheDuration = TimeSpan.FromMinutes(3);
 
     private static readonly string[] CollectionFilterOrder =
     [
@@ -73,6 +75,21 @@ public class FamilyLibraryService(
             "ciencias", "natureza", "historia", "geografia", "biografia", "timeline", "brasil", "animais",
             "plantas", "experimento", "mundo", "descoberta", "rio", "mapa"
         ],
+        [LearningDomain.Science] =
+        [
+            "ciencias", "natureza", "animais", "plantas", "experimento", "descoberta", "corpo", "agua",
+            "clima", "mistura", "observacao", "fenomeno", "bioma"
+        ],
+        [LearningDomain.History] =
+        [
+            "historia", "biografia", "timeline", "tempo", "memoria", "passado", "familia", "acontecimento",
+            "fonte", "personagem", "linha do tempo"
+        ],
+        [LearningDomain.Geography] =
+        [
+            "geografia", "brasil", "rio", "mapa", "territorio", "regiao", "bairro", "cidade",
+            "paisagem", "ambiente", "localizacao", "orientacao"
+        ],
         [LearningDomain.ExecutiveFunction] =
         [
             "brincadeiras", "desenvolvimento motor", "rotina", "autonomia", "coordenação", "coordenacao",
@@ -92,9 +109,6 @@ public class FamilyLibraryService(
     {
         var library = await LoadLibraryIndexAsync(userId, cancellationToken);
         var cards = library.Books;
-        var readingHistory = child is null
-            ? new List<ChildReadingHistoryItemViewModel>()
-            : await LoadChildReadingHistoryAsync(userId, child.Id, url, cancellationToken);
         var resolvedAgeFilter = ResolveAgeFilter(ageFilter, child, cards.Select(book => book.AgeLabel));
 
         var filteredBooks = cards
@@ -125,15 +139,13 @@ public class FamilyLibraryService(
                 url,
                 "Abrir imprimível recomendado",
                 child.Id);
-        var weeklyReading = child is null
-            ? null
-            : BuildWeeklyReading(library, child, preferredDomain, [], url, readingHistory);
-        var annualReadingSpine = child is null
-            ? null
-            : BuildAnnualReadingSpine(library, child, url, readingHistory);
-        var systemCurriculumTracks = child is null
-            ? new List<SystemCurriculumTrackViewModel>()
-            : await systemCurriculumLibraryService.BuildAsync(child);
+        var currentBook = child is null
+            ? cards
+                .Where(book => book.IsStarted && !book.IsCompleted)
+                .OrderByDescending(book => book.LastReadAtUtc)
+                .ThenBy(book => book.Title)
+                .FirstOrDefault()
+            : PickCurrentBookForChild(cards, childAge, preferredDomain);
 
         return new FamilyLibraryHomeViewModel
         {
@@ -146,20 +158,14 @@ public class FamilyLibraryService(
             SelectedChildId = child?.Id,
             SelectedChildName = child?.FullName ?? string.Empty,
             PersonalizationHeadline = child is null
-                ? "Biblioteca organizada para o currículo da família"
-                : $"Biblioteca organizada para {child.FullName}",
+                ? "Biblioteca da família"
+                : $"Biblioteca de {child.FullName}",
             PersonalizationSummary = child is null
-                ? "Use esta estante quando precisar de leitura de apoio ou de uma atividade de papel sem sair procurando material."
-                : $"Os livros e imprimíveis abaixo já priorizam a faixa de {childAge} anos e o momento atual do currículo.",
-            CurrentBook = cards
-                .Where(book => book.IsStarted && !book.IsCompleted)
-                .OrderByDescending(book => book.LastReadAtUtc)
-                .FirstOrDefault(),
+                ? "Abra primeiro um livro ou um imprimível sem sair procurando no acervo inteiro."
+                : $"Abra primeiro o livro certo para {child.FullName}. O restante do acervo fica abaixo só quando realmente precisar.",
+            CurrentBook = currentBook,
             SpotlightBook = spotlightBook,
             SpotlightPrintable = spotlightPrintable,
-            WeeklyReading = weeklyReading,
-            AnnualReadingSpine = annualReadingSpine,
-            SystemCurriculumTracks = systemCurriculumTracks,
             SearchTerm = searchTerm ?? string.Empty,
             SelectedCollection = collection ?? string.Empty,
             SelectedStage = stage ?? string.Empty,
@@ -176,7 +182,7 @@ public class FamilyLibraryService(
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(GetAgeFilterSortOrder)
                 .ToList(),
-            CurriculumShelves = BuildShelves(cards, library.Printables, child, url),
+            CurriculumShelves = [],
             FavoriteItems = cards
                 .Where(book => book.IsFavorite)
                 .OrderByDescending(book => book.LastReadAtUtc)
@@ -333,6 +339,7 @@ public class FamilyLibraryService(
         }
 
         await db.SaveChangesAsync(cancellationToken);
+        InvalidateLibraryIndex(userId);
     }
 
     public async Task<Dictionary<string, FamilyLibraryCurriculumBridgeViewModel>> BuildSubjectSupportMapAsync(
@@ -345,13 +352,7 @@ public class FamilyLibraryService(
         var age = CalculateAge(child.BirthDate, DateTime.Today);
         var result = new Dictionary<string, FamilyLibraryCurriculumBridgeViewModel>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var domain in new[]
-                 {
-                     LearningDomain.Language,
-                     LearningDomain.Math,
-                     LearningDomain.World,
-                     LearningDomain.ExecutiveFunction
-                 })
+        foreach (var domain in CurriculumStructure.AnnualSubjectOrder)
         {
             var domainLabel = FormatDomain(domain);
             result[domainLabel] = new FamilyLibraryCurriculumBridgeViewModel
@@ -461,6 +462,7 @@ public class FamilyLibraryService(
         }
 
         await db.SaveChangesAsync(cancellationToken);
+        InvalidateLibraryIndex(userId);
 
         return new FamilyLibraryReaderViewModel
         {
@@ -629,6 +631,7 @@ public class FamilyLibraryService(
         }
 
         await db.SaveChangesAsync(cancellationToken);
+        InvalidateLibraryIndex(userId);
     }
 
     public static Guid GetCurrentUserId(ClaimsPrincipal user)
@@ -638,11 +641,19 @@ public class FamilyLibraryService(
 
     private async Task<LibraryIndexData> LoadLibraryIndexAsync(Guid userId, CancellationToken cancellationToken)
     {
+        var cacheKey = BuildLibraryIndexCacheKey(userId);
+        if (memoryCache.TryGetValue(cacheKey, out LibraryIndexData? cachedIndex) && cachedIndex is not null)
+        {
+            return cachedIndex;
+        }
+
         var materials = await db.FamilyLibraryMaterials
+            .AsNoTracking()
             .OrderBy(material => material.Title)
             .ToListAsync(cancellationToken);
 
         var states = await db.FamilyLibraryUserStates
+            .AsNoTracking()
             .Where(state => state.UserId == userId)
             .ToDictionaryAsync(state => state.MaterialId, cancellationToken);
 
@@ -669,7 +680,9 @@ public class FamilyLibraryService(
             })
             .ToList();
 
-        return new LibraryIndexData(books, printables);
+        var index = new LibraryIndexData(books, printables);
+        memoryCache.Set(cacheKey, index, LibraryIndexCacheDuration);
+        return index;
     }
 
     private async Task<List<ChildReadingHistoryItemViewModel>> LoadChildReadingHistoryAsync(
@@ -706,6 +719,16 @@ public class FamilyLibraryService(
                 AccessUrl = url.Action("Book", "Library", new { id = item.MaterialId, childId }) ?? string.Empty
             })
             .ToList();
+    }
+
+    private static string BuildLibraryIndexCacheKey(Guid userId)
+    {
+        return $"family-library:index:{userId:N}";
+    }
+
+    private void InvalidateLibraryIndex(Guid userId)
+    {
+        memoryCache.Remove(BuildLibraryIndexCacheKey(userId));
     }
 
     private static FamilyLibraryWeeklyReadingViewModel BuildWeeklyReading(
@@ -1879,7 +1902,9 @@ public class FamilyLibraryService(
         string accessLabel,
         Guid? childId = null)
     {
-        return cards
+        var candidateCards = FilterBookCandidates(cards, age);
+
+        return candidateCards
             .Select(card => new
             {
                 Card = card,
@@ -1898,6 +1923,17 @@ public class FamilyLibraryService(
                 BuildFitReason(item.Card.Title, domain, false),
                 childId))
             .FirstOrDefault();
+    }
+
+    private static IReadOnlyList<FamilyLibraryBookCardViewModel> FilterBookCandidates(
+        IReadOnlyList<FamilyLibraryBookCardViewModel> cards,
+        int age)
+    {
+        var preferred = cards
+            .Where(card => IsBookCompatibleWithAge(card, age))
+            .ToList();
+
+        return preferred.Count > 0 ? preferred : cards;
     }
 
     private static FamilyLibraryRecommendationViewModel? PickBestPrintable(
@@ -1980,6 +2016,43 @@ public class FamilyLibraryService(
             StringComparison.OrdinalIgnoreCase);
     }
 
+    private static bool IsBookCompatibleWithAge(FamilyLibraryBookCardViewModel book, int age)
+    {
+        if (TryResolveBookAgeRange(book, out var minAge, out var maxAge))
+        {
+            return age >= minAge && age <= maxAge;
+        }
+
+        return string.Equals(
+            book.EducationStage,
+            age <= 5 ? "Educação Infantil" : "Ensino Fundamental",
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool TryResolveBookAgeRange(FamilyLibraryBookCardViewModel book, out int minAge, out int maxAge)
+    {
+        minAge = 0;
+        maxAge = 0;
+
+        var resolvedAgeLabel = !string.IsNullOrWhiteSpace(book.AgeLabel)
+            ? book.AgeLabel
+            : GetAgeLabel(book.Title, book.RecommendedMinAge, book.RecommendedMaxAge);
+
+        if (TryParseAgeBand(resolvedAgeLabel, out minAge, out maxAge))
+        {
+            return true;
+        }
+
+        if (book.RecommendedMinAge > 0 && book.RecommendedMaxAge > 0)
+        {
+            minAge = book.RecommendedMinAge;
+            maxAge = book.RecommendedMaxAge;
+            return true;
+        }
+
+        return false;
+    }
+
     private static bool TryParseAgeBand(string ageLabel, out int minAge, out int maxAge)
     {
         minAge = 0;
@@ -2027,7 +2100,9 @@ public class FamilyLibraryService(
         LearningDomain? domain,
         IReadOnlyCollection<string> focusTokens)
     {
-        var score = ScoreAge(book.RecommendedMinAge, book.RecommendedMaxAge, age);
+        var score = TryResolveBookAgeRange(book, out var minAge, out var maxAge)
+            ? ScoreAge(minAge, maxAge, age)
+            : ScoreAge(book.RecommendedMinAge, book.RecommendedMaxAge, age);
         var searchable = BuildSearchableText(book.Title, book.Category, book.SkillFocus, book.Description, book.CollectionLabel);
 
         if (book.IsStarted && !book.IsCompleted)
@@ -2053,6 +2128,28 @@ public class FamilyLibraryService(
         score += ScoreFocusTokens(searchable, focusTokens);
         score += ScoreStage(book.EducationStage, age);
         return score;
+    }
+
+    private static FamilyLibraryBookCardViewModel? PickCurrentBookForChild(
+        IReadOnlyList<FamilyLibraryBookCardViewModel> cards,
+        int age,
+        LearningDomain? domain)
+    {
+        var candidates = FilterBookCandidates(cards, age);
+
+        return candidates
+            .Where(book => book.IsStarted && !book.IsCompleted)
+            .Select(book => new
+            {
+                Book = book,
+                Score = ScoreBook(book, age, domain, [])
+            })
+            .Where(item => item.Score > 0)
+            .OrderByDescending(item => item.Score)
+            .ThenByDescending(item => item.Book.LastReadAtUtc)
+            .ThenBy(item => item.Book.Title)
+            .Select(item => item.Book)
+            .FirstOrDefault();
     }
 
     private static int ScorePrintable(
@@ -2307,7 +2404,9 @@ public class FamilyLibraryService(
     {
         LearningDomain.Language => "Linguagem e leitura",
         LearningDomain.Math => "Matemática em papel e leitura",
-        LearningDomain.World => "Brasil, ciências e repertório",
+        LearningDomain.Science => "Ciências e descoberta",
+        LearningDomain.History => "História e memória",
+        LearningDomain.Geography => "Geografia e território",
         LearningDomain.ExecutiveFunction => "Autonomia e coordenação",
         _ => "Currículo por área"
     };
@@ -2316,18 +2415,14 @@ public class FamilyLibraryService(
     {
         LearningDomain.Language => "Um livro para ler junto e uma atividade para consolidar.",
         LearningDomain.Math => "Material concreto e atividade curta para praticar sem improviso.",
-        LearningDomain.World => "Leitura e folha para ligar o currículo ao mundo real.",
+        LearningDomain.Science => "Leitura e folha para ligar o currículo à observação e à investigação.",
+        LearningDomain.History => "Leitura e folha para ligar o currículo à memória, ao tempo e às fontes.",
+        LearningDomain.Geography => "Leitura e folha para ligar o currículo a mapa, lugar e território.",
         LearningDomain.ExecutiveFunction => "Apoios leves para rotina, coordenação e independência.",
         _ => "Seleção pronta para esta área."
     };
 
-    private static LearningDomain GetPreferredLibraryDomain(string familyGoalTrack) => familyGoalTrack switch
-    {
-        "math_foundations" => LearningDomain.Math,
-        "science_discovery" => LearningDomain.World,
-        "autonomy" => LearningDomain.ExecutiveFunction,
-        _ => LearningDomain.Language
-    };
+    private static LearningDomain GetPreferredLibraryDomain(string familyGoalTrack) => CurriculumStructure.GetPreferredLibraryDomain(familyGoalTrack);
 
     private static FamilyLibraryBookCardViewModel MapBookCard(FamilyLibraryMaterial material, FamilyLibraryUserState? state)
     {
@@ -2457,14 +2552,7 @@ public class FamilyLibraryService(
         _ => 4
     };
 
-    private static string FormatDomain(LearningDomain domain) => domain switch
-    {
-        LearningDomain.Language => "Linguagem",
-        LearningDomain.Math => "Matemática",
-        LearningDomain.World => "Brasil e mundo",
-        LearningDomain.ExecutiveFunction => "Autonomia",
-        _ => "Geral"
-    };
+    private static string FormatDomain(LearningDomain domain) => CurriculumStructure.FormatDomainLabel(domain);
 
     private static int CalculateAge(DateTime birthDate, DateTime referenceDate)
     {

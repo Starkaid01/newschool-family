@@ -87,13 +87,9 @@ public class ChildGoalCycleService(ApplicationDbContext db)
         }
 
         var profile = child.DevelopmentProfile;
-        var domains = new List<(LearningDomain Domain, int Level)>
-        {
-            (LearningDomain.Language, profile?.LanguageLevel ?? 3),
-            (LearningDomain.Math, profile?.MathLevel ?? 3),
-            (LearningDomain.World, profile?.WorldLevel ?? 3),
-            (LearningDomain.ExecutiveFunction, profile?.ExecutiveFunctionLevel ?? 3)
-        };
+        var domains = CurriculumStructure.AnnualSubjectOrder
+            .Select(domain => (Domain: domain, Level: GetProfileLevel(profile, domain)))
+            .ToList();
 
         foreach (var domain in domains.OrderByDescending(x => GetGoalTrackAffinity(preferredTrack, x.Domain)).ThenBy(x => x.Level))
         {
@@ -171,7 +167,7 @@ public class ChildGoalCycleService(ApplicationDbContext db)
             "literacy" => "Trilha do mes: alfabetizacao e linguagem",
             "math_foundations" => "Trilha do mes: matematica base e raciocinio",
             "autonomy" => "Trilha do mes: autonomia, foco e organizacao",
-            "science_discovery" => "Trilha do mes: ciencias, observacao e descoberta",
+            "science_discovery" => "Trilha do mes: ciencias, historia e geografia com investigacao guiada",
             _ => "Trilha do mes: crescimento equilibrado"
         };
 
@@ -184,10 +180,22 @@ public class ChildGoalCycleService(ApplicationDbContext db)
         "literacy" when domain == LearningDomain.Language => 4,
         "math_foundations" when domain == LearningDomain.Math => 4,
         "autonomy" when domain == LearningDomain.ExecutiveFunction => 4,
-        "science_discovery" when domain == LearningDomain.World => 4,
+        "science_discovery" when domain == LearningDomain.Science => 4,
+        "science_discovery" when domain is LearningDomain.History or LearningDomain.Geography or LearningDomain.World => 3,
         "balanced_growth" => 2,
         _ when domain == LearningDomain.Language || domain == LearningDomain.Math => 2,
         _ => 1
+    };
+
+    private static int GetProfileLevel(ChildDevelopmentProfile? profile, LearningDomain domain) => domain switch
+    {
+        LearningDomain.Language => profile?.LanguageLevel ?? 3,
+        LearningDomain.Math => profile?.MathLevel ?? 3,
+        LearningDomain.Science => profile?.WorldLevel ?? 3,
+        LearningDomain.History => profile?.WorldLevel ?? 3,
+        LearningDomain.Geography => profile?.WorldLevel ?? 3,
+        LearningDomain.World => profile?.WorldLevel ?? 3,
+        _ => profile?.ExecutiveFunctionLevel ?? 3
     };
 
     private static string BuildRiskLevel(ChildMonthlyGoalCycle cycle, int sessionsThisMonth, DateTime today)

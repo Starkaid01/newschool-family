@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using NewSchool.Web.Data;
 using NewSchool.Web.Domain;
 using NewSchool.Web.Models;
@@ -9,8 +10,12 @@ namespace NewSchool.Web.Services;
 
 public class CuratedLearningLibraryService(
     ApplicationDbContext db,
-    ProprietaryLessonPacketService proprietaryLessonPacketService)
+    IMemoryCache memoryCache,
+    ProprietaryLessonPacketService proprietaryLessonPacketService,
+    ProprietaryCurriculumBlueprintService proprietaryCurriculumBlueprintService)
 {
+    private static readonly TimeSpan TaskCacheDuration = TimeSpan.FromMinutes(10);
+
     public async Task<Dictionary<Guid, CuratedTaskSuggestionViewModel>> BuildBlockSuggestionsAsync(
         ChildProfile child,
         ICollection<DailyPlanBlock> blocks)
@@ -21,29 +26,63 @@ public class CuratedLearningLibraryService(
         }
 
         var age = Math.Clamp(CalculateAge(child.BirthDate, DateTime.Today), 3, 14);
-        var tasks = await db.CuratedTaskTemplates
-            .Include(x => x.PrimaryResource)
-            .Where(x => x.AgeMin <= age && x.AgeMax >= age)
-            .OrderBy(x => x.SortOrder)
-            .ToListAsync();
+        var tasks = await memoryCache.GetOrCreateAsync(
+                        $"curated-tasks:{age}",
+                        async entry =>
+                        {
+                            entry.AbsoluteExpirationRelativeToNow = TaskCacheDuration;
+                            return await db.CuratedTaskTemplates
+                                .AsNoTracking()
+                                .Include(x => x.PrimaryResource)
+                                .Where(x => x.AgeMin <= age && x.AgeMax >= age)
+                                .OrderBy(x => x.SortOrder)
+                                .ToListAsync();
+                        })
+                    ?? [];
 
         var suggestions = new Dictionary<Guid, CuratedTaskSuggestionViewModel>();
         var usedTaskIds = new HashSet<Guid>();
+        var domainLessonCounters = new Dictionary<LearningDomain, int>();
         foreach (var block in blocks.OrderBy(x => x.SortOrder))
         {
-            var match = MatchTask(tasks, child, block, usedTaskIds);
+            var curriculumDomain = CurriculumStructure.GetAnalyticsDomain(block.Domain);
+            domainLessonCounters.TryGetValue(curriculumDomain, out var currentCount);
+            currentCount += 1;
+            domainLessonCounters[curriculumDomain] = currentCount;
+
+            var currentUnit = proprietaryCurriculumBlueprintService.GetCurrentUnit(age, block.Domain, DateTime.Today);
+            var lessons = currentUnit?.Lessons ?? [];
+            var lessonIndex = lessons.Count == 0
+                ? 0
+                : Math.Min(currentCount - 1, lessons.Count - 1);
+            var currentLesson = lessons.Count == 0 ? null : lessons[lessonIndex];
+            var match = currentLesson is null
+                ? MatchTask(tasks, child, block, usedTaskIds)
+                : tasks.FirstOrDefault(task => string.Equals(task.Slug, currentLesson.TaskSlug, StringComparison.OrdinalIgnoreCase))
+                  ?? MatchTask(tasks, child, block, usedTaskIds);
             if (match is null)
             {
                 continue;
             }
 
             usedTaskIds.Add(match.Id);
-            var lessonPacket = proprietaryLessonPacketService.BuildPacket(match, child, block, age);
+            var curriculumLessonTitle = currentLesson is null
+                ? string.Empty
+                : currentLesson.Title;
+
+            var lessonPacket = proprietaryLessonPacketService.BuildPacket(match, child, block, age, currentUnit, currentLesson);
 
             suggestions[block.Id] = new CuratedTaskSuggestionViewModel
             {
                 Slug = match.Slug,
                 Title = match.Title,
+                SchoolPlacementLabel = currentUnit?.SchoolPlacementLabel ?? CurriculumStructure.GetSchoolPlacementLabel(age),
+                CurriculumSubjectLabel = currentUnit?.SubjectLabel ?? FormatDomain(block.Domain),
+                CurriculumUnitLabel = currentUnit?.UnitLabel ?? string.Empty,
+                CurriculumUnitTitle = currentUnit?.Title ?? string.Empty,
+                CurriculumLessonTitle = curriculumLessonTitle,
+                CurriculumLessonNumber = currentLesson?.LessonNumber ?? 0,
+                CurriculumLessonCount = lessons.Count,
                 FitReason = BuildFitReason(match, child, block),
                 Goal = match.Goal,
                 ParentGuide = !string.IsNullOrWhiteSpace(lessonPacket.OpeningForAdult)
@@ -105,7 +144,7 @@ public class CuratedLearningLibraryService(
     {
         var searchText = NormalizeForSearch($"{block.Title} {block.SkillName} {block.Goal} {block.Materials} {child.FamilyGoalTrack} {child.TeachingMethodology}");
         var orderedCandidates = tasks
-            .Where(x => x.Domain == block.Domain)
+            .Where(x => CurriculumStructure.DomainMatches(x.Domain, block.Domain))
             .Select(x => new
             {
                 Task = x,
@@ -189,7 +228,7 @@ public class CuratedLearningLibraryService(
     {
         var reasons = new List<string>();
 
-        if (task.Domain == block.Domain)
+        if (CurriculumStructure.DomainMatches(task.Domain, block.Domain))
         {
             reasons.Add($"bate com {FormatDomain(block.Domain).ToLowerInvariant()}");
         }
@@ -258,23 +297,9 @@ public class CuratedLearningLibraryService(
         };
     }
 
-    private static string FormatDomain(LearningDomain domain) => domain switch
-    {
-        LearningDomain.Language => "Linguagem",
-        LearningDomain.Math => "Matemática",
-        LearningDomain.World => "Mundo real",
-        LearningDomain.ExecutiveFunction => "Autonomia",
-        _ => "Geral"
-    };
+    private static string FormatDomain(LearningDomain domain) => CurriculumStructure.FormatDomainLabel(domain);
 
-    private static string GetDomainChip(LearningDomain domain) => domain switch
-    {
-        LearningDomain.Language => "track-communication",
-        LearningDomain.Math => "track-academic",
-        LearningDomain.World => "success",
-        LearningDomain.ExecutiveFunction => "track-dailyliving",
-        _ => "neutral"
-    };
+    private static string GetDomainChip(LearningDomain domain) => CurriculumStructure.GetDomainChipClass(domain);
 
     private static string GetAgeBand(int ageMin, int ageMax) => ageMin == ageMax
         ? $"{ageMin} anos"

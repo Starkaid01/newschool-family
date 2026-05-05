@@ -20,8 +20,12 @@ public class ParentController(
     IWebHostEnvironment environment,
     AuthService authService,
     LearningPlanService learningPlanService,
+    DailyPlanWarmupQueue dailyPlanWarmupQueue,
     ChildGoalCycleService childGoalCycleService,
     ChildEvolutionService childEvolutionService,
+    PhaseClosureService phaseClosureService,
+    SchoolReportService schoolReportService,
+    FundamentalAssessmentService fundamentalAssessmentService,
     ChildRecoveryPlanService childRecoveryPlanService,
     ChildAchievementService childAchievementService,
     ConsistencyService consistencyService,
@@ -36,7 +40,7 @@ public class ParentController(
     GuidedLessonExperienceService guidedLessonExperienceService,
     EvidenceAutomationService evidenceAutomationService,
     EvidenceStoragePlanService evidenceStoragePlanService,
-    WeeklyRoadmapService weeklyRoadmapService,
+    EvidenceMediaStorageService evidenceMediaStorageService,
     AnnualCurriculumPlannerService annualCurriculumPlannerService,
     SystemCurriculumLibraryService systemCurriculumLibraryService,
     ExternalContentHubService externalContentHubService,
@@ -157,6 +161,51 @@ public class ParentController(
         "tempo com interesse especial"
     ];
 
+    [HttpGet]
+    public async Task<IActionResult> Today()
+    {
+        if (!IsSubscriptionActive())
+        {
+            return RedirectToAction(nameof(Index), new { gate = "premium" });
+        }
+
+        var parentId = GetCurrentUserId();
+        var children = await db.Children
+            .AsNoTracking()
+            .Where(x => x.ParentId == parentId)
+            .OrderBy(x => x.FullName)
+            .Select(x => new { x.Id })
+            .ToListAsync();
+
+        if (children.Count == 0)
+        {
+            TempData["StatusMessage"] = "Cadastre uma criança primeiro. Depois a aula de hoje aparece pronta no lugar certo.";
+            TempData["StatusKind"] = "warning";
+            return RedirectToAction(nameof(Index));
+        }
+
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> CurriculumHome()
+    {
+        if (!IsSubscriptionActive())
+        {
+            return RedirectToAction(nameof(Index), new { gate = "premium" });
+        }
+
+        var targetChildId = await ResolvePrimaryChildForGuidedFlowAsync(GetCurrentUserId(), DateTime.Today);
+        if (!targetChildId.HasValue)
+        {
+            TempData["StatusMessage"] = "Cadastre uma criança primeiro. Depois o currículo anual aparece organizado para a criança certa.";
+            TempData["StatusKind"] = "warning";
+            return RedirectToAction(nameof(Index));
+        }
+
+        return RedirectToAction(nameof(Curriculum), new { id = targetChildId.Value });
+    }
+
     public async Task<IActionResult> Index()
     {
         var parentId = GetCurrentUserId();
@@ -204,14 +253,10 @@ public class ParentController(
                 authService.CreatePrincipal(parent));
         }
         var children = await db.Children
+            .AsNoTracking()
             .Where(x => x.ParentId == parentId)
             .OrderBy(x => x.FullName)
             .ToListAsync();
-
-        foreach (var child in children)
-        {
-            await learningPlanService.EnsurePlanAsync(child, today);
-        }
 
         var childIds = children.Select(x => x.Id).ToList();
         var todayPlans = childIds.Count == 0
@@ -227,38 +272,11 @@ public class ParentController(
                 })
                 .ToDictionaryAsync(x => x.ChildId, x => (x.Theme, x.Completed));
 
-        var totalSessionsByChild = childIds.Count == 0
-            ? new Dictionary<Guid, int>()
-            : await db.LearningSessions
-                .AsNoTracking()
-                .Where(x => childIds.Contains(x.ChildId))
-                .GroupBy(x => x.ChildId)
-                .Select(group => new
-                {
-                    ChildId = group.Key,
-                    TotalSessions = group.Count()
-                })
-                .ToDictionaryAsync(x => x.ChildId, x => x.TotalSessions);
-
-        var weeklyTotals = childIds.Count == 0
-            ? null
-            : await db.LearningSessions
-                .AsNoTracking()
-                .Where(x => childIds.Contains(x.ChildId) && x.LoggedAt >= weekStart)
-                .GroupBy(_ => 1)
-                .Select(group => new
-                {
-                    Sessions = group.Count(),
-                    Minutes = group.Sum(x => x.MinutesCompleted)
-                })
-                .FirstOrDefaultAsync();
-
         var childCards = new List<ChildCardViewModel>();
         foreach (var child in children)
         {
             var age = CalculateAge(child.BirthDate, today);
             todayPlans.TryGetValue(child.Id, out var todayPlan);
-            totalSessionsByChild.TryGetValue(child.Id, out var totalSessions);
             var hasTodayPlan = todayPlans.ContainsKey(child.Id);
             var planCompletedToday = hasTodayPlan && todayPlan.Completed;
 
@@ -267,28 +285,30 @@ public class ParentController(
                 Id = child.Id,
                 FullName = child.FullName,
                 Age = age,
+                SchoolPlacementLabel = CurriculumStructure.GetSchoolPlacementLabel(age),
                 DailyStudyMinutes = child.DailyStudyMinutes,
                 CurrentFocus = hasTodayPlan
                     ? todayPlan.Theme
-                    : "A aula do dia fica pronta aqui",
+                    : "a aula do dia está sendo preparada",
+                IsPreparingTodayPlan = !hasTodayPlan,
                 PlanCompletedToday = planCompletedToday,
-                TotalSessions = totalSessions,
                 WeeklyHeadline = planCompletedToday
                     ? "Dia concluido. O proximo passo agora e guardar evidencias ou abrir o curriculo."
-                    : "Abra a aula do dia e siga as licoes em ordem, sem precisar montar nada manualmente.",
-                AlertChipLabel = planCompletedToday ? "Em rota" : "Próxima ação",
+                    : hasTodayPlan
+                        ? "Abra a aula do dia e siga as licoes em ordem, sem precisar montar nada manualmente."
+                        : "A página já pode abrir. Enquanto isso, o sistema termina de preparar a aula do dia.",
+                AlertChipLabel = planCompletedToday ? "Em rota" : !hasTodayPlan ? "Preparando" : "Próxima ação",
                 AlertChipClass = planCompletedToday ? "success" : "warning"
             });
         }
 
-        var storageSummary = await evidenceStoragePlanService.BuildSummaryAsync(parentId);
+        var usedFiles = await evidenceStoragePlanService.CountUsedFilesAsync(childIds);
+        var storageSummary = evidenceStoragePlanService.BuildSummary(parent, usedFiles);
 
         var vm = new ParentDashboardViewModel
         {
             ParentName = parent.FullName,
             TotalChildren = children.Count,
-            SessionsThisWeek = weeklyTotals?.Sessions ?? 0,
-            MinutesThisWeek = weeklyTotals?.Minutes ?? 0,
             SubscriptionStatus = parent.SubscriptionStatus,
             TrialEndsAt = parent.TrialEndsAt,
             TrialDaysLeft = parent.TrialEndsAt.HasValue ? (parent.TrialEndsAt.Value.Date - today).Days : null,
@@ -298,7 +318,6 @@ public class ParentController(
                 ? "O sistema inteiro segue livre. A cobrança agora vale apenas para ampliar o acervo de evidências."
                 : null,
             Storage = storageSummary,
-            Consistency = await consistencyService.BuildDashboardSnapshotAsync(parentId),
             Children = childCards
         };
 
@@ -539,53 +558,89 @@ public class ParentController(
         }
 
         var child = await GetOwnedChildAsync(id);
-        var plan = await learningPlanService.EnsurePlanAsync(child, DateTime.Today);
-
+        var today = DateTime.Today;
+        var tomorrowDate = today.AddDays(1).Date;
         var reloadedPlan = await db.DailyPlans
+            .AsNoTracking()
             .Include(x => x.Blocks.OrderBy(b => b.SortOrder))
-            .Include(x => x.Sessions.OrderByDescending(s => s.LoggedAt))
-            .FirstAsync(x => x.Id == plan.Id);
+            .FirstOrDefaultAsync(x => x.ChildId == child.Id && x.PlannedDate == today);
+
+        if (reloadedPlan is null || reloadedPlan.Blocks.Count == 0)
+        {
+            await dailyPlanWarmupQueue.QueueAsync(child.Id, today);
+            await dailyPlanWarmupQueue.QueueAsync(child.Id, tomorrowDate);
+
+            var quickSwitchChildren = await BuildFamilyChildrenAsync(child.ParentId, child.Id);
+            var age = CalculateAge(child.BirthDate, today);
+
+            return View(new ChildDetailsViewModel
+            {
+                ChildId = child.Id,
+                FullName = child.FullName,
+                Age = age,
+                SchoolPlacementLabel = CurriculumStructure.GetSchoolPlacementLabel(age),
+                DailyStudyMinutes = child.DailyStudyMinutes,
+                SupportProfileLabel = GetSupportProfileLabel(child.SupportProfile),
+                FamilyGoalTrackLabel = GetFamilyGoalTrackLabel(child.FamilyGoalTrack),
+                LessonFlowHeadline = "Preparando aula",
+                LessonFlowMessage = "A página já abriu. Em instantes a lição do dia aparece sozinha, sem travar a navegação.",
+                LessonFlowStyle = "neutral",
+                Theme = "A aula do dia está sendo preparada",
+                GuidedLesson = new GuidedDailyLessonViewModel
+                {
+                    Headline = "Aula do dia",
+                    Summary = "Estamos montando a primeira lição desta criança. Você já pode aguardar nesta tela."
+                },
+                EvidenceCenterUrl = Url.Action(nameof(Evidences), new { id = child.Id }) ?? string.Empty,
+                TomorrowPreviewUrl = Url.Action(nameof(TomorrowPreview), new { id = child.Id }) ?? string.Empty,
+                DashboardUrl = Url.Action(nameof(Index)) ?? string.Empty,
+                CreateChildUrl = Url.Action(nameof(CreateChild)) ?? string.Empty,
+                FamilyChildren = quickSwitchChildren,
+                IsPreparingTodayPlan = true,
+                IsPreparingTomorrowPlan = true,
+                AutoRefreshSeconds = 3
+            });
+        }
+
+        var planBlocks = reloadedPlan.Blocks.ToList();
         var completedBlockIds = (await db.DailyPlanBlockCompletions
                 .Where(x => x.ChildId == child.Id && x.DailyPlanId == reloadedPlan.Id)
                 .Select(x => x.DailyPlanBlockId)
                 .ToListAsync())
             .ToHashSet();
-
-        var tomorrowDate = DateTime.Today.AddDays(1).Date;
         var tomorrowPreviewPlan = await db.DailyPlans
+            .AsNoTracking()
             .Include(x => x.Blocks.OrderBy(b => b.SortOrder))
             .FirstOrDefaultAsync(x => x.ChildId == child.Id && x.PlannedDate == tomorrowDate);
-        var curatedSuggestions = await curatedLearningLibraryService.BuildBlockSuggestionsAsync(child, reloadedPlan.Blocks);
-        var externalRecommendations = await externalContentHubService.BuildChildRecommendationsAsync(child, reloadedPlan.Blocks.ToList(), Url);
-        var libraryBridge = await familyLibraryService.BuildCurriculumBridgeAsync(GetCurrentUserId(), child, reloadedPlan.Blocks.ToList(), Url);
-        var systemCurriculumTracks = await systemCurriculumLibraryService.BuildAsync(child);
-        var printableSuggestions = await familyLibraryService.BuildBlockPrintableMapAsync(GetCurrentUserId(), child, reloadedPlan.Blocks.ToList(), Url, curatedSuggestions);
+        var isPreparingTomorrowPlan = tomorrowPreviewPlan is null || tomorrowPreviewPlan.Blocks.Count == 0;
+        if (isPreparingTomorrowPlan)
+        {
+            await dailyPlanWarmupQueue.QueueAsync(child.Id, tomorrowDate);
+        }
+        var curatedSuggestions = new Dictionary<Guid, CuratedTaskSuggestionViewModel>();
+        var printableSuggestions = new Dictionary<Guid, FamilyLibraryRecommendationViewModel>();
         var guidedLesson = guidedLessonExperienceService.BuildGuidedLesson(
             child,
-            reloadedPlan.Blocks.ToList(),
+            planBlocks,
             curatedSuggestions,
             completedBlockIds,
-            systemCurriculumTracks,
+            [],
             printableSuggestions);
-        IReadOnlyDictionary<Guid, CuratedTaskSuggestionViewModel>? tomorrowSuggestions = null;
-        IReadOnlyDictionary<Guid, FamilyLibraryRecommendationViewModel> tomorrowPrintableSuggestions = new Dictionary<Guid, FamilyLibraryRecommendationViewModel>();
-        if (tomorrowPreviewPlan is not null && tomorrowPreviewPlan.Blocks.Count > 0)
-        {
-            tomorrowSuggestions = await curatedLearningLibraryService.BuildBlockSuggestionsAsync(child, tomorrowPreviewPlan.Blocks);
-            tomorrowPrintableSuggestions = await familyLibraryService.BuildBlockPrintableMapAsync(GetCurrentUserId(), child, tomorrowPreviewPlan.Blocks.ToList(), Url, tomorrowSuggestions);
-        }
         var tomorrowLesson = guidedLessonExperienceService.BuildTomorrowPreview(
             child,
             tomorrowPreviewPlan,
-            tomorrowSuggestions,
-            systemCurriculumTracks,
-            tomorrowPrintableSuggestions);
+            null,
+            [],
+            new Dictionary<Guid, FamilyLibraryRecommendationViewModel>());
+
+        var familyChildren = await BuildFamilyChildrenAsync(child.ParentId, child.Id);
 
         var vm = new ChildDetailsViewModel
         {
             ChildId = child.Id,
             FullName = child.FullName,
             Age = CalculateAge(child.BirthDate, DateTime.Today),
+            SchoolPlacementLabel = CurriculumStructure.GetSchoolPlacementLabel(CalculateAge(child.BirthDate, DateTime.Today)),
             DailyStudyMinutes = child.DailyStudyMinutes,
             SupportProfileLabel = GetSupportProfileLabel(child.SupportProfile),
             FamilyGoalTrackLabel = GetFamilyGoalTrackLabel(child.FamilyGoalTrack),
@@ -602,26 +657,16 @@ public class ParentController(
             LessonFlowStyle = dayDone ? "neutral" : "success",
             Theme = reloadedPlan.Theme,
             CurriculumUrl = Url.Action(nameof(Curriculum), new { id = child.Id }) ?? string.Empty,
-            ExternalContentRecommendations = externalRecommendations,
-            LibraryBridge = libraryBridge,
-            SystemCurriculumTracks = systemCurriculumTracks,
+            SchoolReportUrl = Url.Action(nameof(SchoolReport), new { id = child.Id }) ?? string.Empty,
+            ReinforcementUrl = Url.Action(nameof(Reinforcement), new { id = child.Id }) ?? string.Empty,
             GuidedLesson = guidedLesson,
             TomorrowLesson = tomorrowLesson,
             EvidenceCenterUrl = Url.Action(nameof(Evidences), new { id = child.Id }) ?? string.Empty,
             TomorrowPreviewUrl = Url.Action(nameof(TomorrowPreview), new { id = child.Id }) ?? string.Empty,
-            SessionHistory = reloadedPlan.Sessions.Select(session => new SessionHistoryViewModel
-            {
-                Id = session.Id,
-                LoggedAt = session.LoggedAt,
-                MinutesCompleted = session.MinutesCompleted,
-                Theme = reloadedPlan.Theme,
-                Wins = session.Wins,
-                Challenges = session.Challenges,
-                Notes = session.Notes,
-                MediaUrl = session.MediaUrl,
-                MediaContentType = session.MediaContentType,
-                MediaFileName = session.MediaFileName
-            }).ToList()
+            DashboardUrl = Url.Action(nameof(Index)) ?? string.Empty,
+            CreateChildUrl = Url.Action(nameof(CreateChild)) ?? string.Empty,
+            FamilyChildren = familyChildren,
+            IsPreparingTomorrowPlan = isPreparingTomorrowPlan
         };
 
         return View(vm);
@@ -764,6 +809,20 @@ public class ParentController(
     }
 
     [HttpGet]
+    public async Task<IActionResult> LibraryHome()
+    {
+        if (!IsSubscriptionActive())
+        {
+            return RedirectToAction(nameof(Index), new { gate = "premium" });
+        }
+
+        var targetChildId = await ResolvePrimaryChildForGuidedFlowAsync(GetCurrentUserId(), DateTime.Today);
+        return RedirectToAction("Index", "Library", targetChildId.HasValue
+            ? new { childId = targetChildId.Value }
+            : null);
+    }
+
+    [HttpGet]
     public async Task<IActionResult> Evidences(Guid id, string? q = null, string? type = null, int page = 1)
     {
         if (!IsSubscriptionActive())
@@ -856,6 +915,215 @@ public class ParentController(
         });
     }
 
+    [HttpGet]
+    public async Task<IActionResult> LessonAssessmentPrintable(Guid childId, Guid blockId)
+    {
+        if (!IsSubscriptionActive())
+        {
+            return RedirectToAction(nameof(Index), new { gate = "premium" });
+        }
+
+        var vm = await fundamentalAssessmentService.BuildPrintableAsync(GetCurrentUserId(), childId, blockId, Url);
+        if (vm is null)
+        {
+            return RedirectToAction(nameof(Child), new { id = childId });
+        }
+
+        return View(vm);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> LessonAssessmentCorrection(Guid childId, Guid blockId)
+    {
+        if (!IsSubscriptionActive())
+        {
+            return RedirectToAction(nameof(Index), new { gate = "premium" });
+        }
+
+        var vm = await fundamentalAssessmentService.BuildCorrectionAsync(GetCurrentUserId(), childId, blockId, Url);
+        if (vm is null)
+        {
+            return RedirectToAction(nameof(Child), new { id = childId });
+        }
+
+        return View(vm);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SaveLessonAssessmentCorrection(SaveFundamentalAssessmentCorrectionViewModel model)
+    {
+        if (!IsSubscriptionActive())
+        {
+            return RedirectToAction(nameof(Index), new { gate = "premium" });
+        }
+
+        try
+        {
+            await fundamentalAssessmentService.SaveCorrectionAsync(GetCurrentUserId(), model);
+            TempData["StatusMessage"] = "Teste corrigido e nota lançada no histórico da criança.";
+            TempData["StatusKind"] = "success";
+        }
+        catch (InvalidOperationException ex)
+        {
+            TempData["StatusMessage"] = ex.Message;
+            TempData["StatusKind"] = "warning";
+            return RedirectToAction(nameof(LessonAssessmentCorrection), new { childId = model.ChildId, blockId = model.DailyPlanBlockId });
+        }
+
+        return RedirectToAction(nameof(Child), new { id = model.ChildId, flow = "advanced" });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Reinforcement(Guid id)
+    {
+        if (!IsSubscriptionActive())
+        {
+            return RedirectToAction(nameof(Index), new { gate = "premium" });
+        }
+
+        var vm = await fundamentalAssessmentService.BuildReinforcementAsync(GetCurrentUserId(), id, Url);
+        if (vm is null)
+        {
+            return RedirectToAction(nameof(Child), new { id });
+        }
+
+        return View(vm);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> PrepareEvidenceUpload([FromForm] PrepareEvidenceUploadViewModel model)
+    {
+        if (!IsSubscriptionActive())
+        {
+            return Unauthorized(new { error = "A conta precisa estar ativa para guardar evidências." });
+        }
+
+        if (!evidenceMediaStorageService.DirectUploadEnabled)
+        {
+            return Json(new { useDirectUpload = false });
+        }
+
+        if (model.ChildId == Guid.Empty ||
+            string.IsNullOrWhiteSpace(model.FileName) ||
+            model.TotalSize <= 0 ||
+            model.TotalSize > ChunkedEvidenceUploadMaxBytes)
+        {
+            return BadRequest(new { error = $"Envie arquivos com até {ChunkedEvidenceUploadMaxMegabytes} MB no acervo de evidências." });
+        }
+
+        if (!IsAcceptedEvidenceFile(model.FileName, model.ContentType))
+        {
+            return BadRequest(new { error = "Esse formato não é aceito no acervo. Use foto, vídeo ou documento compatível." });
+        }
+
+        var allowance = await evidenceStoragePlanService.BuildAllowanceAsync(GetCurrentUserId());
+        if (!allowance.CanUpload)
+        {
+            return Conflict(new { error = allowance.Message });
+        }
+
+        await GetOwnedChildAsync(model.ChildId);
+
+        var grant = await evidenceMediaStorageService.CreateDirectUploadGrantAsync(
+            GetCurrentUserId(),
+            model.ChildId,
+            model.FileName,
+            model.ContentType,
+            model.TotalSize);
+
+        if (grant is null)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new { error = "O sistema não conseguiu preparar esse envio agora." });
+        }
+
+        return Json(new
+        {
+            useDirectUpload = true,
+            uploadUrl = grant.UploadUrl,
+            uploadToken = grant.UploadToken,
+            contentType = grant.MediaContentType,
+            fileName = grant.FileName,
+            expiresAt = grant.ExpiresAt,
+            headers = new
+            {
+                blobType = "BlockBlob"
+            }
+        });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CompleteEvidenceUpload([FromForm] CompleteEvidenceUploadViewModel model)
+    {
+        if (!IsSubscriptionActive())
+        {
+            return Unauthorized(new { error = "A conta precisa estar ativa para guardar evidências." });
+        }
+
+        var allowance = await evidenceStoragePlanService.BuildAllowanceAsync(GetCurrentUserId());
+        if (!allowance.CanUpload)
+        {
+            return Conflict(new { error = allowance.Message });
+        }
+
+        var child = await GetOwnedChildAsync(model.ChildId);
+        var uploadedMedia = await evidenceMediaStorageService.FinalizeDirectUploadAsync(
+            GetCurrentUserId(),
+            model.ChildId,
+            model.UploadToken,
+            model.ThumbnailDataUrl);
+
+        if (uploadedMedia is null)
+        {
+            return BadRequest(new { error = "O envio chegou ao storage, mas o sistema não conseguiu finalizar a evidência." });
+        }
+
+        var dailyPlanId = model.DailyPlanId
+            ?? await db.DailyPlans
+                .Where(x => x.ChildId == child.Id)
+                .OrderByDescending(x => x.PlannedDate)
+                .Select(x => (Guid?)x.Id)
+                .FirstOrDefaultAsync();
+
+        if (!dailyPlanId.HasValue)
+        {
+            var plan = await learningPlanService.EnsurePlanAsync(child, DateTime.Today);
+            dailyPlanId = plan.Id;
+        }
+
+        var session = BuildEvidenceLearningSession(
+            child.Id,
+            dailyPlanId.Value,
+            model.Title,
+            model.Notes,
+            uploadedMedia);
+
+        db.LearningSessions.Add(session);
+
+        var parent = await db.Users.FirstAsync(x => x.Id == GetCurrentUserId());
+        parent.LastActiveAt = DateTime.UtcNow;
+        var evidenceCommit = await TryCommitEvidenceChangesAsync(
+            GetCurrentUserId(),
+            true,
+            [uploadedMedia],
+            "O arquivo foi recebido, mas o sistema não conseguiu registrar essa evidência agora. Tente novamente.");
+
+        if (!evidenceCommit.Success)
+        {
+            return StatusCode(evidenceCommit.StatusCode, new { error = evidenceCommit.Message });
+        }
+
+        return Json(new
+        {
+            ok = true,
+            completed = true,
+            message = "Evidência salva no acervo da família.",
+            redirectUrl = Url.Action(nameof(Evidences), new { id = model.ChildId }) ?? $"/Parent/Evidences/{model.ChildId}"
+        });
+    }
+
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequestFormLimits(MultipartBodyLengthLimit = EvidenceUploadMaxBytes)]
@@ -883,7 +1151,7 @@ public class ParentController(
             return RedirectToAction(nameof(Evidences), new { id = model.ChildId });
         }
 
-        var uploadedMedia = await SaveEvidenceFileAsync(model.File);
+        var uploadedMedia = await SaveEvidenceFileAsync(GetCurrentUserId(), child.Id, model.File);
         if (uploadedMedia is null)
         {
             TempData["StatusMessage"] = $"Nao foi possivel salvar esse arquivo. Use foto, video ou documento em formato aceito e com ate {EvidenceUploadMaxMegabytes} MB.";
@@ -904,34 +1172,26 @@ public class ParentController(
             dailyPlanId = plan.Id;
         }
 
-        var safeTitle = string.IsNullOrWhiteSpace(model.Title) ? "Evidência salva" : model.Title.Trim();
-        var safeNotes = model.Notes?.Trim() ?? string.Empty;
-
-        db.LearningSessions.Add(new LearningSession
+        var thumbnail = await TrySaveEvidenceThumbnailAsync(uploadedMedia, model.ThumbnailDataUrl);
+        if (thumbnail is not null)
         {
-            ChildId = child.Id,
-            DailyPlanId = dailyPlanId.Value,
-            LoggedAt = DateTime.UtcNow,
-            MinutesCompleted = 0,
-            Wins = safeTitle,
-            Challenges = string.Empty,
-            Notes = safeNotes,
-            MediaUrl = uploadedMedia.Value.Url,
-            MediaContentType = uploadedMedia.Value.ContentType,
-            MediaFileName = uploadedMedia.Value.FileName
-        });
-
-        if (IsVideoEvidenceFile(uploadedMedia.Value.ContentType, uploadedMedia.Value.FileName, uploadedMedia.Value.Url))
-        {
-            await TrySaveEvidenceThumbnailAsync(uploadedMedia.Value.Url, model.ThumbnailDataUrl);
+            uploadedMedia.MediaThumbnailUrl = thumbnail.Url;
+            uploadedMedia.MediaThumbnailStorageKey = thumbnail.StorageKey;
         }
+
+        db.LearningSessions.Add(BuildEvidenceLearningSession(
+            child.Id,
+            dailyPlanId.Value,
+            model.Title,
+            model.Notes,
+            uploadedMedia));
 
         var parent = await db.Users.FirstAsync(x => x.Id == GetCurrentUserId());
         parent.LastActiveAt = DateTime.UtcNow;
         var evidenceCommit = await TryCommitEvidenceChangesAsync(
             GetCurrentUserId(),
             uploadedMedia is not null,
-            uploadedMedia is not null ? [uploadedMedia.Value.Url] : [],
+            uploadedMedia is not null ? [uploadedMedia] : [],
             "O arquivo foi recebido, mas o sistema não conseguiu registrar essa evidência agora. Tente novamente.");
 
         if (!evidenceCommit.Success)
@@ -1020,7 +1280,13 @@ public class ParentController(
             });
         }
 
-        var uploadedMedia = await SaveChunkedEvidenceFileAsync(uploadFolder, model.FileName, model.ContentType, model.TotalChunks);
+        var uploadedMedia = await SaveChunkedEvidenceFileAsync(
+            GetCurrentUserId(),
+            child.Id,
+            uploadFolder,
+            model.FileName,
+            model.ContentType,
+            model.TotalChunks);
         if (uploadedMedia is null)
         {
             DeleteDirectoryIfExists(uploadFolder);
@@ -1040,34 +1306,26 @@ public class ParentController(
             dailyPlanId = plan.Id;
         }
 
-        var safeTitle = string.IsNullOrWhiteSpace(model.Title) ? "Evidência salva" : model.Title.Trim();
-        var safeNotes = model.Notes?.Trim() ?? string.Empty;
-
-        db.LearningSessions.Add(new LearningSession
+        var thumbnail = await TrySaveEvidenceThumbnailAsync(uploadedMedia, model.ThumbnailDataUrl);
+        if (thumbnail is not null)
         {
-            ChildId = child.Id,
-            DailyPlanId = dailyPlanId.Value,
-            LoggedAt = DateTime.UtcNow,
-            MinutesCompleted = 0,
-            Wins = safeTitle,
-            Challenges = string.Empty,
-            Notes = safeNotes,
-            MediaUrl = uploadedMedia.Value.Url,
-            MediaContentType = uploadedMedia.Value.ContentType,
-            MediaFileName = uploadedMedia.Value.FileName
-        });
-
-        if (IsVideoEvidenceFile(uploadedMedia.Value.ContentType, uploadedMedia.Value.FileName, uploadedMedia.Value.Url))
-        {
-            await TrySaveEvidenceThumbnailAsync(uploadedMedia.Value.Url, model.ThumbnailDataUrl);
+            uploadedMedia.MediaThumbnailUrl = thumbnail.Url;
+            uploadedMedia.MediaThumbnailStorageKey = thumbnail.StorageKey;
         }
+
+        db.LearningSessions.Add(BuildEvidenceLearningSession(
+            child.Id,
+            dailyPlanId.Value,
+            model.Title,
+            model.Notes,
+            uploadedMedia));
 
         var parent = await db.Users.FirstAsync(x => x.Id == GetCurrentUserId());
         parent.LastActiveAt = DateTime.UtcNow;
         var chunkCommit = await TryCommitEvidenceChangesAsync(
             GetCurrentUserId(),
             uploadedMedia is not null,
-            uploadedMedia is not null ? [uploadedMedia.Value.Url] : [],
+            uploadedMedia is not null ? [uploadedMedia] : [],
             "O arquivo foi recebido, mas o sistema não conseguiu finalizar o registro dessa evidência. Tente novamente.");
 
         if (!chunkCommit.Success)
@@ -1121,16 +1379,21 @@ public class ParentController(
             return BadRequest(new { error = "A miniatura automática só vale para vídeo." });
         }
 
-        var thumbnailUrl = await TrySaveEvidenceThumbnailAsync(session.MediaUrl, model.ThumbnailDataUrl);
-        if (string.IsNullOrWhiteSpace(thumbnailUrl))
+        var storedMedia = BuildStoredMedia(session);
+        var thumbnail = await TrySaveEvidenceThumbnailAsync(storedMedia, model.ThumbnailDataUrl);
+        if (thumbnail is null)
         {
             return BadRequest(new { error = "Não foi possível salvar essa miniatura agora." });
         }
 
+        session.MediaThumbnailUrl = thumbnail.Url;
+        session.MediaThumbnailStorageKey = thumbnail.StorageKey;
+        await db.SaveChangesAsync();
+
         return Json(new
         {
             ok = true,
-            thumbnailUrl
+            thumbnailUrl = ResolveEvidenceThumbnailUrl(session)
         });
     }
 
@@ -1153,10 +1416,9 @@ public class ParentController(
             return RedirectToLocalOrAction(returnUrl, nameof(Evidences), new { id = childId });
         }
 
-        var mediaUrls = new[] { session.MediaUrl };
         db.LearningSessions.Remove(session);
         await db.SaveChangesAsync();
-        DeleteEvidenceFiles(mediaUrls);
+        await DeleteEvidenceMediaAsync(session);
 
         TempData["StatusMessage"] = "Evidência removida do acervo da família.";
         TempData["StatusKind"] = "success";
@@ -1192,6 +1454,20 @@ public class ParentController(
 
         await childGoalCycleService.SyncCurrentCycleAsync(id, GetCurrentUserId());
         return View(await childEvolutionService.BuildMonthlyReportAsync(id, GetCurrentUserId()));
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> SchoolReport(Guid id)
+    {
+        if (!IsSubscriptionActive())
+        {
+            return RedirectToAction(nameof(Index), new { gate = "premium" });
+        }
+
+        await childGoalCycleService.SyncCurrentCycleAsync(id, GetCurrentUserId());
+        await childRecoveryPlanService.SyncRecoveryPlanAsync(id, GetCurrentUserId());
+        await childAchievementService.SyncAchievementsAsync(id, GetCurrentUserId());
+        return View(await schoolReportService.BuildAsync(id, GetCurrentUserId(), Url));
     }
 
     [HttpGet]
@@ -1748,7 +2024,7 @@ public class ParentController(
             Notes = model.Notes
         };
 
-        var uploadedMedia = default((string Url, string ContentType, string FileName)?);
+        EvidenceStoredObject? uploadedMedia = null;
         if (model.EvidenceFile is not null && model.EvidenceFile.Length > 0)
         {
             if (model.EvidenceFile.Length > EvidenceUploadMaxBytes)
@@ -1761,7 +2037,7 @@ public class ParentController(
             var allowance = await evidenceStoragePlanService.BuildAllowanceAsync(GetCurrentUserId());
             if (allowance.CanUpload)
             {
-                uploadedMedia = await SaveEvidenceFileAsync(model.EvidenceFile);
+                uploadedMedia = await SaveEvidenceFileAsync(GetCurrentUserId(), child.Id, model.EvidenceFile);
                 if (uploadedMedia is null)
                 {
                     TempData["StatusMessage"] = $"A sessão foi salva, mas o arquivo anexado nao entrou no acervo. Use formato aceito e ate {EvidenceUploadMaxMegabytes} MB.";
@@ -1778,9 +2054,7 @@ public class ParentController(
 
         if (uploadedMedia is not null)
         {
-            session.MediaUrl = uploadedMedia.Value.Url;
-            session.MediaContentType = uploadedMedia.Value.ContentType;
-            session.MediaFileName = uploadedMedia.Value.FileName;
+            ApplyStoredMedia(session, uploadedMedia);
         }
 
         db.LearningSessions.Add(session);
@@ -1871,7 +2145,7 @@ public class ParentController(
         var sessionCommit = await TryCommitEvidenceChangesAsync(
             GetCurrentUserId(),
             uploadedMedia is not null,
-            uploadedMedia is not null ? [uploadedMedia.Value.Url] : [],
+            uploadedMedia is not null ? [uploadedMedia] : [],
             "A sessão foi salva, mas o sistema não conseguiu anexar esse arquivo agora.");
 
         if (!sessionCommit.Success)
@@ -1881,6 +2155,10 @@ public class ParentController(
                 session.MediaUrl = string.Empty;
                 session.MediaContentType = string.Empty;
                 session.MediaFileName = string.Empty;
+                session.MediaStorageProvider = string.Empty;
+                session.MediaStorageKey = string.Empty;
+                session.MediaThumbnailUrl = string.Empty;
+                session.MediaThumbnailStorageKey = string.Empty;
 
                 await db.SaveChangesAsync();
                 TempData["StatusMessage"] = $"{sessionCommit.Message} A sessão foi registrada, mas o arquivo ficou de fora.";
@@ -1906,7 +2184,7 @@ public class ParentController(
         return RedirectToAction(nameof(Child), new { id = model.ChildId });
     }
 
-    private async Task<(string Url, string ContentType, string FileName)?> SaveEvidenceFileAsync(IFormFile? file)
+    private async Task<EvidenceStoredObject?> SaveEvidenceFileAsync(Guid parentId, Guid childId, IFormFile? file)
     {
         if (file is null || file.Length == 0)
         {
@@ -1924,10 +2202,12 @@ public class ParentController(
         }
 
         await using var sourceStream = file.OpenReadStream();
-        return await SaveEvidenceFileStreamAsync(sourceStream, file.FileName, file.ContentType);
+        return await SaveEvidenceFileStreamAsync(parentId, childId, sourceStream, file.FileName, file.ContentType);
     }
 
-    private async Task<(string Url, string ContentType, string FileName)?> SaveChunkedEvidenceFileAsync(
+    private async Task<EvidenceStoredObject?> SaveChunkedEvidenceFileAsync(
+        Guid parentId,
+        Guid childId,
         string uploadFolder,
         string fileName,
         string contentType,
@@ -1973,32 +2253,22 @@ public class ParentController(
         }
 
         await using var finalReadStream = System.IO.File.OpenRead(combinedPath);
-        return await SaveEvidenceFileStreamAsync(finalReadStream, fileName, contentType);
+        return await SaveEvidenceFileStreamAsync(parentId, childId, finalReadStream, fileName, contentType);
     }
 
-    private async Task<(string Url, string ContentType, string FileName)?> SaveEvidenceFileStreamAsync(
+    private async Task<EvidenceStoredObject?> SaveEvidenceFileStreamAsync(
+        Guid parentId,
+        Guid childId,
         Stream sourceStream,
         string fileName,
         string? contentType)
     {
-        fileName = string.IsNullOrWhiteSpace(fileName)
-            ? BuildFallbackEvidenceFileName(contentType)
-            : fileName;
-
-        var safeOriginalFileName = Path.GetFileName(fileName);
-        var extension = Path.GetExtension(safeOriginalFileName);
-        var normalizedContentType = NormalizeEvidenceContentType(extension, contentType);
-
-        var uploadsFolder = Path.Combine(environment.WebRootPath, "uploads", "session-evidence");
-        Directory.CreateDirectory(uploadsFolder);
-
-        var safeFileName = $"{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}{extension}";
-        var physicalPath = Path.Combine(uploadsFolder, safeFileName);
-
-        await using var stream = System.IO.File.Create(physicalPath);
-        await sourceStream.CopyToAsync(stream);
-
-        return ($"/uploads/session-evidence/{safeFileName}", normalizedContentType, safeOriginalFileName);
+        return await evidenceMediaStorageService.SaveUploadedFileAsync(
+            parentId,
+            childId,
+            sourceStream,
+            fileName,
+            contentType);
     }
 
     private static string BuildFallbackEvidenceFileName(string? contentType)
@@ -2026,39 +2296,9 @@ public class ParentController(
         return $"arquivo{extension}";
     }
 
-    private async Task<string?> TrySaveEvidenceThumbnailAsync(string mediaUrl, string? thumbnailDataUrl)
+    private async Task<EvidenceStoredThumbnail?> TrySaveEvidenceThumbnailAsync(EvidenceStoredObject media, string? thumbnailDataUrl)
     {
-        if (!TryResolveEvidencePhysicalPath(mediaUrl, out var mediaPhysicalPath) ||
-            string.IsNullOrWhiteSpace(thumbnailDataUrl))
-        {
-            return null;
-        }
-
-        var commaIndex = thumbnailDataUrl.IndexOf(',');
-        if (commaIndex <= 0 || commaIndex >= thumbnailDataUrl.Length - 1)
-        {
-            return null;
-        }
-
-        var base64Payload = thumbnailDataUrl[(commaIndex + 1)..];
-        byte[] thumbnailBytes;
-        try
-        {
-            thumbnailBytes = Convert.FromBase64String(base64Payload);
-        }
-        catch
-        {
-            return null;
-        }
-
-        if (thumbnailBytes.Length == 0 || thumbnailBytes.Length > 2 * 1024 * 1024)
-        {
-            return null;
-        }
-
-        var thumbnailPhysicalPath = BuildEvidenceThumbnailPhysicalPath(mediaPhysicalPath);
-        await System.IO.File.WriteAllBytesAsync(thumbnailPhysicalPath, thumbnailBytes);
-        return BuildEvidenceThumbnailUrl(mediaUrl);
+        return await evidenceMediaStorageService.SaveThumbnailAsync(media, thumbnailDataUrl);
     }
 
     private static bool IsAcceptedEvidenceFile(string? fileName, string? contentType)
@@ -2178,8 +2418,17 @@ public class ParentController(
         Directory.Delete(path, recursive: true);
     }
 
-    private string GetEvidenceThumbnailUrl(string mediaUrl)
+    private string GetEvidenceThumbnailUrl(LearningSession session)
     {
+        if (!string.IsNullOrWhiteSpace(session.MediaThumbnailUrl))
+        {
+            return evidenceMediaStorageService.ResolveReadUrl(
+                session.MediaThumbnailUrl,
+                session.MediaStorageProvider,
+                session.MediaThumbnailStorageKey);
+        }
+
+        var mediaUrl = session.MediaUrl;
         if (!TryResolveEvidencePhysicalPath(mediaUrl, out var mediaPhysicalPath))
         {
             return string.Empty;
@@ -2232,6 +2481,76 @@ public class ParentController(
         }
 
         return mediaUrl[..^extension.Length] + ".thumb.jpg";
+    }
+
+    private string ResolveEvidenceMediaUrl(LearningSession session)
+    {
+        return evidenceMediaStorageService.ResolveReadUrl(
+            session.MediaUrl,
+            session.MediaStorageProvider,
+            session.MediaStorageKey);
+    }
+
+    private string ResolveEvidenceThumbnailUrl(LearningSession session)
+    {
+        return GetEvidenceThumbnailUrl(session);
+    }
+
+    private static LearningSession BuildEvidenceLearningSession(
+        Guid childId,
+        Guid dailyPlanId,
+        string? title,
+        string? notes,
+        EvidenceStoredObject uploadedMedia)
+    {
+        var session = new LearningSession
+        {
+            ChildId = childId,
+            DailyPlanId = dailyPlanId,
+            LoggedAt = DateTime.UtcNow,
+            MinutesCompleted = 0,
+            Wins = string.IsNullOrWhiteSpace(title) ? "Evidência salva" : title.Trim(),
+            Challenges = string.Empty,
+            Notes = notes?.Trim() ?? string.Empty
+        };
+
+        ApplyStoredMedia(session, uploadedMedia);
+        return session;
+    }
+
+    private static void ApplyStoredMedia(LearningSession session, EvidenceStoredObject uploadedMedia)
+    {
+        session.MediaUrl = uploadedMedia.MediaUrl;
+        session.MediaContentType = uploadedMedia.MediaContentType;
+        session.MediaFileName = uploadedMedia.FileName;
+        session.MediaStorageProvider = uploadedMedia.StorageProvider;
+        session.MediaStorageKey = uploadedMedia.StorageKey;
+        session.MediaThumbnailUrl = uploadedMedia.MediaThumbnailUrl;
+        session.MediaThumbnailStorageKey = uploadedMedia.MediaThumbnailStorageKey;
+    }
+
+    private static EvidenceStoredObject BuildStoredMedia(LearningSession session)
+    {
+        return new EvidenceStoredObject
+        {
+            MediaUrl = session.MediaUrl,
+            MediaContentType = session.MediaContentType,
+            FileName = session.MediaFileName,
+            StorageProvider = session.MediaStorageProvider,
+            StorageKey = session.MediaStorageKey,
+            MediaThumbnailUrl = session.MediaThumbnailUrl,
+            MediaThumbnailStorageKey = session.MediaThumbnailStorageKey
+        };
+    }
+
+    private async Task DeleteEvidenceMediaAsync(LearningSession session)
+    {
+        await evidenceMediaStorageService.DeleteAsync(
+            session.MediaStorageProvider,
+            session.MediaUrl,
+            session.MediaStorageKey,
+            session.MediaThumbnailUrl,
+            session.MediaThumbnailStorageKey);
     }
 
     private IActionResult? ResolveLocalReturn(string? returnUrl)
@@ -2366,8 +2685,8 @@ public class ParentController(
                     Title = string.IsNullOrWhiteSpace(session.Wins) ? "Evidência salva" : session.Wins,
                     Theme = session.Notes,
                     Notes = session.Notes,
-                    MediaUrl = session.MediaUrl,
-                    ThumbnailUrl = GetEvidenceThumbnailUrl(session.MediaUrl),
+                    MediaUrl = ResolveEvidenceMediaUrl(session),
+                    ThumbnailUrl = ResolveEvidenceThumbnailUrl(session),
                     MediaContentType = resolvedContentType,
                     FileName = session.MediaFileName
                 };
@@ -2396,6 +2715,7 @@ public class ParentController(
             PageNumber = currentPage,
             PageSize = pageSize,
             TotalPages = totalPages,
+            DirectUploadEnabled = evidenceMediaStorageService.DirectUploadEnabled,
             Storage = await evidenceStoragePlanService.BuildSummaryAsync(GetCurrentUserId()),
             Upload = new UploadEvidenceViewModel
             {
@@ -2418,8 +2738,6 @@ public class ParentController(
             .Include(x => x.TaskCompletions)
             .ThenInclude(x => x.DailyPlanBlock)
             .FirstAsync(x => x.Id == childId && x.ParentId == GetCurrentUserId());
-        var weeklyRoadmap = await weeklyRoadmapService.BuildAsync(child, DateTime.Today, Url);
-
         var sessionPlans = await db.DailyPlans
             .Where(x => x.ChildId == childId)
             .ToDictionaryAsync(x => x.Id, x => x.Theme);
@@ -2481,8 +2799,16 @@ public class ParentController(
         var filteredEntries = string.IsNullOrWhiteSpace(selectedArea)
             ? allEntries
             : allEntries.Where(x => x.Skills.Any(s => string.Equals(s.DomainLabel, selectedArea, StringComparison.OrdinalIgnoreCase))).ToList();
-        var annualPlan = await annualCurriculumPlannerService.BuildAsync(child, allSkillProgress, allEntries, weeklyRoadmap);
+        var annualPlan = await annualCurriculumPlannerService.BuildAsync(
+            child,
+            allSkillProgress,
+            allEntries,
+            Math.Max(child.DailyStudyMinutes * 5, 0));
         var systemCurriculumTracks = await systemCurriculumLibraryService.BuildAsync(child);
+        var phaseClosures = phaseClosureService.Build(child, DateTime.Today);
+        var currentPhaseClosures = phaseClosures
+            .Where(item => item.IsCurrentPhase)
+            .ToDictionary(item => item.SubjectLabel, StringComparer.OrdinalIgnoreCase);
         var systemTrackMap = systemCurriculumTracks.ToDictionary(track => track.DomainLabel, StringComparer.OrdinalIgnoreCase);
         var librarySupportMap = await familyLibraryService.BuildSubjectSupportMapAsync(GetCurrentUserId(), child, Url);
         var annualReadingSpine = await familyLibraryService.BuildAnnualReadingSpineAsync(GetCurrentUserId(), child, Url);
@@ -2499,11 +2825,35 @@ public class ParentController(
 
             if (!librarySupportMap.TryGetValue(subject.Title, out var support))
             {
+                if (currentPhaseClosures.TryGetValue(subject.Title, out var currentClosure))
+                {
+                    subject.PhaseAssessmentTitle = currentClosure.AssessmentTitle;
+                    subject.PhaseStatusLabel = currentClosure.StatusLabel;
+                    subject.PhaseStatusChipClass = currentClosure.StatusChipClass;
+                    subject.PhaseReviewSummary = currentClosure.ReviewSummary;
+                    subject.PhaseClosureSummary = currentClosure.ClosureSummary;
+                    subject.LessonsProgressLabel = currentClosure.LessonsProgressLabel;
+                    subject.AdvancementSignal = currentClosure.AdvancementSignal;
+                }
+
                 continue;
             }
 
             subject.RecommendedBook = support.RecommendedBook;
             subject.RecommendedPrintable = support.RecommendedPrintable;
+
+            if (!currentPhaseClosures.TryGetValue(subject.Title, out var closure))
+            {
+                continue;
+            }
+
+            subject.PhaseAssessmentTitle = closure.AssessmentTitle;
+            subject.PhaseStatusLabel = closure.StatusLabel;
+            subject.PhaseStatusChipClass = closure.StatusChipClass;
+            subject.PhaseReviewSummary = closure.ReviewSummary;
+            subject.PhaseClosureSummary = closure.ClosureSummary;
+            subject.LessonsProgressLabel = closure.LessonsProgressLabel;
+            subject.AdvancementSignal = closure.AdvancementSignal;
         }
 
         return new ChildCurriculumViewModel
@@ -2523,15 +2873,16 @@ public class ParentController(
             AvailableAreas = availableAreas,
             PrintUrl = Url.Action(nameof(CurriculumPrint), new { id = child.Id, area = selectedArea }) ?? string.Empty,
             EvidenceCenterUrl = Url.Action(nameof(Evidences), new { id = child.Id }) ?? string.Empty,
+            SchoolReportUrl = Url.Action(nameof(SchoolReport), new { id = child.Id }) ?? string.Empty,
             AcademyUrl = Url.Action(nameof(Academy), new { childId = child.Id }) ?? string.Empty,
             HasTeaTracks = SupportsTeaNavigation(child.SupportProfile),
             TeaTracksUrl = Url.Action(nameof(TeaTracks), new { id = child.Id }) ?? string.Empty,
             TeaTrackQuickLinks = BuildTeaTrackQuickLinks(child.Id, child.SupportProfile),
             AnnualPlan = annualPlan,
+            PhaseClosures = phaseClosures,
             AnnualReadingSpine = annualReadingSpine,
             LibraryBridge = await familyLibraryService.BuildCurriculumBridgeAsync(GetCurrentUserId(), child, [], Url),
             SystemCurriculumTracks = systemCurriculumTracks,
-            WeeklyRoadmap = weeklyRoadmap,
             SkillProgress = filteredSkills,
             Entries = filteredEntries
         };
@@ -2672,7 +3023,7 @@ public class ParentController(
                     LoggedAt = session.LoggedAt,
                     Theme = sessionPlans.TryGetValue(session.DailyPlanId, out var theme) ? theme : "Sessao registrada",
                     Summary = $"Foi bem em {session.Wins}. Revisar {session.Challenges}.",
-                    MediaUrl = session.MediaUrl,
+                    MediaUrl = ResolveEvidenceMediaUrl(session),
                     MediaContentType = session.MediaContentType
                 })
                 .ToList(),
@@ -3284,7 +3635,7 @@ public class ParentController(
             Wins = session.Wins,
             Challenges = session.Challenges,
             Notes = session.Notes,
-            MediaUrl = session.MediaUrl,
+            MediaUrl = ResolveEvidenceMediaUrl(session),
             MediaContentType = session.MediaContentType,
             MediaFileName = session.MediaFileName,
             ContextBadges = relevantFeedbacks
@@ -3718,6 +4069,25 @@ public class ParentController(
         return await db.Children.FirstAsync(x => x.Id == childId && x.ParentId == parentId);
     }
 
+    private async Task<List<ChildQuickSwitchViewModel>> BuildFamilyChildrenAsync(Guid parentId, Guid currentChildId)
+    {
+        return await db.Children
+            .AsNoTracking()
+            .Where(x => x.ParentId == parentId)
+            .OrderBy(x => x.FullName)
+            .Select(x => new ChildQuickSwitchViewModel
+            {
+                ChildId = x.Id,
+                FullName = x.FullName,
+                ShortLabel = string.IsNullOrWhiteSpace(x.FullName)
+                    ? "C"
+                    : x.FullName.Substring(0, 1).ToUpper(),
+                IsCurrent = x.Id == currentChildId,
+                TodayUrl = Url.Action(nameof(Child), new { id = x.Id }) ?? string.Empty
+            })
+            .ToListAsync();
+    }
+
     private async Task<ChildProfile> GetOwnedChildWithProfilesAsync(Guid childId)
     {
         var parentId = GetCurrentUserId();
@@ -3941,12 +4311,14 @@ public class ParentController(
     {
         await using var transaction = await db.Database.BeginTransactionAsync();
 
-        var mediaUrls = await db.LearningSessions
+        var evidenceSessions = await db.LearningSessions
             .Where(x => x.ChildId == childId && x.MediaUrl != "")
-            .Select(x => x.MediaUrl)
             .ToListAsync();
 
-        DeleteEvidenceFiles(mediaUrls);
+        foreach (var evidenceSession in evidenceSessions)
+        {
+            await DeleteEvidenceMediaAsync(evidenceSession);
+        }
 
         await db.ChildRoutineObservations
             .Where(x => x.ChildId == childId)
@@ -3983,40 +4355,6 @@ public class ParentController(
         await transaction.CommitAsync();
     }
 
-    private void DeleteEvidenceFiles(IEnumerable<string?> mediaUrls)
-    {
-        if (string.IsNullOrWhiteSpace(environment.WebRootPath))
-        {
-            return;
-        }
-
-        var webRoot = Path.GetFullPath(environment.WebRootPath);
-        foreach (var mediaUrl in mediaUrls
-                     .Where(x => !string.IsNullOrWhiteSpace(x))
-                     .Distinct(StringComparer.OrdinalIgnoreCase))
-        {
-            if (mediaUrl is null || !mediaUrl.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            var relativePath = mediaUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
-            var physicalPath = Path.GetFullPath(Path.Combine(environment.WebRootPath, relativePath));
-            if (!physicalPath.StartsWith(webRoot, StringComparison.OrdinalIgnoreCase) || !System.IO.File.Exists(physicalPath))
-            {
-                continue;
-            }
-
-            System.IO.File.Delete(physicalPath);
-
-            var thumbnailPhysicalPath = BuildEvidenceThumbnailPhysicalPath(physicalPath);
-            if (System.IO.File.Exists(thumbnailPhysicalPath))
-            {
-                System.IO.File.Delete(thumbnailPhysicalPath);
-            }
-        }
-    }
-
     private IActionResult RedirectToLocalOrAction(string? returnUrl, string actionName, object routeValues)
     {
         if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
@@ -4025,6 +4363,37 @@ public class ParentController(
         }
 
         return RedirectToAction(actionName, routeValues)!;
+    }
+
+    private async Task<Guid?> ResolvePrimaryChildForGuidedFlowAsync(Guid parentId, DateTime today)
+    {
+        var children = await db.Children
+            .AsNoTracking()
+            .Where(x => x.ParentId == parentId)
+            .OrderBy(x => x.FullName)
+            .ToListAsync();
+
+        if (children.Count == 0)
+        {
+            return null;
+        }
+
+        var childIds = children.Select(child => child.Id).ToList();
+        var todayPlans = await db.DailyPlans
+            .AsNoTracking()
+            .Where(plan => childIds.Contains(plan.ChildId) && plan.PlannedDate == today)
+            .Select(plan => new
+            {
+                plan.ChildId,
+                plan.Completed
+            })
+            .ToDictionaryAsync(plan => plan.ChildId, plan => plan.Completed);
+
+        var targetChild = children.FirstOrDefault(child =>
+                !todayPlans.TryGetValue(child.Id, out var isCompleted) || !isCompleted)
+            ?? children.FirstOrDefault();
+
+        return targetChild?.Id;
     }
 
     private Guid GetCurrentUserId() => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -4187,8 +4556,11 @@ public class ParentController(
     {
         LearningDomain.Language => "Linguagem",
         LearningDomain.Math => "Matematica",
-        LearningDomain.World => "Mundo real",
-        _ => "Funcao executiva"
+        LearningDomain.Science => "Ciências",
+        LearningDomain.History => "História",
+        LearningDomain.Geography => "Geografia",
+        LearningDomain.World => "Ciências, história e geografia",
+        _ => "Autonomia"
     };
 
     private static string GetSupportProfileLabel(SupportProfile supportProfile) => supportProfile switch
@@ -4857,7 +5229,7 @@ public class ParentController(
     private async Task<EvidenceCommitResult> TryCommitEvidenceChangesAsync(
         Guid parentId,
         bool requiresStorageSlot,
-        IReadOnlyCollection<string> uploadedMediaUrls,
+        IReadOnlyCollection<EvidenceStoredObject> uploadedMedia,
         string persistenceFailureMessage)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
@@ -4868,7 +5240,7 @@ public class ParentController(
             if (!allowance.CanUpload)
             {
                 await transaction.RollbackAsync();
-                DeleteEvidenceFiles(uploadedMediaUrls);
+                await DeleteUploadedEvidenceAsync(uploadedMedia);
                 return EvidenceCommitResult.QuotaExceeded(allowance.Message);
             }
         }
@@ -4882,8 +5254,21 @@ public class ParentController(
         catch
         {
             await transaction.RollbackAsync();
-            DeleteEvidenceFiles(uploadedMediaUrls);
+            await DeleteUploadedEvidenceAsync(uploadedMedia);
             return EvidenceCommitResult.PersistenceFailure(persistenceFailureMessage);
+        }
+    }
+
+    private async Task DeleteUploadedEvidenceAsync(IReadOnlyCollection<EvidenceStoredObject> uploadedMedia)
+    {
+        foreach (var media in uploadedMedia)
+        {
+            await evidenceMediaStorageService.DeleteAsync(
+                media.StorageProvider,
+                media.MediaUrl,
+                media.StorageKey,
+                media.MediaThumbnailUrl,
+                media.MediaThumbnailStorageKey);
         }
     }
 

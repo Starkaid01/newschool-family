@@ -1,4 +1,6 @@
 using NewSchool.Web.Domain;
+using NewSchool.Web.Models;
+using NewSchool.Web.Services;
 
 namespace NewSchool.Web.Data;
 
@@ -9,8 +11,8 @@ public static class ProprietaryFamilyLibraryCatalog
 
     public static IReadOnlyList<ProprietaryFamilyLibraryMaterialSeed> Build()
     {
-        return
-        [
+        var materials = new List<ProprietaryFamilyLibraryMaterialSeed>
+        {
             Book(
                 "5E2D8D95-7E17-4D49-9F71-516D7B553C01",
                 "as-cores-da-criacao",
@@ -625,7 +627,10 @@ public static class ProprietaryFamilyLibraryCatalog
                     "Pagina 1\nAVALIACAO: ARGUMENTO E DECISAO\n\nProblema estudado:\n______________________________\n\nMinha tese:\n______________________________\n______________________________\n\nUma objecao real a esta tese:\n______________________________\n______________________________",
                     "Pagina 2\nPROJETO INTEGRADOR\n\nEscolha um pequeno cenario real e tome uma decisao justificada.\nCenario:\n______________________________\n\nMelhor escolha:\n______________________________\n\nNumero, fato ou evidência que sustenta a escolha:\n______________________________\n\nRegistro do adulto:\nSustentou a posicao com clareza?  sim / com ajuda / ainda nao"
                 ])
-        ];
+        };
+
+        materials.AddRange(BuildGeneratedCurriculumCollection());
+        return materials;
     }
 
     public static bool IsAuthoredMaterial(FamilyLibraryMaterial material)
@@ -638,6 +643,653 @@ public static class ProprietaryFamilyLibraryCatalog
         return !string.IsNullOrWhiteSpace(sourceSyncToken)
                && sourceSyncToken.StartsWith($"{SyncPrefix}:", StringComparison.OrdinalIgnoreCase);
     }
+
+    private static IReadOnlyList<ProprietaryFamilyLibraryMaterialSeed> BuildGeneratedCurriculumCollection()
+    {
+        var blueprintService = new ProprietaryCurriculumBlueprintService();
+        var generated = new List<ProprietaryFamilyLibraryMaterialSeed>();
+
+        foreach (var age in Enumerable.Range(3, 12))
+        {
+            foreach (var domain in CurriculumStructure.AnnualSubjectOrder)
+            {
+                var subject = blueprintService.BuildSubject(age, domain);
+                var placementShortLabel = GetPlacementShortLabel(age);
+                var subjectLabel = subject.SubjectLabel;
+                var bookSlug = Slugify($"leituras {subjectLabel} {placementShortLabel}");
+                var workbookSlug = Slugify($"apostila {subjectLabel} {placementShortLabel}");
+                var assessmentSlug = Slugify($"avaliacao {subjectLabel} {placementShortLabel}");
+
+                generated.Add(new ProprietaryFamilyLibraryMaterialSeed
+                {
+                    Id = CreateDeterministicGuid($"author-book:{bookSlug}"),
+                    Slug = bookSlug,
+                    Title = $"Leituras de {subjectLabel} • {placementShortLabel}",
+                    Category = "Leituras-base do currículo",
+                    EducationStage = CurriculumStructure.GetEducationStageLabel(age),
+                    RecommendedMinAge = age,
+                    RecommendedMaxAge = age,
+                    SkillFocus = $"{subjectLabel}, leitura-base, unidade anual, ensino domiciliar",
+                    Description = $"Livro-base autoral do NewSchool para {subjectLabel.ToLowerInvariant()} em {placementShortLabel.ToLowerInvariant()}, com uma leitura por unidade do ano.",
+                    CollectionLabel = CollectionLabel,
+                    IsPrintable = false,
+                    HasIllustrations = false,
+                    CoverImageRelativePath = string.Empty,
+                    SourceRelativePath = $"author/{bookSlug}",
+                    SourceSyncToken = $"{SyncPrefix}:{bookSlug}:v4",
+                    SourceUpdatedAtUtc = new DateTime(2026, 5, 4, 0, 0, 0, DateTimeKind.Utc),
+                    Pages = BuildReadingPages(subject)
+                });
+
+                generated.Add(new ProprietaryFamilyLibraryMaterialSeed
+                {
+                    Id = CreateDeterministicGuid($"author-printable:{workbookSlug}"),
+                    Slug = workbookSlug,
+                    Title = $"Apostila de {subjectLabel} • {placementShortLabel}",
+                    Category = "Apostila do currículo",
+                    EducationStage = CurriculumStructure.GetEducationStageLabel(age),
+                    RecommendedMinAge = age,
+                    RecommendedMaxAge = age,
+                    SkillFocus = $"{subjectLabel}, prática guiada, registro, rotina do currículo",
+                    Description = $"Apostila autoral do NewSchool com uma folha de trabalho por unidade para {subjectLabel.ToLowerInvariant()} em {placementShortLabel.ToLowerInvariant()}.",
+                    CollectionLabel = CollectionLabel,
+                    IsPrintable = true,
+                    HasIllustrations = false,
+                    CoverImageRelativePath = string.Empty,
+                    SourceRelativePath = $"author/{workbookSlug}",
+                    SourceSyncToken = $"{SyncPrefix}:{workbookSlug}:v4",
+                    SourceUpdatedAtUtc = new DateTime(2026, 5, 4, 0, 0, 0, DateTimeKind.Utc),
+                    Pages = BuildWorkbookPages(subject)
+                });
+
+                generated.Add(new ProprietaryFamilyLibraryMaterialSeed
+                {
+                    Id = CreateDeterministicGuid($"author-assessment:{assessmentSlug}"),
+                    Slug = assessmentSlug,
+                    Title = $"Caderno de avaliação de {subjectLabel} • {placementShortLabel}",
+                    Category = "Avaliação por unidade",
+                    EducationStage = CurriculumStructure.GetEducationStageLabel(age),
+                    RecommendedMinAge = age,
+                    RecommendedMaxAge = age,
+                    SkillFocus = $"{subjectLabel}, prova, fechamento, rubrica de etapa",
+                    Description = $"Caderno autoral do NewSchool com uma prova curta por unidade de {subjectLabel.ToLowerInvariant()} em {placementShortLabel.ToLowerInvariant()}.",
+                    CollectionLabel = CollectionLabel,
+                    IsPrintable = true,
+                    HasIllustrations = false,
+                    CoverImageRelativePath = string.Empty,
+                    SourceRelativePath = $"author/{assessmentSlug}",
+                    SourceSyncToken = $"{SyncPrefix}:{assessmentSlug}:v4",
+                    SourceUpdatedAtUtc = new DateTime(2026, 5, 4, 0, 0, 0, DateTimeKind.Utc),
+                    Pages = BuildAssessmentPages(subject)
+                });
+            }
+        }
+
+        return generated;
+    }
+
+    private static List<ProprietaryFamilyLibraryPageSeed> BuildReadingPages(ProprietaryCurriculumSubjectBlueprintViewModel subject)
+    {
+        var pages = new List<ProprietaryFamilyLibraryPageSeed>();
+        var pageNumber = 1;
+
+        pages.Add(new ProprietaryFamilyLibraryPageSeed
+        {
+            PageNumber = pageNumber++,
+            TextContent = BuildReadingCoverPage(subject)
+        });
+
+        foreach (var unit in subject.Phases.SelectMany(phase => phase.Units))
+        {
+            foreach (var lesson in unit.Lessons.OrderBy(item => item.LessonNumber))
+            {
+                pages.Add(new ProprietaryFamilyLibraryPageSeed
+                {
+                    PageNumber = pageNumber++,
+                    TextContent = BuildReadingLessonPage(subject, unit, lesson)
+                });
+            }
+        }
+
+        return pages;
+    }
+
+    private static List<ProprietaryFamilyLibraryPageSeed> BuildWorkbookPages(ProprietaryCurriculumSubjectBlueprintViewModel subject)
+    {
+        var pages = new List<ProprietaryFamilyLibraryPageSeed>();
+        var pageNumber = 1;
+
+        pages.Add(new ProprietaryFamilyLibraryPageSeed
+        {
+            PageNumber = pageNumber++,
+            TextContent = BuildWorkbookCoverPage(subject)
+        });
+
+        foreach (var unit in subject.Phases.SelectMany(phase => phase.Units))
+        {
+            pages.Add(new ProprietaryFamilyLibraryPageSeed
+            {
+                PageNumber = pageNumber++,
+                TextContent = BuildWorkbookUnitOverviewPage(subject, unit)
+            });
+
+            foreach (var lesson in unit.Lessons.OrderBy(item => item.LessonNumber))
+            {
+                pages.Add(new ProprietaryFamilyLibraryPageSeed
+                {
+                    PageNumber = pageNumber++,
+                    TextContent = BuildWorkbookLessonPage(subject, unit, lesson)
+                });
+            }
+        }
+
+        return pages;
+    }
+
+    private static List<ProprietaryFamilyLibraryPageSeed> BuildAssessmentPages(ProprietaryCurriculumSubjectBlueprintViewModel subject)
+    {
+        var pages = new List<ProprietaryFamilyLibraryPageSeed>();
+        var pageNumber = 1;
+
+        pages.Add(new ProprietaryFamilyLibraryPageSeed
+        {
+            PageNumber = pageNumber++,
+            TextContent = BuildAssessmentCoverPage(subject)
+        });
+
+        foreach (var unit in subject.Phases.SelectMany(phase => phase.Units))
+        {
+            pages.Add(new ProprietaryFamilyLibraryPageSeed
+            {
+                PageNumber = pageNumber++,
+                TextContent = BuildAssessmentUnitOverviewPage(subject, unit)
+            });
+
+            foreach (var lesson in unit.Lessons.OrderBy(item => item.LessonNumber))
+            {
+                pages.Add(new ProprietaryFamilyLibraryPageSeed
+                {
+                    PageNumber = pageNumber++,
+                    TextContent = BuildAssessmentLessonPage(subject, unit, lesson)
+                });
+            }
+        }
+
+        return pages;
+    }
+
+    private static string BuildReadingCoverPage(ProprietaryCurriculumSubjectBlueprintViewModel subject)
+    {
+        return
+            $"LEITURAS DE {subject.SubjectLabel.ToUpperInvariant()} • {GetPlacementShortLabel(subject.Age).ToUpperInvariant()}\n\n" +
+            $"Este volume reúne leituras curtas de {subject.SubjectLabel.ToLowerInvariant()} para {GetPlacementShortLabel(subject.Age).ToLowerInvariant()}, com linguagem adequada à série e progressão real ao longo do ano.\n\n" +
+            $"{BuildReadingCollectionOpening(subject)}\n\n" +
+            $"Use uma página por vez. Quando a leitura render bem, avance. Quando já bastar por hoje, feche sem alongar.";
+    }
+
+    private static string BuildReadingLessonPage(
+        ProprietaryCurriculumSubjectBlueprintViewModel subject,
+        ProprietaryCurriculumUnitBlueprintViewModel unit,
+        ProprietaryCurriculumLessonBlueprintViewModel lesson)
+    {
+        var paragraphs = BuildReadingLessonParagraphs(subject, unit, lesson);
+
+        return
+            $"{lesson.Title.ToUpperInvariant()}\n\n" +
+            $"{string.Join("\n\n", paragraphs)}";
+    }
+
+    private static string BuildReadingCollectionOpening(ProprietaryCurriculumSubjectBlueprintViewModel subject) => subject.Domain switch
+    {
+        LearningDomain.Language => "As leituras deste caderno foram escritas para formar leitor, ampliar repertório e puxar conversa boa, sem transformar cada página em folha de exercício.",
+        LearningDomain.Math => "As leituras deste caderno colocam a matemática dentro de situações claras do cotidiano, para a criança pensar antes de calcular e entender por que a resposta faz sentido.",
+        LearningDomain.Science => "As leituras deste caderno apresentam observações, experiências e descobertas em linguagem acessível, para a criança ligar curiosidade, registro e explicação.",
+        LearningDomain.History => "As leituras deste caderno trazem memória, tempo, mudança e personagens em textos curtos, para a criança aprender a enxergar passado com ordem e significado.",
+        LearningDomain.Geography => "As leituras deste caderno aproximam mapa, lugar, paisagem e território da vida concreta, para a criança perceber o espaço como parte da rotina e da sociedade.",
+        LearningDomain.ExecutiveFunction => "As leituras deste caderno mostram rotina, organização, responsabilidade e revisão em cenas simples, para a criança aprender a agir com mais autonomia.",
+        _ => "Este volume reúne leituras curtas com progressão real ao longo do ano."
+    };
+
+    private static IReadOnlyList<string> BuildReadingLessonParagraphs(
+        ProprietaryCurriculumSubjectBlueprintViewModel subject,
+        ProprietaryCurriculumUnitBlueprintViewModel unit,
+        ProprietaryCurriculumLessonBlueprintViewModel lesson)
+    {
+        var unitText = unit.Title.ToLowerInvariant();
+        var placement = GetPlacementShortLabel(subject.Age);
+
+        return subject.Domain switch
+        {
+            LearningDomain.Language when subject.Age <= 5 =>
+            [
+                $"Na roda de leitura, Sara ouviu um trecho curto sobre {unitText} e acompanhou cada palavra com o dedo, sem pressa. Quando a voz do adulto fazia pausa, ela olhava de novo para o cartaz e tentava descobrir onde a frase começava e onde terminava.",
+                $"Na segunda vez, Sara percebeu uma palavra que voltava no texto e apontou para a parte mais importante antes de falar qualquer resposta. Em vez de repetir por imitação, ela começou a ligar som, imagem e sentido no mesmo momento.",
+                $"No fim, Sara contou com palavras simples o que entendeu e desenhou a parte que mais chamou sua atenção. A leitura ficou curta, mas clara, e o texto deixou de ser só som para virar compreensão."
+            ],
+            LearningDomain.Language when subject.Age <= 7 =>
+            [
+                $"No mural da classe havia um texto curto sobre {unitText}. Daniel leu primeiro devagar, marcando com o dedo as palavras que já reconhecia, e depois voltou ao começo para perceber qual frase realmente carregava a ideia principal.",
+                $"Enquanto relia, Daniel separou o que era detalhe do que era essencial. Ele descobriu que uma boa resposta não depende de copiar tudo, mas de escolher a informação certa e falar com começo, meio e fim.",
+                $"Quando terminou, Daniel explicou o texto com uma frase completa e mostrou no caderno a palavra ou o trecho que sustentava sua resposta. Assim, a leitura virou pensamento organizado."
+            ],
+            LearningDomain.Language when subject.Age <= 10 =>
+            [
+                $"O texto do dia apresentava uma situação ligada a {unitText} e pedia atenção aos detalhes que realmente sustentavam a ideia central. Elisa leu uma vez para entender o assunto geral e depois releu procurando pistas mais fortes.",
+                $"Na releitura, ela percebeu que algumas informações pareciam importantes, mas só duas realmente explicavam o ponto principal. Foi nesse momento que a leitura deixou de ser apenas passagem de olhos e começou a virar análise.",
+                $"Ao fechar a página, Elisa conseguiu resumir o texto com clareza, citando a ideia central e os detalhes que a comprovavam. O foco não ficou em escrever muito, e sim em responder bem."
+            ],
+            LearningDomain.Language =>
+            [
+                $"O material desta página discute {unitText} em linguagem compatível com {placement.ToLowerInvariant()}. Em vez de apresentar frases soltas, o texto foi escrito para exigir leitura atenta, seleção de evidências e resposta bem sustentada.",
+                $"Ao longo do texto, aparecem pistas que podem confirmar, ampliar ou até tensionar a interpretação inicial do leitor. Por isso, a compreensão não termina na primeira leitura: ela amadurece quando a criança compara trechos, pesa informações e organiza o raciocínio.",
+                $"No fechamento, o que vale é construir uma resposta clara, mostrando qual ponto central foi encontrado e que passagens servem como prova. Ler bem, aqui, significa pensar antes de concluir."
+            ],
+            LearningDomain.Math when subject.Age <= 5 =>
+            [
+                $"No jardim da escola, Joana ajudava a organizar flores de papel para a festa. Enquanto separava as peças por cor e quantidade, ela percebeu que {unitText} aparecia bem diante dos seus olhos, sem precisar começar por conta escrita.",
+                $"Joana olhou de novo para cada grupo, comparou tamanhos, contou devagar e mudou algumas peças de lugar para ver se tudo combinava com o que estava observando. O raciocínio nasceu do concreto antes de virar número.",
+                $"Quando terminou, ela conseguiu explicar o que fez, apontando para as flores e mostrando por que a resposta estava certa. Foi assim que a matemática apareceu como pensamento visível, não como chute."
+            ],
+            LearningDomain.Math when subject.Age <= 10 =>
+            [
+                $"Na banca da feira da igreja, Miguel recebeu a tarefa de organizar produtos e conferir quantidades. O problema parecia simples no começo, mas logo ficou claro que {unitText} exigia olhar atento para os dados antes de qualquer conta.",
+                $"Ele desenhou a situação, agrupou o que era parecido e testou uma estratégia de cada vez. Quando uma resposta parecia rápida demais, Miguel voltava ao enunciado para conferir se o resultado combinava com o que realmente estava sobre a mesa.",
+                $"No fim, ele percebeu que resolver não era apenas chegar a um número. Era mostrar por que aquele número fazia sentido dentro do problema. Essa é a parte mais importante da matemática desta página."
+            ],
+            LearningDomain.Math =>
+            [
+                $"Durante a preparação de um mutirão solidário, Rebeca precisou analisar uma situação ligada a {unitText}. Havia dados suficientes para resolver o problema, mas a resposta só apareceria se ela escolhesse uma estratégia coerente, em vez de pular direto para uma operação automática.",
+                $"Rebeca organizou informações, comparou possibilidades e testou o efeito de pequenas mudanças nos números. Em alguns momentos, a conta estava certa, mas o contexto mostrava que a conclusão ainda não fazia sentido.",
+                $"Foi então que ela percebeu o ponto central desta leitura: a matemática mais forte não é a que termina primeiro, e sim a que explica o caminho, verifica o resultado e sustenta a decisão com clareza."
+            ],
+            LearningDomain.Science when subject.Age <= 5 =>
+            [
+                $"Perto da janela, Tiago observou uma pequena planta enquanto a luz da manhã mudava de lugar. O adulto pediu silêncio por alguns segundos, e a criança percebeu detalhes que normalmente passariam despercebidos. Era assim que {unitText} começava a fazer sentido.",
+                $"Depois da primeira observação, Tiago tocou de leve a folha, comparou cor, tamanho e posição e tentou adivinhar o que poderia acontecer mais tarde. A curiosidade veio antes da resposta pronta.",
+                $"No fim, ele registrou com desenho e fala o que tinha visto. A ciência desta página nasce desse gesto simples: olhar com cuidado, comparar e explicar com as próprias palavras."
+            ],
+            LearningDomain.Science when subject.Age <= 10 =>
+            [
+                $"A investigação de hoje começa com uma observação concreta sobre {unitText}. Sofia notou que pequenas mudanças em um objeto, em um ser vivo ou em um material quase sempre revelam uma lógica escondida para quem aprende a observar sem pressa.",
+                $"Por isso, ela primeiro descreveu o que viu, depois levantou uma hipótese e só então comparou a ideia inicial com o que o experimento ou a imagem mostravam. Nem toda expectativa se confirmou, e isso fez parte do aprendizado.",
+                $"Ao final, Sofia conseguiu explicar o fenômeno com linguagem simples, mas precisa. A ciência se fortaleceu quando observação, hipótese e evidência começaram a caminhar juntas."
+            ],
+            LearningDomain.Science =>
+            [
+                $"O texto desta página apresenta uma situação de {unitText} como investigação, não como curiosidade isolada. A leitura convida o estudante a observar, levantar hipótese, reconhecer variável relevante e confrontar a explicação com uma evidência visível.",
+                $"Ao longo do processo, algumas pistas parecem secundárias, mas ajudam a delimitar o que realmente interfere no fenômeno. É por isso que a ciência exige mais do que opinião: ela pede registro, comparação e coerência entre causa e efeito.",
+                $"Quando a leitura termina, o estudante é levado a explicar o que viu usando linguagem clara e fundamento observável. O conhecimento se consolida quando a conclusão consegue dialogar com a evidência."
+            ],
+            LearningDomain.History when subject.Age <= 5 =>
+            [
+                $"No armário da sala havia uma caixa com fotos antigas da família. Lara olhou primeiro para as roupas, depois para os rostos e por fim para os objetos ao redor. Sem perceber, ela já estava entrando em {unitText} pela porta da memória.",
+                $"Cada foto mostrava que o tempo muda as pessoas e também muda a casa, a rua e o jeito de viver. Lara começou a notar o que veio antes, o que ficou parecido e o que já não era mais igual.",
+                $"No fim, ela contou a história de uma das fotos com começo, meio e fim. Assim, a história deixou de ser coisa distante e virou leitura do tempo vivido."
+            ],
+            LearningDomain.History when subject.Age <= 10 =>
+            [
+                $"Dona Celina abriu uma pasta com cartas, fotografias e anotações antigas para conversar sobre {unitText}. Cada documento parecia pequeno sozinho, mas juntos eles começavam a mostrar como as pessoas viveram, decidiram e mudaram o lugar onde estavam.",
+                $"Ao observar as pistas, a criança percebeu que história não é só decorar datas. É entender a ordem dos fatos, reconhecer causas e perceber que uma mudança quase sempre deixa vestígios.",
+                $"Quando a leitura termina, fica mais fácil explicar o que veio primeiro, o que mudou depois e por que aquilo importa. É assim que o passado começa a fazer sentido no presente."
+            ],
+            LearningDomain.History =>
+            [
+                $"A leitura desta página apresenta {unitText} por meio de uma fonte, de uma memória registrada ou de um episódio histórico organizado em sequência clara. O estudante não recebe apenas um fato: recebe um contexto para interpretar.",
+                $"Ao comparar informações, percebe que processos históricos envolvem disputas, permanências e rupturas. Certas mudanças parecem rápidas; outras levam tempo e só se tornam visíveis quando diferentes pistas são lidas em conjunto.",
+                $"Por isso, o fechamento histórico desta página não busca repetição. Busca compreensão: o que estava em jogo, o que mudou e que evidência permite sustentar essa conclusão."
+            ],
+            LearningDomain.Geography when subject.Age <= 5 =>
+            [
+                $"Na volta para casa, Ana percebeu que o caminho tinha subidas, esquinas, árvores e lugares onde o vento batia mais forte. Sem usar mapa formal, ela já estava lendo o espaço e entrando em {unitText}.",
+                $"Quando o adulto perguntou onde ficava a padaria, de onde vinha o sol da tarde e qual era o trecho mais barulhento, Ana começou a comparar referências e a perceber que cada lugar conta alguma coisa sobre quem vive nele.",
+                $"No fim, ela conseguiu apontar o trajeto, nomear pontos importantes e explicar o que mudava de um lugar para outro. A geografia apareceu como leitura do mundo próximo."
+            ],
+            LearningDomain.Geography when subject.Age <= 10 =>
+            [
+                $"O estudo de hoje começa com um lugar real ligado a {unitText}. Pode ser uma rua, um bairro, um mapa simples ou uma paisagem conhecida. O importante é perceber que o espaço nunca é neutro: ele mostra escolhas, usos e relações.",
+                $"Ao comparar dois pontos do território, a criança nota diferença de circulação, de moradia, de vegetação ou de atividade humana. O mapa deixa de ser desenho parado e vira forma de entender a vida concreta.",
+                $"Quando a leitura termina, a criança já consegue dizer o que vê, o que muda e por que aquele espaço funciona daquele jeito. É nesse momento que a geografia ganha sentido."
+            ],
+            LearningDomain.Geography =>
+            [
+                $"Esta leitura trata de {unitText} como relação entre espaço, sociedade e organização do território. O estudante é convidado a observar um lugar, um mapa, uma rede ou uma paisagem percebendo não só nomes, mas relações e consequências.",
+                $"Ao longo da página, surgem pistas sobre circulação, ocupação, recursos, contrastes e impactos. Ler geografia bem significa juntar essas pistas e entender por que o espaço assume determinada forma.",
+                $"No fechamento, o estudante é levado a produzir uma interpretação: como esse território funciona, quem o usa, o que muda nele e que leitura crítica pode ser feita a partir dessas evidências."
+            ],
+            LearningDomain.ExecutiveFunction when subject.Age <= 5 =>
+            [
+                $"Antes de começar a brincadeira, Noa precisou separar poucos materiais, ouvir o primeiro combinado e lembrar que não precisava fazer tudo de uma vez. Foi assim que {unitText} entrou na rotina sem peso e sem correria.",
+                $"Quando percebeu vontade de pular etapas, ela voltou ao primeiro passo, conferiu o que já estava pronto e seguiu mais segura. A missão ficou pequena o bastante para caber nas mãos da criança.",
+                $"No final, Noa guardou o material, mostrou o que tinha terminado e conseguiu dizer qual seria o próximo passo em outra hora. Autonomia começou a aparecer como hábito, não como discurso."
+            ],
+            LearningDomain.ExecutiveFunction when subject.Age <= 10 =>
+            [
+                $"João queria resolver tudo rápido, mas a rotina de {unitText} pedia outra atitude: preparar, executar e revisar. Quando ele separou o material certo antes de começar, percebeu que a tarefa ficava menor e mais possível.",
+                $"Durante o processo, João travou uma vez, respirou e voltou ao combinado inicial. Em vez de abandonar a missão, ele marcou o que já tinha feito e escolheu o passo seguinte com mais clareza.",
+                $"Ao final, revisou a entrega, guardou o que usou e identificou o ponto em que quase se perdeu. Essa revisão curta fez a autonomia crescer de verdade."
+            ],
+            LearningDomain.ExecutiveFunction =>
+            [
+                $"A cena desta página mostra {unitText} como prática de gestão pessoal. A tarefa não se resolve apenas com boa vontade: ela exige preparo, priorização, execução por etapas e revisão do que foi entregue.",
+                $"Quando o estudante aprende a nomear onde trava, o que precisa antecipar e como checar o próprio trabalho, ele deixa de depender tanto do lembrete externo. A autonomia passa a ser construída em procedimentos visíveis.",
+                $"Por isso, o valor desta leitura está menos em “fazer tudo” e mais em fazer com critério: começar bem, sustentar o foco e encerrar com revisão honesta."
+            ],
+            _ =>
+            [
+                $"{lesson.Title} aparece aqui em forma de leitura curta para {placement.ToLowerInvariant()}.",
+                $"Ao longo do texto, a criança encontra pistas concretas sobre {unitText}.",
+                "A proposta desta página é ler com calma e sair dela com uma ideia principal clara."
+            ]
+        };
+    }
+
+    private static string BuildWorkbookCoverPage(ProprietaryCurriculumSubjectBlueprintViewModel subject)
+    {
+        return
+            $"APOSTILA DE TRABALHO • {subject.SubjectLabel.ToUpperInvariant()} • {GetPlacementShortLabel(subject.Age).ToUpperInvariant()}\n\n" +
+            $"Esta apostila acompanha o percurso anual de {subject.SubjectLabel.ToLowerInvariant()} com atividades curtas, dirigidas e ligadas às lições reais do sistema.\n\n" +
+            $"Meta do ano:\n{subject.YearGoal}\n\n" +
+            $"Como aplicar sem sobrecarregar:\n{subject.ParentMethod}\n\n" +
+            $"Regra de uso:\nFaça uma página por vez, feche a lição e só então avance para a próxima folha.";
+    }
+
+    private static string BuildWorkbookUnitOverviewPage(
+        ProprietaryCurriculumSubjectBlueprintViewModel subject,
+        ProprietaryCurriculumUnitBlueprintViewModel unit)
+    {
+        return
+            $"ROTEIRO DA UNIDADE • {unit.UnitLabel.ToUpperInvariant()} • {unit.Title.ToUpperInvariant()}\n\n" +
+            $"O que a criança precisa consolidar:\n{unit.Objective}\n\n" +
+            $"Sequência da unidade:\n- {string.Join("\n- ", unit.LessonTitles)}\n\n" +
+            $"Materiais básicos:\n- {string.Join("\n- ", unit.Materials)}\n\n" +
+            $"Como esta unidade sobe de dificuldade nesta série:\n{BuildDomainSeriesSignal(subject.Domain, subject.Age)}\n\n" +
+            $"Ao final, considere concluído quando:\n{unit.CompletionSignal}";
+    }
+
+    private static string BuildWorkbookLessonPage(
+        ProprietaryCurriculumSubjectBlueprintViewModel subject,
+        ProprietaryCurriculumUnitBlueprintViewModel unit,
+        ProprietaryCurriculumLessonBlueprintViewModel lesson)
+    {
+        var lines = BuildWorkbookTasksForDomain(subject.Domain, subject.Age, unit, lesson);
+
+        return
+            $"ATIVIDADE • {unit.UnitLabel.ToUpperInvariant()} • LIÇÃO {lesson.LessonNumber}\n\n" +
+            $"Título da atividade:\n{lesson.Title}\n\n" +
+            $"Antes de começar:\n{lesson.OpeningForAdult}\n\n" +
+            $"O que fazer agora:\n{string.Join("\n", lines)}\n\n" +
+            $"Registro do aluno:\n________________________________________\n________________________________________\n________________________________________\n\n" +
+            $"Entrega esperada:\n{lesson.PracticeTask}\n\n" +
+            $"O adulto observa se:\n{lesson.ExpectedOutcome}";
+    }
+
+    private static string BuildAssessmentCoverPage(ProprietaryCurriculumSubjectBlueprintViewModel subject)
+    {
+        return
+            $"CADERNO DE AVALIAÇÃO • {subject.SubjectLabel.ToUpperInvariant()} • {GetPlacementShortLabel(subject.Age).ToUpperInvariant()}\n\n" +
+            $"Este caderno fecha cada unidade com prova curta, registro claro e critério de avanço alinhado à série.\n\n" +
+            $"Meta do ano:\n{subject.YearGoal}\n\n" +
+            $"Como avaliar nesta matéria:\n{BuildAssessmentMethod(subject.Domain, subject.Age)}\n\n" +
+            $"Importante:\nA avaliação serve para mostrar progresso real, não para alongar a rotina além do necessário.";
+    }
+
+    private static string BuildAssessmentUnitOverviewPage(
+        ProprietaryCurriculumSubjectBlueprintViewModel subject,
+        ProprietaryCurriculumUnitBlueprintViewModel unit)
+    {
+        return
+            $"PROVA DE UNIDADE • {unit.UnitLabel.ToUpperInvariant()} • {unit.Title.ToUpperInvariant()}\n\n" +
+            $"Foco do fechamento:\n{unit.Objective}\n\n" +
+            $"Competências observadas nesta série:\n{BuildDomainSeriesSignal(subject.Domain, subject.Age)}\n\n" +
+            $"O adulto usa esta prova para ver se a criança:\n- responde à pergunta principal\n- usa a estratégia adequada\n- fecha a atividade com clareza\n\n" +
+            $"Critério de avanço da unidade:\n{unit.CompletionSignal}";
+    }
+
+    private static string BuildAssessmentLessonPage(
+        ProprietaryCurriculumSubjectBlueprintViewModel subject,
+        ProprietaryCurriculumUnitBlueprintViewModel unit,
+        ProprietaryCurriculumLessonBlueprintViewModel lesson)
+    {
+        var prompts = BuildAssessmentPromptsForDomain(subject.Domain, subject.Age, unit, lesson);
+
+        return
+            $"AVALIAÇÃO CURTA • {unit.UnitLabel.ToUpperInvariant()} • LIÇÃO {lesson.LessonNumber}\n\n" +
+            $"Tarefa avaliada:\n{lesson.Title}\n\n" +
+            $"Pergunta-base:\n{lesson.AnchorQuestion}\n\n" +
+            $"Aplicação:\n{string.Join("\n", prompts)}\n\n" +
+            $"Rubrica rápida do adulto:\n" +
+            $"[ ] Entendeu a consigna sem ajuda pesada.\n" +
+            $"[ ] Entregou algo compatível com a série.\n" +
+            $"[ ] Mostrou {lesson.ExpectedOutcome}.\n" +
+            $"[ ] Pode seguir para a próxima lição.\n\n" +
+            $"Registro do adulto:\n________________________________________\n________________________________________\n\n" +
+            $"Evidência opcional:\n{lesson.EvidencePrompt}";
+    }
+
+    private static string BuildSeriesProgressionNote(ProprietaryCurriculumSubjectBlueprintViewModel subject) => subject.Domain switch
+    {
+        LearningDomain.Math when subject.Age <= 5 => "Sai de contagem e comparação concreta para agrupamento, composição e registro inicial sem pular o concreto.",
+        LearningDomain.Math when subject.Age <= 10 => "Cada ano adiciona estratégia, linguagem matemática e complexidade de problema, não só números maiores.",
+        LearningDomain.Math => "A série sobe em modelagem, comparação de cenários, álgebra, estatística e decisão com justificativa formal.",
+        LearningDomain.Science when subject.Age <= 5 => "Começa em observação sensorial e nomeação do mundo próximo.",
+        LearningDomain.Science when subject.Age <= 10 => "Sobe para experimento, registro, causa e consequência, com linguagem científica progressiva.",
+        LearningDomain.Science => "Avança para sistema, método, hipótese, variável, evidência e explicação mais formal.",
+        LearningDomain.History when subject.Age <= 5 => "Parte de rotina, família e passagem do tempo.",
+        LearningDomain.History when subject.Age <= 10 => "A série cresce em leitura de fonte, sequência temporal e relação entre fato, contexto e mudança.",
+        LearningDomain.History => "Aprofunda análise de processo histórico, conflito, permanência, ruptura e interpretação.",
+        LearningDomain.Geography when subject.Age <= 5 => "Começa no corpo, casa, trajeto e clima próximo.",
+        LearningDomain.Geography when subject.Age <= 10 => "A série sobe em mapa, território, paisagem e relação sociedade-ambiente.",
+        LearningDomain.Geography => "Avança para região, rede, uso do território, urbanização e leitura crítica do espaço.",
+        LearningDomain.ExecutiveFunction when subject.Age <= 5 => "Parte de iniciar, guardar e concluir pequenas missões com ajuda.",
+        LearningDomain.ExecutiveFunction when subject.Age <= 10 => "Sobe para checklist, autocorreção, revisão e fechamento com cada vez menos suporte.",
+        LearningDomain.ExecutiveFunction => "Avança para planejamento, priorização, autogestão de tempo e revisão por critério.",
+        _ => "Cada série amplia a complexidade da linguagem, do raciocínio e da independência durante a aula."
+    };
+
+    private static string BuildReadingFrameForDomain(LearningDomain domain, int age, ProprietaryCurriculumLessonBlueprintViewModel lesson) => domain switch
+    {
+        LearningDomain.Math => $"Leitura matemática desta série:\nUse a situação como problema real. Antes de calcular, peça desenho, agrupamento ou tabela. Em {GetPlacementShortLabel(age)}, a meta não é só chegar no número, mas justificar a estratégia.",
+        LearningDomain.Science => $"Leitura científica desta série:\nAbra a lição com observação, puxe uma hipótese simples e feche com explicação registrável. Em {GetPlacementShortLabel(age)}, a criança precisa ligar o que viu ao porquê do fenômeno.",
+        LearningDomain.History => $"Leitura histórica desta série:\nApresente contexto, personagem, tempo ou fonte do dia. Em {GetPlacementShortLabel(age)}, a resposta precisa mostrar o que mudou, por que mudou ou que vestígio sustenta a conclusão.",
+        LearningDomain.Geography => $"Leitura geográfica desta série:\nLocalize o lugar, compare referências e ligue espaço a vida concreta. Em {GetPlacementShortLabel(age)}, a criança precisa sair do nome solto e explicar relações no território.",
+        LearningDomain.ExecutiveFunction => $"Leitura de autonomia desta série:\nTrate a missão como treino de rotina. Em {GetPlacementShortLabel(age)}, a criança precisa entender o passo atual, executar e revisar sem ficar adivinhando o que vem depois.",
+        _ => $"Leitura guiada desta série:\n{lesson.OpeningForAdult}"
+    };
+
+    private static IEnumerable<string> BuildWorkbookTasksForDomain(
+        LearningDomain domain,
+        int age,
+        ProprietaryCurriculumUnitBlueprintViewModel unit,
+        ProprietaryCurriculumLessonBlueprintViewModel lesson)
+    {
+        return domain switch
+        {
+            LearningDomain.Math =>
+            [
+                $"1. Leia ou escute a situação e sublinhe a pergunta principal: {lesson.AnchorQuestion}",
+                "2. Monte a estratégia antes do resultado: desenho, agrupamento, reta, tabela ou conta.",
+                "3. Registre a resposta final e escreva por que essa estratégia faz sentido nesta questão."
+            ],
+            LearningDomain.Science =>
+            [
+                $"1. Observe o material da lição e registre uma descoberta inicial ligada a {lesson.Goal.ToLowerInvariant()}.",
+                "2. Escreva ou desenhe o que mudou, apareceu, desapareceu ou se repetiu.",
+                "3. Feche com uma explicação curta: o que você conclui e qual pista sustenta essa conclusão."
+            ],
+            LearningDomain.History =>
+            [
+                "1. Localize o fato no tempo, na família, na comunidade ou no processo histórico estudado.",
+                $"2. Responda à pergunta central: {lesson.AnchorQuestion}",
+                "3. Mostre uma pista, vestígio ou informação que prova a sua resposta."
+            ],
+            LearningDomain.Geography =>
+            [
+                "1. Identifique o lugar, mapa, trajeto, paisagem ou território desta lição.",
+                "2. Compare dois pontos, usos ou referências do espaço observado.",
+                $"3. Escreva uma conclusão curta que responda: {lesson.AnchorQuestion}"
+            ],
+            LearningDomain.ExecutiveFunction =>
+            [
+                "1. Marque o primeiro passo da missão e prepare só o material necessário.",
+                "2. Faça a tarefa principal e registre onde quase travou ou se distraiu.",
+                "3. Revise o que ficou pronto e marque o que ainda precisa voltar depois."
+            ],
+            _ =>
+            [
+                "1. Leia a instrução.",
+                "2. Responda com base no material.",
+                "3. Feche a atividade com uma prova curta."
+            ]
+        };
+    }
+
+    private static IEnumerable<string> BuildAssessmentPromptsForDomain(
+        LearningDomain domain,
+        int age,
+        ProprietaryCurriculumUnitBlueprintViewModel unit,
+        ProprietaryCurriculumLessonBlueprintViewModel lesson)
+    {
+        return domain switch
+        {
+            LearningDomain.Math =>
+            [
+                $"1. Resolva a situação principal da lição: {lesson.AnchorQuestion}",
+                "2. Mostre no caderno a estratégia usada antes da resposta final.",
+                "3. Explique em uma frase por que o resultado faz sentido."
+            ],
+            LearningDomain.Science =>
+            [
+                "1. Faça uma observação importante sobre o fenômeno ou material estudado.",
+                "2. Registre uma hipótese, causa ou explicação ligada à observação.",
+                "3. Aponte qual evidência do experimento, do texto ou da imagem sustenta sua conclusão."
+            ],
+            LearningDomain.History =>
+            [
+                "1. Diga o que aconteceu ou o que estava em jogo no contexto estudado.",
+                "2. Explique uma causa, consequência, mudança ou permanência.",
+                "3. Cite a pista, informação ou fonte que ajudou a fechar a resposta."
+            ],
+            LearningDomain.Geography =>
+            [
+                "1. Identifique o lugar, o mapa ou a situação espacial trabalhada.",
+                "2. Compare dois elementos do território ou da paisagem.",
+                "3. Feche com uma explicação sobre como esse espaço afeta a vida das pessoas."
+            ],
+            LearningDomain.ExecutiveFunction =>
+            [
+                "1. Mostre como a criança iniciou a missão sem ficar parada no começo.",
+                "2. Observe se ela sustentou a sequência combinada até o final.",
+                "3. Registre se revisou, checou ou guardou o material com mais autonomia."
+            ],
+            _ =>
+            [
+                "1. Responda à pergunta central.",
+                "2. Mostre uma prova curta.",
+                "3. Feche com clareza."
+            ]
+        };
+    }
+
+    private static string BuildAssessmentMethod(LearningDomain domain, int age) => domain switch
+    {
+        LearningDomain.Math => $"Em {GetPlacementShortLabel(age)}, avalie se a criança escolhe estratégia, representa o raciocínio e chega a um fechamento coerente.",
+        LearningDomain.Science => $"Em {GetPlacementShortLabel(age)}, avalie observação, hipótese, explicação e vínculo entre pista e conclusão.",
+        LearningDomain.History => $"Em {GetPlacementShortLabel(age)}, avalie leitura de contexto, causa e consequência, fonte e organização temporal.",
+        LearningDomain.Geography => $"Em {GetPlacementShortLabel(age)}, avalie leitura do espaço, comparação, mapa, território e conclusão sobre relações humanas.",
+        LearningDomain.ExecutiveFunction => $"Em {GetPlacementShortLabel(age)}, avalie início da tarefa, manutenção da sequência, revisão e fechamento autônomo.",
+        _ => $"Em {GetPlacementShortLabel(age)}, avalie clareza, resposta e avanço real."
+    };
+
+    private static string BuildDomainSeriesSignal(LearningDomain domain, int age) => domain switch
+    {
+        LearningDomain.Math when age == 6 => "Neste 1º ano, a criança ainda precisa representar antes de simbolizar: contar, agrupar, desenhar e só depois registrar.",
+        LearningDomain.Math when age == 7 => "Neste 2º ano, já precisa sustentar valor posicional e reagrupamento com mais estabilidade.",
+        LearningDomain.Math when age == 8 => "Neste 3º ano, a série pede multiplicação com sentido, divisão inicial e leitura de dados simples.",
+        LearningDomain.Math when age == 9 => "Neste 4º ano, a diferença aparece em problemas multietapas, tabuada com justificativa e fração como parte do todo.",
+        LearningDomain.Math when age == 10 => "Neste 5º ano, a série sobe para perímetro, área, decimal, porcentagem inicial e decisão em contexto real.",
+        LearningDomain.Math when age == 11 => "Neste 6º ano, a criança já precisa organizar razão, proporção, tabela e equação com sentido.",
+        LearningDomain.Math when age == 12 => "Neste 7º ano, entram porcentagem com mais formalidade, regularidade algébrica e leitura crítica de dados.",
+        LearningDomain.Math when age == 13 => "Neste 8º ano, a série pede modelagem, comparação de cenários e finanças com justificativa mais madura.",
+        LearningDomain.Math when age == 14 => "Neste 9º ano, a série cobra função, variação, probabilidade e decisão financeira mais formal.",
+        LearningDomain.Science when age <= 5 => "Na educação infantil, a diferença entre séries está em observar melhor, nomear melhor e registrar com mais intenção.",
+        LearningDomain.Science when age <= 8 => "Nos anos iniciais, cada série sobe de observação simples para explicação, experimento e registro mais claro.",
+        LearningDomain.Science when age <= 11 => "A série já diferencia hipótese, causa, sistema do corpo e relação entre fenômenos.",
+        LearningDomain.Science => "Nos anos finais, a criança precisa usar linguagem científica mais controlada, comparar explicações e defender conclusão com evidência.",
+        LearningDomain.History when age <= 5 => "Nesta fase, a criança percebe rotina, memória, família e antes/depois com mais clareza a cada ano.",
+        LearningDomain.History when age <= 8 => "Nos primeiros anos, a diferença da série aparece em linha do tempo, fonte simples e leitura de comunidade e território.",
+        LearningDomain.History when age <= 11 => "A série já exige contexto, processo histórico, conflito, permanência e mudança com mais consistência.",
+        LearningDomain.History => "Nos anos finais, a resposta precisa comparar processos, ler fontes e sustentar interpretação histórica.",
+        LearningDomain.Geography when age <= 5 => "Na educação infantil, a série sobe de corpo e casa para trajeto, clima e leitura do entorno.",
+        LearningDomain.Geography when age <= 8 => "Nos anos iniciais, a criança sai do espaço próximo e começa a usar mapa, referência, paisagem e região com mais clareza.",
+        LearningDomain.Geography when age <= 11 => "A série pede território, ambiente, trabalho humano, cidades e leitura de organização do espaço.",
+        LearningDomain.Geography => "Nos anos finais, a resposta precisa relacionar rede, uso do território, urbanização e desigualdade espacial.",
+        LearningDomain.ExecutiveFunction when age <= 5 => "Nesta fase, a criança aprende a abrir, fazer e guardar pequenas missões com começo e fim visíveis.",
+        LearningDomain.ExecutiveFunction when age <= 8 => "Nos primeiros anos, a série sobe em checklist, espera curta, revisão simples e mais independência para iniciar.",
+        LearningDomain.ExecutiveFunction when age <= 11 => "A série pede já algum planejamento, autocorreção e fechamento menos dependente do adulto.",
+        LearningDomain.ExecutiveFunction => "Nos anos finais, o foco sobe para priorização, autogestão do tempo, revisão por critério e responsabilidade sobre a própria rotina.",
+        _ => "A série cresce em profundidade de linguagem, complexidade de tarefa e independência para concluir."
+    };
+
+    private static Guid CreateDeterministicGuid(string value)
+    {
+        using var md5 = System.Security.Cryptography.MD5.Create();
+        var bytes = md5.ComputeHash(System.Text.Encoding.UTF8.GetBytes(value));
+        return new Guid(bytes);
+    }
+
+    private static string Slugify(string value)
+    {
+        var normalized = value.ToLowerInvariant()
+            .Replace("ã", "a")
+            .Replace("á", "a")
+            .Replace("à", "a")
+            .Replace("â", "a")
+            .Replace("é", "e")
+            .Replace("ê", "e")
+            .Replace("í", "i")
+            .Replace("ó", "o")
+            .Replace("ô", "o")
+            .Replace("õ", "o")
+            .Replace("ú", "u")
+            .Replace("ç", "c")
+            .Replace("º", "");
+
+        var builder = new System.Text.StringBuilder();
+        var lastWasDash = false;
+        foreach (var character in normalized)
+        {
+            if (char.IsLetterOrDigit(character))
+            {
+                builder.Append(character);
+                lastWasDash = false;
+            }
+            else if (!lastWasDash)
+            {
+                builder.Append('-');
+                lastWasDash = true;
+            }
+        }
+
+        return builder.ToString().Trim('-');
+    }
+
+    private static string GetPlacementShortLabel(int age) => age switch
+    {
+        3 => "Infantil 3",
+        4 => "Infantil 4",
+        5 => "Infantil 5",
+        6 => "1º ano",
+        7 => "2º ano",
+        8 => "3º ano",
+        9 => "4º ano",
+        10 => "5º ano",
+        11 => "6º ano",
+        12 => "7º ano",
+        13 => "8º ano",
+        14 => "9º ano",
+        _ when age <= 5 => "Infantil",
+        _ => "Fundamental"
+    };
 
     private static ProprietaryFamilyLibraryMaterialSeed Book(
         string id,
@@ -687,8 +1339,8 @@ public static class ProprietaryFamilyLibraryCatalog
             Id = Guid.Parse(id),
             Slug = slug,
             Title = title,
-            Category = category,
-            EducationStage = educationStage,
+            Category = FamilyLibraryTaxonomyNormalizer.NormalizeCategory(category),
+            EducationStage = FamilyLibraryTaxonomyNormalizer.NormalizeEducationStage(educationStage),
             RecommendedMinAge = minAge,
             RecommendedMaxAge = maxAge,
             SkillFocus = skillFocus,

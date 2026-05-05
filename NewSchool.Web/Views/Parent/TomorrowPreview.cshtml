@@ -1,207 +1,247 @@
 @model NewSchool.Web.Models.TomorrowPlanPreviewViewModel
 @{
-    ViewData["Title"] = $"Preview de amanhã • {Model.FullName}";
+    ViewData["Title"] = $"Amanhã • {Model.FullName}";
     var currentUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
-}
-
-<section class="page-hero compact">
-    <div>
-        <div class="eyebrow">Preview de amanhã</div>
-        <h1>@Model.FullName</h1>
-        <p class="muted">@Model.DateLabel • @Model.Age anos • @Model.SupportProfileLabel • @Model.FamilyGoalTrackLabel</p>
-        <p class="muted">@Model.Summary</p>
-    </div>
-    <div class="stack-inline">
-        <a class="btn-secondary" href="@Model.FavoritesUrl">Favoritos</a>
-        @if (Model.HasTeaTracks)
+    var previewBlocks = Model.Blocks.Take(1).ToList();
+    var remainingBlocks = Math.Max(0, Model.BlockCount - previewBlocks.Count);
+    string ShortenText(string text, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(text) || text.Length <= maxLength)
         {
-            <a class="btn-secondary" href="@Model.TeaTracksUrl">Trilhas TEA</a>
+            return text;
         }
-        <a class="btn-secondary" href="@Model.CurriculumUrl">Curriculo estruturado</a>
-        <a class="btn-primary" href="@Model.ChildUrl">Voltar para a rotina</a>
+
+        var shortened = text[..maxLength];
+        var lastSpace = shortened.LastIndexOf(' ');
+        if (lastSpace > 80)
+        {
+            shortened = shortened[..lastSpace];
+        }
+
+        return $"{shortened.TrimEnd()}...";
+    }
+
+    var parentSummaryPreview = ShortenText(Model.ParentSummary, 280);
+    var childNarrativePreview = ShortenText(Model.ChildNarrative, 220);
+}
+
+<section class="child-app-shell child-app-shell-simple">
+    <div class="child-topbar-row">
+        <a class="back-inline-link" href="@Model.ChildUrl">Voltar para hoje</a>
+        <span class="app-status neutral">Amanhã</span>
     </div>
-</section>
 
-<section class="stats-grid">
-    <article class="stat-card curriculum-stat-card curriculum-stat-card-sessions">
-        <span>Blocos preparados</span>
-        <strong>@Model.BlockCount</strong>
-    </article>
-    <article class="stat-card curriculum-stat-card curriculum-stat-card-minutes">
-        <span>Tempo estimado</span>
-        <strong>@Model.TotalMinutes min</strong>
-    </article>
-    <article class="stat-card curriculum-stat-card curriculum-stat-card-evidence">
-        <span>Atividades puxadas</span>
-        <strong>@Model.PinnedActivities.Count</strong>
-    </article>
-</section>
+    @if (!string.IsNullOrWhiteSpace(Model.ActionMessage))
+    {
+        <section class="app-inline-message @(Model.ActionMessageStyle == "warning" ? "warning" : string.Empty)">
+            <strong>@(Model.ActionMessageStyle == "warning" ? "Atenção." : "Tudo certo.")</strong>
+            <span>@Model.ActionMessage</span>
+        </section>
+    }
 
-@if (!string.IsNullOrWhiteSpace(Model.ActionMessage))
-{
-    <section class="alert-soft @Model.ActionMessageStyle">
-        @Model.ActionMessage
-    </section>
-}
-
-@if (Model.HasTeaTracks)
-{
-    <section class="panel tea-track-nav-panel">
-        <div class="card-topline">
-            <div>
-                <div class="eyebrow">Navegacao funcional TEA</div>
-                <h2>Ajustar amanhã por trilha</h2>
+    <section class="child-hero-card child-hero-card-simple">
+        <div class="child-identity-row">
+            <div class="child-identity-copy">
+                <span class="app-kicker">Amanhã</span>
+                <h1>@Model.FullName</h1>
+                <p>@Model.DateLabel • @Model.Age anos • @Model.FamilyGoalTrackLabel</p>
             </div>
-            <span class="chip neutral">Preview conectado</span>
+            <span class="app-status success">@Model.BlockCount bloco(s)</span>
         </div>
-        <p class="muted">Se você quiser puxar outra atividade ou forçar foco manual em um domínio TEA, entre diretamente pela trilha correspondente.</p>
-        <div class="tea-track-nav">
-            @foreach (var track in Model.TeaTrackQuickLinks)
+
+        <article class="lesson-hero-card lesson-hero-card-simple">
+            <div class="lesson-hero-copy">
+                <span class="app-kicker">Plano já separado</span>
+                <h2>@Model.Theme</h2>
+                <p>@Model.Summary</p>
+                <div class="hero-chip-row">
+                    <span class="app-soft-pill">@Model.TotalMinutes min</span>
+                    @if (Model.IsRecoveryPlan)
+                    {
+                        <span class="app-soft-pill">modo retomada</span>
+                    }
+                </div>
+            </div>
+
+            <div class="hero-action-row">
+                <a class="btn-primary" href="@Model.ChildUrl">Voltar para hoje</a>
+                <a class="btn-secondary" href="@Model.CurriculumUrl">Abrir currículo</a>
+            </div>
+        </article>
+    </section>
+
+    <section class="touch-lesson-stepper" data-touch-stepper>
+        <div class="touch-lesson-stepper-head" aria-label="Sequência guiada de amanhã">
+            <button class="touch-step-pill is-active" type="button" data-step-target="0">1. Entender</button>
+            <button class="touch-step-pill" type="button" data-step-target="1">2. Ver lições</button>
+            <button class="touch-step-pill" type="button" data-step-target="2">3. Ajustar</button>
+        </div>
+
+        <article class="touch-lesson-panel is-active" data-step-panel="0">
+            <span class="app-kicker">Passo 1</span>
+            <h3>Entenda o foco de amanhã</h3>
+            <p><strong>Para o adulto:</strong> @parentSummaryPreview</p>
+            <p><strong>Para a criança:</strong> @childNarrativePreview</p>
+            @if (Model.IsRecoveryPlan)
             {
-                <a class="chip @track.ChipClass tea-track-link" href="@track.Url">@track.Label</a>
+                <p><strong>Modo retomada:</strong> @Model.RecoveryHeadline</p>
             }
-        </div>
-    </section>
-}
+            @if (!string.Equals(parentSummaryPreview, Model.ParentSummary, StringComparison.Ordinal) ||
+                 !string.Equals(childNarrativePreview, Model.ChildNarrative, StringComparison.Ordinal))
+            {
+                <details class="micro-sequence-details">
+                    <summary>Ver orientação completa</summary>
+                    <p><strong>Orientação completa:</strong> @Model.ParentSummary</p>
+                    <p><strong>Narrativa da criança:</strong> @Model.ChildNarrative</p>
+                </details>
+            }
+        </article>
 
-@if (Model.IsRecoveryPlan)
-{
-    <section class="panel recovery-banner">
-        <div class="card-topline">
-            <div>
-                <div class="eyebrow">Modo retomada</div>
-                <h2>Amanhã está em ritmo de recuperação</h2>
+        <article class="touch-lesson-panel" data-step-panel="1" hidden>
+            <span class="app-kicker">Passo 2</span>
+            <h3>Veja só o primeiro toque de amanhã</h3>
+            <div class="simple-steps-list compact">
+                @foreach (var block in previewBlocks)
+                {
+                    <article class="simple-step-item">
+                        <strong>@block.Title</strong>
+                        <p>@block.DomainLabel • @block.DurationMinutes min</p>
+                        <p>@block.Goal</p>
+                    </article>
+                }
             </div>
-            <span class="chip warning">Recuperacao ativa</span>
-        </div>
-        <p>@Model.RecoveryHeadline</p>
-    </section>
-}
+            @if (remainingBlocks > 0)
+            {
+                <p class="small-meta">Depois deste primeiro bloco, ainda restam @remainingBlocks bloco(s) já organizados para o dia.</p>
+            }
+        </article>
 
-<section class="panel highlight">
-    <div class="card-topline">
-        <div>
-            <div class="eyebrow">Leitura do plano</div>
-            <h2>@Model.Theme</h2>
+        <article class="touch-lesson-panel" data-step-panel="2" hidden>
+            <span class="app-kicker">Passo 3</span>
+            <h3>Confirme se o plano já está no ponto certo</h3>
+            <p>Se o resumo fizer sentido para a família, amanhã já pode começar direto daqui sem montar nada.</p>
+
+            @if (Model.Directives.Count > 0 || Model.PinnedActivities.Count > 0)
+            {
+                <details class="micro-sequence-details">
+                    <summary>Ver ajustes aplicados automaticamente</summary>
+                    @if (Model.Directives.Count > 0)
+                    {
+                        <div class="trail-checklist">
+                            @foreach (var directive in Model.Directives)
+                            {
+                                <span>@directive.Label</span>
+                            }
+                        </div>
+                    }
+
+                    @if (Model.PinnedActivities.Count > 0)
+                    {
+                        <p><strong>Atividades puxadas:</strong></p>
+                        <div class="trail-checklist">
+                            @foreach (var activity in Model.PinnedActivities)
+                            {
+                                <span>@activity</span>
+                            }
+                        </div>
+                    }
+                </details>
+            }
+        </article>
+
+        <div class="touch-lesson-stepper-nav">
+            <button class="btn-secondary touch-step-nav" type="button" data-step-action="prev" disabled>Voltar</button>
+            <button class="btn-primary touch-step-nav" type="button" data-step-action="next">Próximo</button>
         </div>
+    </section>
+
+    <details class="annual-phase-details">
+        <summary class="annual-phase-summary">
+            <div>
+                <span class="app-kicker">Plano completo de amanhã</span>
+                <h2>Ver todas as lições só se precisar</h2>
+            </div>
+            <span class="app-status neutral">@Model.BlockCount bloco(s)</span>
+        </summary>
+
+        <div class="annual-phase-body">
+            <div class="lesson-collapsible-list">
+                @foreach (var block in Model.Blocks)
+                {
+                    <details class="lesson-collapsible">
+                        <summary>
+                            <div>
+                                <strong>@block.Title</strong>
+                                <p>@block.DomainLabel • @block.SkillName • @block.DurationMinutes min</p>
+                            </div>
+                            <span class="app-status @block.FocusChipClass">@block.FocusLabel</span>
+                        </summary>
+
+                        <div class="lesson-collapsible-body">
+                            <p><strong>O que fazer:</strong> @block.Goal</p>
+                            <p><strong>Como conduzir:</strong> @block.ParentGuide</p>
+                            <p><strong>Missão da criança:</strong> @block.ChildPrompt</p>
+                            <p><strong>Materiais:</strong> @block.Materials</p>
+                            <p><strong>Quando considerar pronta:</strong> @block.EvidencePrompt</p>
+
+                            @if (block.LessonPacket is not null || block.CurrentSystemUnit is not null || block.RecommendedPrintable is not null)
+                            {
+                                <div class="guided-lesson-meta-grid">
+                                    @if (block.LessonPacket is not null)
+                                    {
+                                        <article class="child-card-note nested-surface">
+                                            <strong>@block.LessonPacket.CurriculumPlacement</strong>
+                                            <p>@block.CurriculumOriginSummary</p>
+                                            <p><strong>Entrega da lição:</strong> @block.LessonPacket.PracticeTask</p>
+                                        </article>
+                                    }
+                                    else if (block.CurrentSystemUnit is not null)
+                                    {
+                                        <article class="child-card-note nested-surface">
+                                            <strong>@block.CurrentSystemUnit.UnitLabel • @block.CurrentSystemUnit.Title</strong>
+                                            <p>@block.CurriculumOriginSummary</p>
+                                            <p><strong>Missão da unidade:</strong> @block.CurrentSystemUnit.TaskPrompt</p>
+                                        </article>
+                                    }
+
+                                    @if (block.RecommendedPrintable is not null)
+                                    {
+                                        <article class="child-card-note nested-surface">
+                                            <strong>Folha para imprimir</strong>
+                                            <p><strong>@block.RecommendedPrintable.Title</strong></p>
+                                            <p>@block.PrintableReason</p>
+                                            <a class="btn-secondary btn-small" href="@block.RecommendedPrintable.AccessUrl">@block.RecommendedPrintable.AccessLabel</a>
+                                        </article>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </details>
+                }
+            </div>
+        </div>
+    </details>
+
+    @if (Model.HasTeaTracks)
+    {
+        <details class="micro-sequence-details">
+            <summary>Ver trilhas TEA relacionadas</summary>
+            <div class="tea-track-nav">
+                @foreach (var track in Model.TeaTrackQuickLinks)
+                {
+                    <a class="chip @track.ChipClass tea-track-link" href="@track.Url">@track.Label</a>
+                }
+            </div>
+        </details>
+    }
+
+    <div class="hero-action-row">
         <form method="post" asp-action="GeneratePlan" class="tea-track-inline-form">
             @Html.AntiForgeryToken()
             <input type="hidden" name="childId" value="@Model.ChildId" />
             <input type="hidden" name="returnUrl" value="@currentUrl" />
-            <button class="btn-secondary btn-small" type="submit">Atualizar preview</button>
+            <button class="btn-secondary" type="submit">Atualizar amanhã</button>
         </form>
+        <a class="btn-secondary" href="@Model.FavoritesUrl">Favoritos</a>
     </div>
-    <p>@Model.ParentSummary</p>
-    <div class="child-story">@Model.ChildNarrative</div>
-</section>
-
-<section class="two-panel">
-    <div class="panel">
-        <div class="card-topline">
-            <h2>Diretivas aplicadas</h2>
-            <span class="chip neutral">@Model.Directives.Count regra(s)</span>
-        </div>
-        <div class="stack-inline wrap-inline preview-directive-list">
-            @foreach (var directive in Model.Directives)
-            {
-                <span class="chip @directive.ChipClass">@directive.Label</span>
-            }
-        </div>
-    </div>
-
-    <div class="panel">
-        <div class="card-topline">
-            <h2>Atividades puxadas para amanhã</h2>
-            <span class="chip success">@Model.PinnedActivities.Count</span>
-        </div>
-        @if (Model.PinnedActivities.Count == 0)
-        {
-            <p class="muted">Nenhuma atividade favorita foi puxada manualmente. Amanhã segue o fluxo automático da plataforma.</p>
-        }
-        else
-        {
-            <div class="stack-inline wrap-inline preview-directive-list">
-                @foreach (var activity in Model.PinnedActivities)
-                {
-                    <span class="chip neutral">@activity</span>
-                }
-            </div>
-        }
-    </div>
-</section>
-
-<section class="plan-grid">
-    @foreach (var block in Model.Blocks)
-    {
-        <article class="panel tomorrow-preview-card @(block.IsPinnedActivity ? "preview-pinned-card" : string.Empty)">
-            <div class="card-topline">
-                <div>
-                    <h3>@block.Title</h3>
-                    <p class="small-meta">@block.DomainLabel • @block.SkillName</p>
-                </div>
-                <div class="stack-inline">
-                    <span class="chip @block.SupportSourceChipClass">@block.SupportSourceLabel</span>
-                    <span class="chip @block.FunctionalTrackChipClass">@block.FunctionalTrackLabel</span>
-                    <span class="chip @block.FocusChipClass">@block.FocusLabel</span>
-                    <span class="chip @block.OriginChipClass">@block.OriginLabel</span>
-                    <span class="chip neutral">@block.DurationMinutes min</span>
-                </div>
-            </div>
-
-            @if (block.IsFavorite)
-            {
-                <div class="recommendation-box">
-                    <strong>Favorita da crianca</strong>
-                    <p>Esta atividade ja funcionou bem antes e entrou no radar da família como repertório confiável.</p>
-                </div>
-            }
-
-            <p><strong>O que fazer:</strong> @block.Goal</p>
-            <p><strong>Como conduzir:</strong> @block.ParentGuide</p>
-            <p><strong>Missao da crianca:</strong> @block.ChildPrompt</p>
-            <p><strong>Materiais:</strong> @block.Materials</p>
-            <p><strong>Quando considerar pronta:</strong> @block.EvidencePrompt</p>
-
-            @if (block.LessonPacket is not null || block.CurrentSystemUnit is not null || block.RecommendedPrintable is not null)
-            {
-                <div class="guided-lesson-meta-grid">
-                    @if (block.LessonPacket is not null)
-                    {
-                        <article class="child-card-note nested-surface">
-                            <strong>@block.LessonPacket.CurriculumPlacement</strong>
-                            <p>@block.CurriculumOriginSummary</p>
-                            <p><strong>Entrega da lição:</strong> @block.LessonPacket.PracticeTask</p>
-                        </article>
-                    }
-                    else if (block.CurrentSystemUnit is not null)
-                    {
-                        <article class="child-card-note nested-surface">
-                            <strong>@block.CurrentSystemUnit.UnitLabel • @block.CurrentSystemUnit.Title</strong>
-                            <p>@block.CurriculumOriginSummary</p>
-                            <p><strong>Missão da unidade:</strong> @block.CurrentSystemUnit.TaskPrompt</p>
-                        </article>
-                    }
-
-                    @if (block.RecommendedPrintable is not null)
-                    {
-                        <article class="child-card-note nested-surface">
-                            <strong>Folha para imprimir desta lição</strong>
-                            <p><strong>@block.RecommendedPrintable.Title</strong></p>
-                            @if (!string.IsNullOrWhiteSpace(block.RecommendedPrintable.Description))
-                            {
-                                <p>@block.RecommendedPrintable.Description</p>
-                            }
-                            <p>@block.PrintableReason</p>
-                            <a class="btn-secondary btn-small" href="@block.RecommendedPrintable.AccessUrl">@block.RecommendedPrintable.AccessLabel</a>
-                        </article>
-                    }
-                </div>
-            }
-
-            @if (!string.IsNullOrWhiteSpace(block.TrackUrl))
-            {
-                <a class="btn-secondary btn-small" href="@block.TrackUrl">Abrir trilha relacionada</a>
-            }
-        </article>
-    }
 </section>

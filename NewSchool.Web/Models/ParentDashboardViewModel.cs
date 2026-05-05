@@ -40,8 +40,10 @@ public class ChildCardViewModel
     public Guid Id { get; set; }
     public string FullName { get; set; } = string.Empty;
     public int Age { get; set; }
+    public string SchoolPlacementLabel { get; set; } = string.Empty;
     public int DailyStudyMinutes { get; set; }
     public string CurrentFocus { get; set; } = string.Empty;
+    public bool IsPreparingTodayPlan { get; set; }
     public bool PlanCompletedToday { get; set; }
     public int TotalSessions { get; set; }
     public string WeeklyHeadline { get; set; } = string.Empty;

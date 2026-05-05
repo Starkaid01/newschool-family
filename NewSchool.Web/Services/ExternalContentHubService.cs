@@ -266,7 +266,10 @@ public class ExternalContentHubService(ApplicationDbContext db)
     {
         LearningDomain.Language => "Linguagem",
         LearningDomain.Math => "Matematica",
-        LearningDomain.World => "Mundo real",
+        LearningDomain.Science => "Ciências",
+        LearningDomain.History => "História",
+        LearningDomain.Geography => "Geografia",
+        LearningDomain.World => "Ciências, história e geografia",
         LearningDomain.ExecutiveFunction => "Autonomia",
         _ => "Geral"
     };

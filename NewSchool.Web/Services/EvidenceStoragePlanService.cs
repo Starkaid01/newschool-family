@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Caching.Memory;
 using NewSchool.Web.Data;
 using NewSchool.Web.Domain;
 using NewSchool.Web.Models;
@@ -11,15 +12,18 @@ namespace NewSchool.Web.Services;
 
 public class EvidenceStoragePlanService(
     ApplicationDbContext db,
+    IMemoryCache memoryCache,
     IOptions<StripeSettings> stripeOptions)
 {
     public const string FreePlanCode = "free";
     public const string Files200PlanCode = "files_200";
     public const string Files1000PlanCode = "files_1000";
     public const string Files5000PlanCode = "files_5000";
+    public const string Extra100FilesAddonCode = "extra_100_files";
 
     private const string ExtraFilesProductMetadataKey = "newschool_storage_role";
     private const string ExtraFilesProductMetadataValue = "extra_100_files";
+    private static readonly TimeSpan SummaryCacheDuration = TimeSpan.FromSeconds(45);
     private readonly StripeSettings _stripe = stripeOptions.Value;
     private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
 
@@ -28,7 +32,7 @@ public class EvidenceStoragePlanService(
         new(FreePlanCode, "Plano gratuito", 0m, 3, "3 arquivos totais para começar e testar a rotina sem custo.", false),
         new(Files200PlanCode, "Plano 200 arquivos", 20m, 200, "200 arquivos para guardar as provas mais importantes da família.", false),
         new(Files1000PlanCode, "Plano 1.000 arquivos", 80m, 1000, "1.000 arquivos para acompanhar vários meses de fotos, vídeos e documentos.", false),
-        new(Files5000PlanCode, "Plano 5.000 arquivos", 120m, 5000, "5.000 arquivos e expansão em blocos de 100 quando a família precisar de mais espaço.", true)
+        new(Files5000PlanCode, "Plano 5.000 arquivos", 120m, 5000, "5.000 arquivos para famílias que querem guardar um acervo grande de fotos, vídeos e documentos.", true)
     ];
 
     public IReadOnlyList<EvidenceStoragePlanDefinition> GetCatalog() => Catalog;
@@ -42,9 +46,18 @@ public class EvidenceStoragePlanService(
 
     public async Task<EvidenceStorageSummaryViewModel> BuildSummaryAsync(Guid parentId)
     {
-        var user = await db.Users.FirstAsync(x => x.Id == parentId);
-        var usedFiles = await CountUsedFilesAsync(parentId);
-        return BuildSummary(user, usedFiles);
+        return await memoryCache.GetOrCreateAsync(
+                   $"evidence-storage:summary:{parentId:N}",
+                   async entry =>
+                   {
+                       entry.AbsoluteExpirationRelativeToNow = SummaryCacheDuration;
+                       var user = await db.Users
+                           .AsNoTracking()
+                           .FirstAsync(x => x.Id == parentId);
+                       var usedFiles = await CountUsedFilesAsync(parentId);
+                       return BuildSummary(user, usedFiles);
+                   })
+               ?? new EvidenceStorageSummaryViewModel();
     }
 
     public EvidenceStorageSummaryViewModel BuildSummary(AppUser user, int usedFiles)
@@ -59,14 +72,18 @@ public class EvidenceStoragePlanService(
         var canUpload = usedFiles < fileLimit;
         var extraBlocks = GetNormalizedExtraBlocks(user);
         var extraFiles = extraBlocks * 100;
+        var canBuyExtraStorage = string.Equals(plan.Code, Files5000PlanCode, StringComparison.OrdinalIgnoreCase) && IsPaidStorageActive(user);
         var currentPlanSummary = string.Equals(plan.Code, FreePlanCode, StringComparison.OrdinalIgnoreCase)
-            ? "O currículo continua livre. O upgrade serve só para guardar mais fotos, vídeos e documentos."
-            : "Aulas e currículo seguem liberados para a família toda. A assinatura amplia apenas o espaço do acervo.";
+            ? "O currículo continua livre. O plano gratuito serve para começar e guardar só os primeiros arquivos da família."
+            : extraBlocks > 0
+                ? $"Aulas e currículo seguem livres. Hoje a família guarda até {fileLimit.ToString("N0", PtBr)} arquivos pagando {FormatPrice(plan.MonthlyPrice, extraBlocks)} por mês."
+                : $"Aulas e currículo seguem livres. Este plano guarda até {fileLimit.ToString("N0", PtBr)} arquivos no acervo da família.";
+        var currentPlanName = BuildCurrentPlanName(plan, extraBlocks, extraFiles);
 
         return new EvidenceStorageSummaryViewModel
         {
             CurrentPlanCode = plan.Code,
-            CurrentPlanName = plan.Name,
+            CurrentPlanName = currentPlanName,
             CurrentPlanPriceLabel = FormatPrice(plan.MonthlyPrice, extraBlocks),
             CurrentPlanStatusLabel = BuildStatusLabel(user, plan),
             CurrentPlanSummary = currentPlanSummary,
@@ -80,11 +97,13 @@ public class EvidenceStoragePlanService(
             ExtraBlocks = extraBlocks,
             ExtraFiles = extraFiles,
             ExtraBlockSummary = extraBlocks > 0
-                ? $"+{extraFiles.ToString("N0", PtBr)} arquivos extras por R$ {(extraBlocks * 10m).ToString("N2", PtBr)}/mês."
-                : "Acima de 5.000 arquivos, a família pode somar blocos de 100 por R$ 10/mês.",
+                ? $"Hoje a família soma +{extraFiles.ToString("N0", PtBr)} arquivos extras ao plano base."
+                : "Quando o plano 5.000 estiver ativo, a família pode somar blocos extras de 100 arquivos.",
             UploadNotice = BuildUploadNotice(plan, usedFiles, fileLimit, remainingFiles),
             UpgradeHint = "O sistema é gratuito. O upgrade só aumenta o limite do acervo de evidências.",
             CanManageBilling = !string.IsNullOrWhiteSpace(user.StripeCustomerId),
+            CanBuyExtraStorage = canBuyExtraStorage,
+            ExtraStoragePlan = BuildExtraStoragePlan(plan, fileLimit, extraBlocks, canBuyExtraStorage),
             Plans = Catalog.Select(definition => new EvidenceStoragePlanCardViewModel
             {
                 PlanCode = definition.Code,
@@ -96,6 +115,9 @@ public class EvidenceStoragePlanService(
                 Description = definition.Description,
                 IsCurrent = string.Equals(definition.Code, plan.Code, StringComparison.OrdinalIgnoreCase),
                 SupportsExtraBlocks = definition.SupportsExtraBlocks,
+                HelperText = string.Equals(definition.Code, Files5000PlanCode, StringComparison.OrdinalIgnoreCase)
+                    ? "Se a família precisar passar de 5.000, o adicional de 100 arquivos aparece logo abaixo como plano separado."
+                    : string.Empty,
                 ButtonLabel = string.Equals(definition.Code, plan.Code, StringComparison.OrdinalIgnoreCase)
                     ? "Plano atual"
                     : definition.MonthlyPrice <= 0m
@@ -122,9 +144,26 @@ public class EvidenceStoragePlanService(
 
     public async Task<int> CountUsedFilesAsync(Guid parentId)
     {
-        return await db.LearningSessions.CountAsync(session =>
-            session.Child.ParentId == parentId &&
-            !string.IsNullOrWhiteSpace(session.MediaUrl));
+        var childIds = await db.Children
+            .AsNoTracking()
+            .Where(child => child.ParentId == parentId)
+            .Select(child => child.Id)
+            .ToListAsync();
+
+        return await CountUsedFilesAsync(childIds);
+    }
+
+    public async Task<int> CountUsedFilesAsync(IReadOnlyCollection<Guid> childIds)
+    {
+        if (childIds.Count == 0)
+        {
+            return 0;
+        }
+
+        return await db.LearningSessions
+            .AsNoTracking()
+            .Where(session => childIds.Contains(session.ChildId) && session.MediaUrl != string.Empty)
+            .CountAsync();
     }
 
     public EvidenceStoragePlanDefinition GetCurrentPlan(AppUser user)
@@ -136,6 +175,17 @@ public class EvidenceStoragePlanService(
     {
         var currentPlan = GetCurrentPlan(user);
         return currentPlan.BaseFileLimit + (GetNormalizedExtraBlocks(user) * 100);
+    }
+
+    public int GetCurrentExtraBlocks(AppUser user)
+    {
+        return GetNormalizedExtraBlocks(user);
+    }
+
+    public bool CanPurchaseExtraStorage(AppUser user)
+    {
+        return string.Equals(GetCurrentPlan(user).Code, Files5000PlanCode, StringComparison.OrdinalIgnoreCase) &&
+               IsPaidStorageActive(user);
     }
 
     public bool IsPaidStorageActive(AppUser user)
@@ -300,6 +350,11 @@ public class EvidenceStoragePlanService(
         return lineItems;
     }
 
+    public void InvalidateSummary(Guid parentId)
+    {
+        memoryCache.Remove($"evidence-storage:summary:{parentId:N}");
+    }
+
     public async Task<Subscription> UpdateSubscriptionPlanAsync(AppUser user, string planCode, int extraBlocks)
     {
         if (string.IsNullOrWhiteSpace(user.StripeSubscriptionId))
@@ -447,6 +502,33 @@ public class EvidenceStoragePlanService(
         return string.IsNullOrWhiteSpace(preferredPriceId) ? fallbackPriceId : preferredPriceId;
     }
 
+    private EvidenceStoragePlanCardViewModel BuildExtraStoragePlan(
+        EvidenceStoragePlanDefinition currentPlan,
+        int currentFileLimit,
+        int extraBlocks,
+        bool canBuyExtraStorage)
+    {
+        var nextFileLimit = currentFileLimit + 100;
+        var helperText = canBuyExtraStorage
+            ? extraBlocks > 0
+                ? $"Plano ativo hoje: {currentFileLimit.ToString("N0", PtBr)} arquivos. Ao contratar mais um adicional, a família passa para {nextFileLimit.ToString("N0", PtBr)} arquivos."
+                : $"Plano ativo hoje: {currentFileLimit.ToString("N0", PtBr)} arquivos. Ao contratar este adicional, a família passa para {nextFileLimit.ToString("N0", PtBr)} arquivos."
+            : "Este extra aparece para famílias que já estão no plano 5.000 arquivos.";
+
+        return new EvidenceStoragePlanCardViewModel
+        {
+            PlanCode = Extra100FilesAddonCode,
+            Name = "Contratar mais espaço",
+            PriceLabel = "R$ 10,00/mês",
+            CapacityLabel = "100 arquivos extras",
+            Description = "Soma 100 arquivos ao plano de 5.000. Se contratar de novo, soma mais 100 e o valor mensal cresce junto.",
+            IsAddon = true,
+            IsAvailable = canBuyExtraStorage,
+            HelperText = helperText,
+            ButtonLabel = canBuyExtraStorage ? "Contratar mais 100 arquivos" : "Disponível no plano 5.000"
+        };
+    }
+
     private string BuildStatusLabel(AppUser user, EvidenceStoragePlanDefinition plan)
     {
         if (string.Equals(plan.Code, FreePlanCode, StringComparison.OrdinalIgnoreCase))
@@ -501,6 +583,16 @@ public class EvidenceStoragePlanService(
         return monthlyPrice <= 0m
             ? "Grátis"
             : $"R$ {total.ToString("N2", PtBr)}/mês";
+    }
+
+    private static string BuildCurrentPlanName(EvidenceStoragePlanDefinition plan, int extraBlocks, int extraFiles)
+    {
+        if (!string.Equals(plan.Code, Files5000PlanCode, StringComparison.OrdinalIgnoreCase) || extraBlocks <= 0)
+        {
+            return plan.Name;
+        }
+
+        return $"{plan.Name} + {extraFiles.ToString("N0", PtBr)} extra";
     }
 
     private static bool IsExtraFilesItem(Price? price)

@@ -8,63 +8,40 @@
 
 <section class="family-library-shell">
     <section class="family-library-reader-shell">
-        <div class="family-library-reader-top">
-            <a class="btn-secondary" href="@Model.BackLibraryUrl">Voltar para a biblioteca</a>
-            <a class="btn-secondary" href="@Model.BackPrintablesUrl">Imprimíveis</a>
+        <div class="child-topbar-row">
+            <a class="back-inline-link" href="@Model.BackLibraryUrl">Voltar para a biblioteca</a>
+            <form method="post" asp-controller="Library" asp-action="ToggleFavorite" class="topbar-inline-form">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" value="@Model.Id" />
+                <input type="hidden" name="returnUrl" value="@returnUrl" />
+                <button class="btn-secondary btn-compact @(Model.IsFavorite ? "is-active" : string.Empty)" type="submit">
+                    @(Model.IsFavorite ? "Favorito" : "Favoritar")
+                </button>
+            </form>
         </div>
 
-        <section class="family-library-reader-header">
-            <div>
-                <span class="app-kicker">@Model.EducationStage</span>
-                <h1>@Model.Title</h1>
-                <p>@Model.Description</p>
-                <div class="family-library-book-meta">
-                    <span>@Model.Category</span>
-                    <span>@Model.CollectionLabel</span>
-                    <span>@Model.SkillFocus</span>
+        <section class="child-hero-card child-hero-card-simple">
+            <div class="child-identity-row">
+                <div class="child-identity-copy">
+                    <span class="app-kicker">Leitura</span>
+                    <h1>@Model.Title</h1>
                 </div>
-            </div>
-
-            <div class="family-library-reader-side">
                 <span class="app-status @(Model.IsCompleted ? "success" : "neutral")">
                     @(Model.IsCompleted ? "Livro concluído" : $"Página {Model.CurrentPageNumber} de {Model.PageCount}")
                 </span>
-                <form method="post" asp-controller="Library" asp-action="ToggleFavorite">
-                    @Html.AntiForgeryToken()
-                    <input type="hidden" name="id" value="@Model.Id" />
-                    <input type="hidden" name="returnUrl" value="@returnUrl" />
-                    <button class="family-library-favorite-button @(Model.IsFavorite ? "is-active" : string.Empty)" type="submit">
-                        @(Model.IsFavorite ? "Favorito" : "Favoritar")
-                    </button>
-                </form>
+            </div>
+
+            <div class="hero-chip-row">
+                <span class="app-soft-pill">@Model.EducationStage</span>
+                <span class="app-soft-pill">@Model.Category</span>
+                <span class="app-soft-pill">@Model.PageCount página(s)</span>
             </div>
         </section>
 
         <section class="family-library-reader-card">
             <div class="family-library-page-header">
                 <span class="app-kicker">Pág. @Model.CurrentPage.PageNumber</span>
-                <form method="get" class="family-library-page-jump">
-                    <input type="hidden" name="id" value="@Model.Id" />
-                    @if (Model.SelectedChildId.HasValue)
-                    {
-                        <input type="hidden" name="childId" value="@Model.SelectedChildId" />
-                    }
-                    <label for="pageNumber">Ir para</label>
-                    <select id="pageNumber" name="pageNumber" class="input">
-                        @foreach (var pageItem in Model.Pages)
-                        {
-                            if (pageItem.PageNumber == Model.CurrentPageNumber)
-                            {
-                                <option value="@pageItem.PageNumber" selected>Pág. @pageItem.PageNumber</option>
-                            }
-                            else
-                            {
-                                <option value="@pageItem.PageNumber">Pág. @pageItem.PageNumber</option>
-                            }
-                        }
-                    </select>
-                    <button class="btn-secondary" type="submit">Abrir</button>
-                </form>
+                <span class="app-status neutral">Página @Model.CurrentPageNumber de @Model.PageCount</span>
             </div>
 
             @if (Model.CurrentPage.HasImage)

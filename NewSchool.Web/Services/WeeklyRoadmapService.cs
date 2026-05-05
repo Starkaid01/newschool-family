@@ -157,7 +157,7 @@ public class WeeklyRoadmapService(
         {
             "literacy" => "Semana automatica com foco em leitura, escrita e prova do que foi aprendido",
             "math_foundations" => "Semana automatica com foco em matematica concreta e rotina segura",
-            "science_discovery" => "Semana automatica com curiosidade, mundo real e registro simples",
+            "science_discovery" => "Semana automatica com curiosidade, ciencias, historia e geografia com registro simples",
             "autonomy" => "Semana automatica com autonomia, constancia e tarefas mastigadas",
             _ => "Semana automatica organizada para a familia nao improvisar"
         };
@@ -216,13 +216,29 @@ public class WeeklyRoadmapService(
                 "Justificar o resultado em fala ou registro curto.",
                 "Fechar a semana revisando metodo, erro comum e acerto principal."
             ],
-            "Brasil e mundo" =>
+            "Ciências" =>
             [
-                $"Abrir a unidade {currentUnitTitle.ToLowerInvariant()} com pergunta central bem definida.",
+                $"Abrir a unidade {currentUnitTitle.ToLowerInvariant()} com pergunta central e observacao do fenomeno.",
                 "Coletar dado, fonte ou observacao principal do tema.",
-                "Comparar fato, causa, mudanca ou impacto com mais criterio.",
-                "Registrar descoberta e explicar por que ela importa.",
-                "Fechar a semana com conclusao, posição ou sintese do tema."
+                "Comparar o que mudou, o que se repetiu e o que a experiencia mostrou.",
+                "Registrar descoberta e explicar a relacao entre pergunta e conclusao.",
+                "Fechar a semana com conclusao do experimento ou da investigacao."
+            ],
+            "História" =>
+            [
+                $"Abrir a unidade {currentUnitTitle.ToLowerInvariant()} com fato, personagem ou fonte inicial.",
+                "Organizar a ordem do acontecimento e localizar o contexto principal.",
+                "Comparar causa, consequência ou mudança no tempo.",
+                "Registrar a ideia central da narrativa histórica com uma prova.",
+                "Fechar a semana com síntese do fato estudado e do que ele ajuda a entender."
+            ],
+            "Geografia" =>
+            [
+                $"Abrir a unidade {currentUnitTitle.ToLowerInvariant()} com mapa, lugar ou territorio em destaque.",
+                "Ler referencia, regiao, paisagem ou circulacao ligada ao tema.",
+                "Comparar espaços, usos do territorio ou impacto no cotidiano.",
+                "Registrar o que o mapa ou o lugar ajuda a explicar.",
+                "Fechar a semana com conclusão sobre territorio, pessoas e ambiente."
             ],
             _ =>
             [
@@ -253,12 +269,26 @@ public class WeeklyRoadmapService(
                 "Semana 3: consolidar calculo e justificativa do metodo.",
                 "Semana 4: fechar a unidade com problema de aplicacao e revisao."
             ],
-            "Brasil e mundo" =>
+            "Ciências" =>
             [
-                $"Semana 1: abrir {currentUnitTitle.ToLowerInvariant()} com pergunta e fonte inicial.",
-                "Semana 2: ampliar o tema com comparacao de dado, causa ou contexto.",
-                "Semana 3: consolidar registro, interpretacao e relacao com a vida real.",
-                "Semana 4: fechar a unidade com conclusao, proposta ou sintese."
+                $"Semana 1: abrir {currentUnitTitle.ToLowerInvariant()} com pergunta, observacao e repertorio.",
+                "Semana 2: ampliar o tema com dado, experimento ou comparacao.",
+                "Semana 3: consolidar registro, conclusao e linguagem cientifica da serie.",
+                "Semana 4: fechar a unidade com sintese, prova ou aplicacao do que foi observado."
+            ],
+            "História" =>
+            [
+                $"Semana 1: abrir {currentUnitTitle.ToLowerInvariant()} com fato, fonte e contexto inicial.",
+                "Semana 2: ampliar o tema com ordem temporal, causa ou personagem.",
+                "Semana 3: consolidar explicacao historica e prova do texto ou da fonte.",
+                "Semana 4: fechar a unidade com conclusao, linha do tempo ou sintese."
+            ],
+            "Geografia" =>
+            [
+                $"Semana 1: abrir {currentUnitTitle.ToLowerInvariant()} com mapa, paisagem ou lugar de partida.",
+                "Semana 2: ampliar o tema com regiao, circulacao, ambiente ou territorio.",
+                "Semana 3: consolidar leitura espacial e relacao com a vida real.",
+                "Semana 4: fechar a unidade com sintese sobre espaço, sociedade e ambiente."
             ],
             _ =>
             [

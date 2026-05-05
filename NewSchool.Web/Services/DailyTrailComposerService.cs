@@ -115,7 +115,9 @@ public class DailyTrailComposerService
         {
             LearningDomain.Language => "Linguagem do dia organizada passo a passo",
             LearningDomain.Math => "Matematica do dia organizada passo a passo",
-            LearningDomain.World => "Mundo real do dia organizado passo a passo",
+            LearningDomain.Science => "Ciências do dia organizadas passo a passo",
+            LearningDomain.History => "História do dia organizada passo a passo",
+            LearningDomain.Geography => "Geografia do dia organizada passo a passo",
             LearningDomain.ExecutiveFunction => "Autonomia do dia organizada passo a passo",
             _ => "Trilha inteligente pronta para aplicar hoje"
         }
@@ -148,28 +150,16 @@ public class DailyTrailComposerService
     {
         LearningDomain.Language => "Abrir linguagem",
         LearningDomain.Math => "Consolidar matematica",
-        LearningDomain.World => "Investigar o tema",
+        LearningDomain.Science => "Investigar ciências",
+        LearningDomain.History => "Ler e organizar a história",
+        LearningDomain.Geography => "Ler espaço e território",
         LearningDomain.ExecutiveFunction => "Fechar com autonomia",
         _ => "Executar etapa"
     };
 
-    private static string FormatDomain(LearningDomain domain) => domain switch
-    {
-        LearningDomain.Language => "Linguagem",
-        LearningDomain.Math => "Matematica",
-        LearningDomain.World => "Mundo real",
-        LearningDomain.ExecutiveFunction => "Autonomia",
-        _ => "Geral"
-    };
+    private static string FormatDomain(LearningDomain domain) => CurriculumStructure.FormatDomainLabel(domain);
 
-    private static string GetDomainChipClass(LearningDomain domain) => domain switch
-    {
-        LearningDomain.Language => "track-communication",
-        LearningDomain.Math => "track-academic",
-        LearningDomain.World => "success",
-        LearningDomain.ExecutiveFunction => "track-dailyliving",
-        _ => "neutral"
-    };
+    private static string GetDomainChipClass(LearningDomain domain) => CurriculumStructure.GetDomainChipClass(domain);
 
     private static string FormatGoalTrack(string goalTrack) => goalTrack switch
     {
@@ -184,8 +174,10 @@ public class DailyTrailComposerService
     {
         LearningDomain.Language => 1,
         LearningDomain.Math => 2,
-        LearningDomain.World => 3,
-        LearningDomain.ExecutiveFunction => 4,
-        _ => 5
+        LearningDomain.Science => 3,
+        LearningDomain.History => 4,
+        LearningDomain.Geography => 5,
+        LearningDomain.ExecutiveFunction => 6,
+        _ => 7
     };
 }

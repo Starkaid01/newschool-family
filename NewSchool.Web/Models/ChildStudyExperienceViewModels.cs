@@ -39,6 +39,7 @@ public class GuidedLessonCardViewModel
     public ProprietaryLessonPacketViewModel? LessonPacket { get; set; }
     public CuratedResourceCardViewModel? PrimaryResource { get; set; }
     public CuratedSupportLinkViewModel? SupportLink { get; set; }
+    public FundamentalAssessmentSummaryViewModel? Assessment { get; set; }
 }
 
 public class TomorrowLessonPreviewViewModel

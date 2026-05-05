@@ -15,6 +15,7 @@ public class EmailAutomationService(
     IWebHostEnvironment environment,
     IOptions<EmailSettings> emailOptions,
     ChildGoalCycleService childGoalCycleService,
+    UserNotificationService userNotificationService,
     IResend resend,
     ILogger<EmailAutomationService> logger)
 {
@@ -28,8 +29,52 @@ public class EmailAutomationService(
         }
 
         await SendCampaignAsync(user, EmailCampaignType.Welcome, force: true);
+        await userNotificationService.CreateAsync(
+            user.Id,
+            "Bem-vindo ao NewSchool",
+            "Sua conta já está pronta. Agora você pode cadastrar uma criança e abrir a primeira aula do dia.",
+            "success",
+            "/Parent",
+            null,
+            true);
         user.OnboardingEmailSentAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
+    }
+
+    public async Task SendPasswordResetEmailAsync(AppUser user, string rawToken)
+    {
+        var encodedEmail = Uri.EscapeDataString(user.Email);
+        var encodedToken = Uri.EscapeDataString(rawToken);
+        var resetUrl = BuildAbsoluteUrl($"/Account/ResetPassword?email={encodedEmail}&token={encodedToken}");
+        var firstName = FirstName(user.FullName);
+        var subject = "Redefina sua senha do NewSchool";
+        var textBody = $"""
+Ola, {firstName}.
+
+Recebemos um pedido para redefinir a senha da sua conta no NewSchool.
+
+Abra este link para criar uma nova senha:
+{resetUrl}
+
+Se voce nao pediu essa troca, ignore este email. O link expira em 2 horas.
+""";
+
+        var htmlBody = $"""
+<div style="font-family:Arial,Helvetica,sans-serif;color:#1f2937;line-height:1.6;">
+  <p>Ola, <strong>{WebUtility.HtmlEncode(firstName)}</strong>.</p>
+  <p>Recebemos um pedido para redefinir a senha da sua conta no NewSchool.</p>
+  <p>
+    <a href="{resetUrl}" style="display:inline-block;background:#c7683c;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:999px;font-weight:700;">
+      Criar nova senha
+    </a>
+  </p>
+  <p>Se o botao nao abrir, copie e cole este link no navegador:</p>
+  <p><a href="{resetUrl}">{resetUrl}</a></p>
+  <p>Se voce nao pediu essa troca, ignore este email. O link expira em 2 horas.</p>
+</div>
+""";
+
+        await SendEmailAsync(user.Email, subject, textBody, htmlBody);
     }
 
     public async Task SendTrialReminderIfNeededAsync(AppUser user)
@@ -46,6 +91,14 @@ public class EmailAutomationService(
         }
 
         await SendCampaignAsync(user, EmailCampaignType.TrialEnding, force: true);
+        await userNotificationService.CreateAsync(
+            user.Id,
+            "Seu trial está acabando",
+            "O período de teste está perto do fim. Revise seu plano para não interromper a rotina da família.",
+            "warning",
+            "/Parent/Plans",
+            null,
+            true);
         user.TrialReminderSentAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
     }
@@ -65,6 +118,14 @@ public class EmailAutomationService(
         }
 
         await SendCampaignAsync(user, EmailCampaignType.Reactivation, force: true);
+        await userNotificationService.CreateAsync(
+            user.Id,
+            "Hora de retomar a rotina",
+            "A família ficou alguns dias sem registrar atividades. Abra a aula do dia e volte ao ritmo normal.",
+            "info",
+            "/Parent",
+            null,
+            true);
         user.ReactivationEmailSentAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
     }
@@ -82,6 +143,14 @@ public class EmailAutomationService(
         }
 
         await SendCampaignAsync(user, EmailCampaignType.PaymentFailed, force: true);
+        await userNotificationService.CreateAsync(
+            user.Id,
+            "Pagamento pendente",
+            "Encontramos uma falha no pagamento da assinatura. Abra a área de planos para revisar a cobrança.",
+            "warning",
+            "/Parent/Plans",
+            null,
+            true);
         user.PaymentRecoveryEmailSentAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
     }
@@ -115,6 +184,14 @@ public class EmailAutomationService(
         }
 
         await SendCampaignAsync(user, EmailCampaignType.ChildProgressRisk, force: true);
+        await userNotificationService.CreateAsync(
+            user.Id,
+            "Meta pedagógica em risco",
+            "Uma das metas do mês entrou em risco. Abra o currículo ou o reforço da criança para agir agora.",
+            "warning",
+            "/Parent/CurriculumHome",
+            null,
+            true);
 
         foreach (var cycle in cycles)
         {
@@ -156,6 +233,41 @@ public class EmailAutomationService(
         }
 
         return sent;
+    }
+
+    public async Task SendAdminResetPasswordEmailAsync(AppUser user, string temporaryPassword)
+    {
+        var loginUrl = BuildAbsoluteUrl("/Account/Login");
+        var subject = "Sua senha temporária do NewSchool";
+        var textBody = $"""
+Olá, {FirstName(user.FullName)}.
+
+Um administrador redefiniu a senha da sua conta no NewSchool.
+
+Senha temporária:
+{temporaryPassword}
+
+Entre agora em:
+{loginUrl}
+
+Depois de acessar, troque essa senha na área da sua conta.
+""";
+
+        var htmlBody = $"""
+<div style="font-family:Arial,Helvetica,sans-serif;color:#1f2937;line-height:1.6;">
+  <p>Olá, <strong>{WebUtility.HtmlEncode(FirstName(user.FullName))}</strong>.</p>
+  <p>Um administrador redefiniu a senha da sua conta no NewSchool.</p>
+  <p><strong>Senha temporária:</strong> <span style="font-size:18px;">{WebUtility.HtmlEncode(temporaryPassword)}</span></p>
+  <p>
+    <a href="{loginUrl}" style="display:inline-block;background:#c7683c;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:999px;font-weight:700;">
+      Entrar no NewSchool
+    </a>
+  </p>
+  <p>Depois de acessar, troque essa senha na área da sua conta.</p>
+</div>
+""";
+
+        await SendEmailAsync(user.Email, subject, textBody, htmlBody);
     }
 
     private bool ShouldSendCampaign(AppUser user, EmailCampaignType campaign)
@@ -585,7 +697,7 @@ public class EmailAutomationService(
     {
         var message = new EmailMessage
         {
-            From = BuildFromHeader(),
+            From = BuildResendFromHeader(),
             Subject = subject,
             HtmlBody = htmlBody
         };
@@ -660,6 +772,21 @@ Date: {DateTime.UtcNow:O}
         return string.IsNullOrWhiteSpace(_settings.FromName)
             ? _settings.FromEmail
             : $"{_settings.FromName} <{_settings.FromEmail}>";
+    }
+
+    private string BuildResendFromHeader()
+    {
+        var fromEmail = _settings.FromEmail;
+        if (string.IsNullOrWhiteSpace(fromEmail) ||
+            fromEmail.EndsWith(".local", StringComparison.OrdinalIgnoreCase) ||
+            !fromEmail.Contains('@'))
+        {
+            fromEmail = "onboarding@resend.dev";
+        }
+
+        return string.IsNullOrWhiteSpace(_settings.FromName)
+            ? fromEmail
+            : $"{_settings.FromName} <{fromEmail}>";
     }
 
     private static string FirstName(string fullName)

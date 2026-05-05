@@ -3,14 +3,17 @@
     var action = ViewContext.RouteData.Values["action"]?.ToString() ?? string.Empty;
     var isAuthenticatedParent = User.Identity?.IsAuthenticated == true && User.IsInRole("Parent");
     var isAdmin = User.Identity?.IsAuthenticated == true && User.IsInRole("Admin");
-    var dashboardActive = string.Equals(controller, "Parent", StringComparison.OrdinalIgnoreCase)
-        && string.Equals(action, "Index", StringComparison.OrdinalIgnoreCase);
-    var childrenActive = string.Equals(controller, "Parent", StringComparison.OrdinalIgnoreCase)
-        && (string.Equals(action, "Child", StringComparison.OrdinalIgnoreCase)
+    var todayActive = string.Equals(controller, "Parent", StringComparison.OrdinalIgnoreCase)
+        && (string.Equals(action, "Index", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(action, "Today", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(action, "Child", StringComparison.OrdinalIgnoreCase)
             || string.Equals(action, "CreateChild", StringComparison.OrdinalIgnoreCase));
-    var reportsActive = string.Equals(controller, "Parent", StringComparison.OrdinalIgnoreCase)
-        && (string.Equals(action, "WeeklyReport", StringComparison.OrdinalIgnoreCase)
+    var curriculumActive = string.Equals(controller, "Parent", StringComparison.OrdinalIgnoreCase)
+        && (string.Equals(action, "CurriculumHome", StringComparison.OrdinalIgnoreCase)
             || string.Equals(action, "Curriculum", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(action, "CurriculumPrint", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(action, "WeeklyReport", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(action, "SchoolReport", StringComparison.OrdinalIgnoreCase)
             || string.Equals(action, "Evolution", StringComparison.OrdinalIgnoreCase)
             || string.Equals(action, "Dossier", StringComparison.OrdinalIgnoreCase));
     var evidencesActive = string.Equals(controller, "Parent", StringComparison.OrdinalIgnoreCase)
@@ -67,6 +70,14 @@
     @await RenderSectionAsync("Head", required: false)
 </head>
 <body class="site-body @(isAuthenticatedParent ? "auth-app-body" : string.Empty)">
+    <div class="page-loading-overlay" id="page-loading-overlay" aria-hidden="true">
+        <div class="page-loading-card" role="status" aria-live="polite" aria-atomic="true">
+            <span class="page-loading-spinner" aria-hidden="true"></span>
+            <strong class="page-loading-title" id="page-loading-title">Carregando</strong>
+            <span class="page-loading-text" id="page-loading-text">Aguarde um instante...</span>
+        </div>
+    </div>
+
     <header class="site-header">
         <div class="site-header-inner">
             <a class="brand-block-new" asp-controller="Home" asp-action="Index">
@@ -95,13 +106,17 @@
                         }
                         else
                         {
-                            <a class="@(dashboardActive ? "is-active" : string.Empty)" asp-controller="Parent" asp-action="Index">Painel</a>
-                            <a class="@(childrenActive ? "is-active" : string.Empty)" asp-controller="Parent" asp-action="Index" asp-fragment="children-section">Filhos</a>
+                            <a class="@(todayActive ? "is-active" : string.Empty)" asp-controller="Parent" asp-action="Today">Hoje</a>
+                            <a class="@(curriculumActive ? "is-active" : string.Empty)" asp-controller="Parent" asp-action="CurriculumHome">Currículo</a>
+                            <a class="@(academyActive ? "is-active" : string.Empty)" asp-controller="Parent" asp-action="LibraryHome">Biblioteca</a>
                             <a class="@(evidencesActive ? "is-active" : string.Empty)" asp-controller="Parent" asp-action="EvidenceHome">Evidências</a>
-                            <a class="@(academyActive ? "is-active" : string.Empty)" asp-controller="Library" asp-action="Index">Biblioteca</a>
-                            <a class="@(plansActive ? "is-active" : string.Empty)" asp-controller="Parent" asp-action="Plans">Planos</a>
                         }
                     </nav>
+
+                    @if (!isAdmin)
+                    {
+                        <a class="header-ghost-button @(plansActive ? "is-active" : string.Empty)" asp-controller="Parent" asp-action="Plans">Planos</a>
+                    }
 
                     <form method="post" asp-controller="Account" asp-action="Logout" class="header-inline-form">
                         @Html.AntiForgeryToken()
@@ -126,11 +141,10 @@
     @if (isAuthenticatedParent)
     {
         <nav class="app-bottom-dock" aria-label="Navegacao principal da familia">
-            <a class="@(dashboardActive ? "is-active" : string.Empty)" asp-controller="Parent" asp-action="Index">Painel</a>
-            <a class="@(childrenActive ? "is-active" : string.Empty)" asp-controller="Parent" asp-action="Index" asp-fragment="children-section">Filhos</a>
+            <a class="@(todayActive ? "is-active" : string.Empty)" asp-controller="Parent" asp-action="Today">Hoje</a>
+            <a class="@(curriculumActive ? "is-active" : string.Empty)" asp-controller="Parent" asp-action="CurriculumHome">Currículo</a>
+            <a class="@(academyActive ? "is-active" : string.Empty)" asp-controller="Parent" asp-action="LibraryHome">Biblioteca</a>
             <a class="@(evidencesActive ? "is-active" : string.Empty)" asp-controller="Parent" asp-action="EvidenceHome">Evidências</a>
-            <a class="@(academyActive ? "is-active" : string.Empty)" asp-controller="Library" asp-action="Index">Biblioteca</a>
-            <a class="@(plansActive ? "is-active" : string.Empty)" asp-controller="Parent" asp-action="Plans">Planos</a>
         </nav>
     }
 
@@ -159,7 +173,9 @@
         </footer>
     }
 
+    <script src="~/js/site.js" asp-append-version="true"></script>
     <script src="~/js/ads-ready.js" asp-append-version="true"></script>
+    <script src="~/js/touch-stepper.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

@@ -13,6 +13,7 @@
         <div class="hero-chip-row">
             <a class="app-soft-pill" href="@Model.ChildUrl">Hoje</a>
             <a class="app-soft-pill" href="@Model.CurriculumUrl">Currículo</a>
+            <a class="app-soft-pill" asp-controller="Library" asp-action="Index" asp-route-childId="@Model.ChildId">Biblioteca</a>
             <span class="app-soft-pill active">Evidências</span>
         </div>
     </div>
@@ -666,9 +667,42 @@
 
         hydratePendingEvidenceVideoThumbnails();
 
+        function uploadFileDirectToBlob(uploadUrl, file, blobType, onProgress) {
+            return new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                xhr.open('PUT', uploadUrl, true);
+                xhr.setRequestHeader('x-ms-blob-type', blobType || 'BlockBlob');
+                xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+
+                xhr.upload.addEventListener('progress', (event) => {
+                    if (event.lengthComputable && typeof onProgress === 'function') {
+                        onProgress(Math.round((event.loaded / event.total) * 100));
+                    }
+                });
+
+                xhr.addEventListener('load', () => {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        resolve();
+                        return;
+                    }
+
+                    reject(new Error('O storage recusou este arquivo agora. Tente novamente.'));
+                });
+
+                xhr.addEventListener('error', () => {
+                    reject(new Error('O envio direto para o storage falhou. Tente novamente.'));
+                });
+
+                xhr.send(file);
+            });
+        }
+
         const evidenceUploadForm = document.getElementById('evidence-upload-form');
         if (evidenceUploadForm) {
             const chunkUploadUrl = '@(Url.Action("UploadEvidenceChunk", "Parent") ?? "/Parent/UploadEvidenceChunk")';
+            const prepareUploadUrl = '@(Url.Action("PrepareEvidenceUpload", "Parent") ?? "/Parent/PrepareEvidenceUpload")';
+            const completeUploadUrl = '@(Url.Action("CompleteEvidenceUpload", "Parent") ?? "/Parent/CompleteEvidenceUpload")';
+            const directUploadEnabled = @(Model.DirectUploadEnabled ? "true" : "false");
             const fileInput = evidenceUploadForm.querySelector('input[name="Upload.File"]');
             const titleInput = evidenceUploadForm.querySelector('input[name="Upload.Title"]');
             const notesInput = evidenceUploadForm.querySelector('textarea[name="Upload.Notes"]');
@@ -717,7 +751,7 @@
                 submitButton.textContent = isUploading ? 'Enviando arquivo...' : defaultButtonText;
             }
 
-            evidenceUploadForm.addEventListener('submit', async (event) => {
+                evidenceUploadForm.addEventListener('submit', async (event) => {
                 const file = fileInput?.files?.[0];
                 if (!file || !childIdInput) {
                     return;
@@ -730,9 +764,6 @@
                     return;
                 }
 
-                const totalChunks = Math.max(1, Math.ceil(file.size / chunkSize));
-                const uploadId = window.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-
                 try {
                     setUploadingState(true);
                     let thumbnailDataUrl = '';
@@ -742,6 +773,73 @@
                         thumbnailDataUrl = await captureVideoThumbnailFromFile(file);
                     }
 
+                    if (directUploadEnabled) {
+                        setChunkUploadStatus('Preparando o envio direto para o acervo...', 0);
+                        const formData = new FormData();
+                        formData.append('FileName', file.name);
+                        formData.append('ContentType', file.type || 'application/octet-stream');
+                        formData.append('ChildId', childIdInput.value);
+                        formData.append('DailyPlanId', dailyPlanInput?.value || '');
+                        formData.append('TotalSize', String(file.size));
+                        formData.append('__RequestVerificationToken', getToken());
+
+                        const prepareResponse = await fetch(prepareUploadUrl, {
+                            method: 'POST',
+                            headers: {
+                                'RequestVerificationToken': getToken()
+                            },
+                            body: formData
+                        });
+
+                        const grant = await prepareResponse.json().catch(() => ({}));
+                        if (!prepareResponse.ok) {
+                            throw new Error(grant.error || 'Nao foi possivel preparar o envio deste arquivo.');
+                        }
+
+                        if (!grant.useDirectUpload) {
+                            throw new Error('O upload direto ainda nao esta disponivel neste ambiente.');
+                        }
+
+                        await uploadFileDirectToBlob(grant.uploadUrl, file, grant.headers?.blobType, (percent) => {
+                            setChunkUploadStatus(`Enviando arquivo direto para o acervo... ${percent}%`, percent);
+                        });
+
+                        setChunkUploadStatus('Finalizando a evidência no sistema...', 100);
+                        const completionData = new FormData();
+                        completionData.append('__RequestVerificationToken', getToken());
+                        completionData.append('ChildId', childIdInput.value);
+                        completionData.append('DailyPlanId', dailyPlanInput?.value || '');
+                        completionData.append('Title', titleInput?.value || '');
+                        completionData.append('Notes', notesInput?.value || '');
+                        completionData.append('UploadToken', grant.uploadToken || '');
+                        if (thumbnailDataUrl) {
+                            completionData.append('ThumbnailDataUrl', thumbnailDataUrl);
+                        }
+
+                        const completeResponse = await fetch(completeUploadUrl, {
+                            method: 'POST',
+                            headers: {
+                                'RequestVerificationToken': getToken()
+                            },
+                            body: completionData
+                        });
+
+                        const completionPayload = await completeResponse.json().catch(() => ({}));
+                        if (!completeResponse.ok) {
+                            throw new Error(completionPayload.error || 'O arquivo subiu, mas o sistema nao conseguiu finalizar a evidência.');
+                        }
+
+                        if (completionPayload.redirectUrl) {
+                            window.location.href = completionPayload.redirectUrl;
+                            return;
+                        }
+
+                        window.location.reload();
+                        return;
+                    }
+
+                    const totalChunks = Math.max(1, Math.ceil(file.size / chunkSize));
+                    const uploadId = window.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
                     setChunkUploadStatus('Preparando o envio do arquivo...', 0);
 
                     for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex += 1) {

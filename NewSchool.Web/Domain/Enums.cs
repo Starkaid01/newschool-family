@@ -11,7 +11,10 @@ public enum LearningDomain
     Language = 1,
     Math = 2,
     World = 3,
-    ExecutiveFunction = 4
+    ExecutiveFunction = 4,
+    Science = 5,
+    History = 6,
+    Geography = 7
 }
 
 public enum SupportProfile

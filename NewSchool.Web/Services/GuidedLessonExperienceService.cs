@@ -40,6 +40,7 @@ public class GuidedLessonExperienceService
             systemTracks,
             printableMap,
             isPreviewMode: false);
+        var activeLesson = lessons.FirstOrDefault(x => !x.IsCompleted);
 
         var completedCount = lessons.Count(x => x.IsCompleted);
         var plannedCount = lessons.Count;
@@ -50,13 +51,15 @@ public class GuidedLessonExperienceService
         return new GuidedDailyLessonViewModel
         {
             Headline = BuildHeadline(child.FamilyGoalTrack),
-            Summary = $"Abra a primeira lição, siga os passos e conclua. A próxima sobe sozinha, e a folha para imprimir só aparece quando combinar de verdade com a idade e com o tema.",
+            Summary = activeLesson is null
+                ? "O dia de hoje já foi fechado. Se precisar, guarde a prova depois em Evidências."
+                : $"{activeLesson.SubjectLabel}: {activeLesson.Title}. Abra a atividade abaixo, faça só o que está nesta tela e conclua quando terminar.",
             CompletedLessonsCount = completedCount,
             PlannedLessonsCount = plannedCount,
             ProgressPercent = progressPercent,
             CompletionBanner = completedCount == plannedCount
                 ? "Dia concluido. Se quiser, guarde foto, video ou documento depois em Evidencias."
-                : "Conclua as licoes no seu ritmo. O conteudo da aula fica aqui; fotos e arquivos ficam separados em Evidencias.",
+                : "Faça uma lição por vez. Quando esta terminar, a próxima sobe automaticamente.",
             Lessons = lessons
         };
     }
@@ -106,7 +109,7 @@ public class GuidedLessonExperienceService
             HasPlan = true,
             Theme = tomorrowPlan.Theme,
             TotalMinutes = tomorrowPlan.Blocks.Sum(x => x.DurationMinutes),
-            Summary = "Amanhã já nasce organizado por matéria, com a próxima missão da criança e, quando fizer sentido, a folha certa para papel.",
+            Summary = "Amanhã já fica separado. Veja só a primeira lição e deixe o restante para a hora certa.",
             TopLessons = topLessons,
             Lessons = lessons
         };
@@ -145,32 +148,11 @@ public class GuidedLessonExperienceService
         };
     }
 
-    private static string BuildHeadline(string goalTrack) => goalTrack switch
-    {
-        "literacy" => "Currículo guiado de hoje",
-        "math_foundations" => "Matemática guiada de hoje",
-        "science_discovery" => "Descobertas guiadas de hoje",
-        "autonomy" => "Rotina guiada de hoje",
-        _ => "Lições guiadas de hoje"
-    };
+    private static string BuildHeadline(string goalTrack) => "Aula do dia";
 
-    private static string FormatDomain(LearningDomain domain) => domain switch
-    {
-        LearningDomain.Language => "Linguagem",
-        LearningDomain.Math => "Matemática",
-        LearningDomain.World => "Mundo real",
-        LearningDomain.ExecutiveFunction => "Autonomia",
-        _ => "Geral"
-    };
+    private static string FormatDomain(LearningDomain domain) => CurriculumStructure.FormatDomainLabel(domain);
 
-    private static string GetDomainChip(LearningDomain domain) => domain switch
-    {
-        LearningDomain.Language => "track-communication",
-        LearningDomain.Math => "track-academic",
-        LearningDomain.World => "success",
-        LearningDomain.ExecutiveFunction => "track-dailyliving",
-        _ => "neutral"
-    };
+    private static string GetDomainChip(LearningDomain domain) => CurriculumStructure.GetDomainChipClass(domain);
 
     private static List<string> BuildFallbackSteps(
         string parentGuide,
@@ -328,7 +310,12 @@ public class GuidedLessonExperienceService
                     string.Equals(track.DomainLabel, subjectLabel, StringComparison.OrdinalIgnoreCase));
                 var currentUnit = currentTrack?.CurrentUnit;
                 var printable = printableMap.TryGetValue(block.Id, out var printableMatch) ? printableMatch : null;
-                var title = suggestion?.Title ?? currentUnit?.TaskTitle ?? block.Title;
+                var title = !string.IsNullOrWhiteSpace(suggestion?.CurriculumLessonTitle)
+                    ? suggestion!.CurriculumLessonTitle
+                    : suggestion?.LessonPacket?.UnitTitle
+                      ?? suggestion?.Title
+                      ?? currentUnit?.TaskTitle
+                      ?? block.Title;
                 var steps = suggestion?.Steps.Count > 0 == true
                     ? suggestion.Steps.Take(4).ToList()
                     : BuildFallbackSteps(block.ParentGuide, block.ChildPrompt, block.Materials, currentUnit);

@@ -278,6 +278,12 @@ a { color: inherit; text-decoration: none; }
 
 .btn-primary { background: var(--brand); color: #fff; border: none; }
 .btn-primary:hover { background: var(--brand-dark); }
+.btn-primary.is-disabled,
+.btn-secondary.is-disabled {
+  opacity: 0.7;
+  cursor: progress;
+  pointer-events: none;
+}
 
 .btn-secondary {
   border: 1px solid var(--line);
@@ -1877,11 +1883,39 @@ code {
   .header-cta-link {
     flex: 1 1 auto;
   }
+
+  .auth-app-body .site-header-inner {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 24px;
+  }
+
+  .auth-app-body .site-header-actions {
+    width: auto;
+    margin-left: auto;
+    flex-wrap: nowrap;
+  }
+
+  .auth-app-body .header-ghost-button {
+    flex: 0 0 auto;
+    min-height: 40px;
+    padding: 9px 12px;
+  }
 }
 
 @media (max-width: 560px) {
   .brand-copy-new {
     display: none;
+  }
+
+  .auth-app-body .brand-copy-new {
+    display: none;
+  }
+
+  .auth-app-body .site-header-actions {
+    gap: 8px;
   }
 
   .phone-preview-grid {
@@ -1902,7 +1936,8 @@ code {
 }
 
 .site-nav-auth .is-active,
-.app-bottom-dock .is-active {
+.app-bottom-dock .is-active,
+.header-ghost-button.is-active {
   background: rgba(15, 118, 110, 0.14);
   color: #0f766e;
   border-color: rgba(15, 118, 110, 0.18);
@@ -2188,6 +2223,7 @@ code {
 .mini-child-actions {
   grid-column: 1 / -1;
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -2599,6 +2635,15 @@ code {
   align-items: center;
 }
 
+.topbar-inline-form {
+  margin: 0;
+}
+
+.btn-compact {
+  min-height: 42px;
+  padding: 10px 16px;
+}
+
 .back-inline-link {
   font-weight: 700;
   color: #172034;
@@ -2734,6 +2779,10 @@ code {
   .mini-child-card .app-status {
     grid-column: 1 / -1;
     justify-self: start;
+  }
+
+  .dashboard-summary-strip {
+    gap: 6px;
   }
 }
 
@@ -2992,6 +3041,20 @@ code {
 .child-hero-card-simple .lesson-hero-card,
 .family-hero-card-simple .lesson-hero-card {
   min-height: auto;
+}
+
+.dashboard-hero-compact {
+  gap: 14px;
+}
+
+.dashboard-summary-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dashboard-guide-details {
+  margin-top: 4px;
 }
 
 .study-progress-banner,
@@ -3298,6 +3361,69 @@ code {
 .guided-lesson-card-primary {
   border-color: rgba(184, 92, 56, 0.16);
   box-shadow: 0 20px 46px rgba(184, 92, 56, 0.08);
+}
+
+.touch-lesson-stepper {
+  display: grid;
+  gap: 14px;
+}
+
+.touch-lesson-stepper-head {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.touch-step-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid rgba(23, 32, 52, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  color: #53606b;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.touch-step-pill.is-active {
+  background: rgba(15, 118, 110, 0.14);
+  border-color: rgba(15, 118, 110, 0.18);
+  color: #0f766e;
+}
+
+.touch-step-pill:disabled,
+.touch-step-nav:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
+.touch-lesson-panel {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 22px;
+  border: 1px solid rgba(23, 32, 52, 0.08);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.touch-lesson-panel h3,
+.touch-lesson-panel p {
+  margin: 0;
+}
+
+.touch-lesson-panel p {
+  color: #44515a;
+  line-height: 1.7;
+}
+
+.touch-lesson-stepper-nav {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .academy-collection-details,
@@ -3714,6 +3840,7 @@ code {
 .family-library-book-copy h3,
 .family-library-printable-card h3,
 .family-library-section-heading h2,
+.family-library-current-book h1,
 .family-library-current-book h2 {
   margin: 0;
   font-size: clamp(1.3rem, 2.4vw, 2rem);
@@ -4134,6 +4261,105 @@ code {
   text-underline-offset: 4px;
 }
 
+.assessment-answer-space {
+  min-height: 92px;
+  margin-top: 12px;
+  border: 1px dashed var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.64);
+}
+
+.assessment-correction-form {
+  display: grid;
+  gap: 20px;
+}
+
+.assessment-choice-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.assessment-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--ink);
+}
+
+.assessment-choice input {
+  accent-color: var(--brand);
+}
+
+.page-loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 5000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(246, 241, 232, 0.72);
+  backdrop-filter: blur(8px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.18s ease, visibility 0.18s ease;
+}
+
+.page-loading-card {
+  width: min(320px, calc(100vw - 32px));
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 24px 22px;
+  border: 1px solid rgba(229, 218, 199, 0.9);
+  border-radius: 28px;
+  background: rgba(255, 253, 249, 0.98);
+  box-shadow: 0 24px 56px rgba(24, 32, 39, 0.14);
+  text-align: center;
+}
+
+.page-loading-spinner {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 4px solid rgba(184, 92, 56, 0.18);
+  border-top-color: var(--brand);
+  animation: page-loading-spin 0.9s linear infinite;
+}
+
+.page-loading-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.page-loading-text {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+body.page-loading {
+  overflow: hidden;
+}
+
+body.page-loading .page-loading-overlay {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+@keyframes page-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @media (max-width: 720px) {
   .site-footer-links {
     flex-direction: column;
@@ -4154,6 +4380,17 @@ code {
 
   .info-page-hero {
     padding: 18px;
+    border-radius: 24px;
+  }
+
+  .assessment-choice {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .page-loading-card {
+    width: min(280px, calc(100vw - 24px));
+    padding: 20px 18px;
     border-radius: 24px;
   }
 }

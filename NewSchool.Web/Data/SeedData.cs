@@ -13,15 +13,19 @@ public static class SeedData
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<AppUser>>();
         var familyLibrarySyncService = scope.ServiceProvider.GetRequiredService<FamilyLibrarySyncService>();
+        var runStartupContentSync = ShouldRunStartupContentSync(environment);
 
         Console.WriteLine("[SeedData] Iniciando EnsureSchemaAsync...");
         await DatabaseInitializer.EnsureSchemaAsync(db);
         await FamilyLibrarySchemaInitializer.EnsureSchemaAsync(db);
+        await AssessmentSchemaInitializer.EnsureSchemaAsync(db);
+        await NotificationSchemaInitializer.EnsureSchemaAsync(db);
         Console.WriteLine("[SeedData] Schema garantido.");
 
         Console.WriteLine("[SeedData] Validando catalogo curricular...");
-        if (await db.CurriculumTemplates.CountAsync() < 192 ||
-            await db.CurriculumTemplates.MaxAsync(x => (int?)x.Age) < 10 ||
+        var curriculumNeedsSync =
+            await db.CurriculumTemplates.CountAsync() < 192 ||
+            await db.CurriculumTemplates.MaxAsync(x => (int?)x.Age) < 14 ||
             await db.CurriculumTemplates.AllAsync(x => x.PrerequisiteSkillCode == "") ||
             await db.CurriculumTemplates.AnyAsync(x => x.SkillCode == null || x.SkillCode == "") ||
             !await db.CurriculumTemplates.AnyAsync(x => x.GoalTrack == "balanced_growth") ||
@@ -29,11 +33,18 @@ public static class SeedData
             !await db.CurriculumTemplates.AnyAsync(x => x.FunctionalTrack != FunctionalSupportTrack.Base) ||
             !await db.CurriculumTemplates.AnyAsync(x => x.FunctionalTrack == FunctionalSupportTrack.Sensory) ||
             !await db.CurriculumTemplates.AnyAsync(x => x.FunctionalTrack == FunctionalSupportTrack.DailyLiving) ||
-            !await db.CurriculumTemplates.AnyAsync(x => x.FunctionalTrack == FunctionalSupportTrack.AcademicAdapted))
+            !await db.CurriculumTemplates.AnyAsync(x => x.FunctionalTrack == FunctionalSupportTrack.AcademicAdapted) ||
+            !await db.CurriculumTemplates.AnyAsync(x => x.Domain == LearningDomain.Science) ||
+            !await db.CurriculumTemplates.AnyAsync(x => x.Domain == LearningDomain.History) ||
+            !await db.CurriculumTemplates.AnyAsync(x => x.Domain == LearningDomain.Geography);
+
+        if (curriculumNeedsSync && runStartupContentSync)
         {
-            db.CurriculumTemplates.RemoveRange(db.CurriculumTemplates);
-            await db.SaveChangesAsync();
-            db.CurriculumTemplates.AddRange(CurriculumCatalog.Build());
+            await SyncCurriculumTemplatesAsync(db, CurriculumCatalog.Build());
+        }
+        else if (curriculumNeedsSync)
+        {
+            Console.WriteLine("[SeedData] Curriculo precisa de sincronizacao, mas o sync pesado de startup esta desativado neste ambiente.");
         }
 
         Console.WriteLine("[SeedData] Validando playbook de intervencao...");
@@ -46,98 +57,81 @@ public static class SeedData
         }
 
         Console.WriteLine("[SeedData] Validando biblioteca curada...");
-        var resourcesNeedReset = await db.CuratedLearningResources.CountAsync() < 4 ||
-                                 !await db.CuratedLearningResources.AnyAsync(x => x.IsHostedLocally) ||
-                                 await db.CuratedLearningResources.AnyAsync(x => x.Slug == null || x.Slug == "") ||
-                                 !await db.CuratedLearningResources.AnyAsync(x => x.Slug == "aprendendo-o-alfabeto-public-domain") ||
-                                 !await db.CuratedLearningResources.AnyAsync(x => x.Slug == "i-can-dress-myself") ||
-                                 !await db.CuratedLearningResources.AnyAsync(x => x.Slug == "zanele-sees-numbers") ||
-                                 !await db.CuratedLearningResources.AnyAsync(x => x.Slug == "why-the-owl-never-sleeps");
+        var resourcesNeedSync = await db.CuratedLearningResources.CountAsync() < 200 ||
+                                !await db.CuratedLearningResources.AnyAsync(x => x.IsHostedLocally) ||
+                                await db.CuratedLearningResources.AnyAsync(x => x.Slug == null || x.Slug == "") ||
+                                !await db.CuratedLearningResources.AnyAsync(x => x.Slug == "aprendendo-o-alfabeto-public-domain") ||
+                                !await db.CuratedLearningResources.AnyAsync(x => x.Slug == "leituras-linguagem-1-ano") ||
+                                !await db.CuratedLearningResources.AnyAsync(x => x.Slug == "apostila-matematica-5-ano") ||
+                                !await db.CuratedLearningResources.AnyAsync(x => x.Slug == "avaliacao-geografia-9-ano") ||
+                                !await db.CuratedLearningResources.AnyAsync(x => x.SourceName == "NewSchool" && x.LanguageCode == "pt-BR");
 
         Console.WriteLine("[SeedData] Validando tarefas autorais...");
-        var tasksNeedReset = await db.CuratedTaskTemplates.CountAsync() < 72 ||
-                             await db.CuratedTaskTemplates.AnyAsync(x => x.Slug == null || x.Slug == "") ||
-                             !await db.CuratedTaskTemplates.AnyAsync(x => x.PrimaryResourceId.HasValue) ||
-                             !await db.CuratedTaskTemplates.AnyAsync(x => x.Slug == "pre-math-zanele-counting") ||
-                             !await db.CuratedTaskTemplates.AnyAsync(x => x.Slug == "language-evidence-paragraph") ||
-                             !await db.CuratedTaskTemplates.AnyAsync(x => x.Slug == "pre-language-rhyme-basket") ||
-                             !await db.CuratedTaskTemplates.AnyAsync(x => x.Slug == "world-brazil-map-and-region") ||
-                             !await db.CuratedTaskTemplates.AnyAsync(x => x.Slug == "language-copywork-verse") ||
-                             !await db.CuratedTaskTemplates.AnyAsync(x => x.Slug == "executive-week-review-and-next-step") ||
-                             !await db.CuratedTaskTemplates.AnyAsync(x => x.Slug == "pre-language-name-trace-and-sound") ||
-                             !await db.CuratedTaskTemplates.AnyAsync(x => x.Slug == "math-fraction-kitchen-halves") ||
-                             !await db.CuratedTaskTemplates.AnyAsync(x => x.Slug == "world-brazil-biome-observation") ||
-                             !await db.CuratedTaskTemplates.AnyAsync(x => x.Slug == "pre-bible-creation-colors") ||
-                             !await db.CuratedTaskTemplates.AnyAsync(x => x.Slug == "math-market-money-play") ||
-                             !await db.CuratedTaskTemplates.AnyAsync(x => x.Slug == "language-proverbs-copy-and-meaning") ||
-                             !await db.CuratedTaskTemplates.AnyAsync(x => x.Slug == "pre-language-story-picture-talk") ||
-                             !await db.CuratedTaskTemplates.AnyAsync(x => x.Slug == "pre-math-shapes-house-hunt") ||
-                             !await db.CuratedTaskTemplates.AnyAsync(x => x.Slug == "literacy-sound-to-word-path") ||
-                             !await db.CuratedTaskTemplates.AnyAsync(x => x.Slug == "language-character-problem-solution") ||
-                             !await db.CuratedTaskTemplates.AnyAsync(x => x.Slug == "language-compare-two-texts") ||
-                             !await db.CuratedTaskTemplates.AnyAsync(x => x.Slug == "world-brazil-waterways-impact") ||
-                             !await db.CuratedTaskTemplates.AnyAsync(x => x.Slug == "executive-self-check-before-submit");
+        var tasksNeedSync = await db.CuratedTaskTemplates.CountAsync() < 1200 ||
+                            await db.CuratedTaskTemplates.AnyAsync(x => x.Slug == null || x.Slug == "") ||
+                            !await db.CuratedTaskTemplates.AnyAsync(x => x.PrimaryResourceId.HasValue) ||
+                            !await db.CuratedTaskTemplates.AnyAsync(x => x.Slug == "curriculo-infantil-3-linguagem-u1-l1") ||
+                            !await db.CuratedTaskTemplates.AnyAsync(x => x.Slug == "curriculo-1-ano-matematica-u2-l5") ||
+                            !await db.CuratedTaskTemplates.AnyAsync(x => x.Slug == "curriculo-9-ano-geografia-u4-l5");
 
-        if (resourcesNeedReset || tasksNeedReset)
+        if (resourcesNeedSync && runStartupContentSync)
         {
-            db.CuratedTaskTemplates.RemoveRange(db.CuratedTaskTemplates);
-            await db.SaveChangesAsync();
+            await SyncCuratedLearningResourcesAsync(db, CuratedLibraryCatalog.BuildResources());
+        }
+        else if (resourcesNeedSync)
+        {
+            Console.WriteLine("[SeedData] Biblioteca curada precisa de sincronizacao, mas o sync pesado de startup esta desativado neste ambiente.");
+        }
 
-            if (resourcesNeedReset)
-            {
-                db.CuratedLearningResources.RemoveRange(db.CuratedLearningResources);
-                await db.SaveChangesAsync();
-                db.CuratedLearningResources.AddRange(CuratedLibraryCatalog.BuildResources());
-                await db.SaveChangesAsync();
-            }
-
-            db.CuratedTaskTemplates.AddRange(CuratedLibraryCatalog.BuildTasks());
+        if (tasksNeedSync && runStartupContentSync)
+        {
+            await SyncCuratedTaskTemplatesAsync(db, CuratedLibraryCatalog.BuildTasks());
+        }
+        else if (tasksNeedSync)
+        {
+            Console.WriteLine("[SeedData] Tarefas autorais precisam de sincronizacao, mas o sync pesado de startup esta desativado neste ambiente.");
         }
 
         Console.WriteLine("[SeedData] Validando usuarios demo...");
-        if (environment.IsDevelopment() && !await db.Users.AnyAsync())
+        if (environment.IsDevelopment())
         {
-            var admin = new AppUser
-            {
-                FullName = "Admin NewSchool",
-                Email = "admin@newschool.local",
-                ReferralCode = "ADMIN-DEMO",
-                Role = UserRole.Admin,
-                SubscriptionStatus = "active",
-                CreatedAt = DateTime.UtcNow
-            };
-            admin.PasswordHash = passwordHasher.HashPassword(admin, "Admin123!");
+            await EnsureDevelopmentAdminAsync(db, passwordHasher, "admin@newschool.local", "Admin NewSchool", "ADMIN-DEMO", "Admin123!");
+            await EnsureDevelopmentAdminAsync(db, passwordHasher, "dev-admin@admin", "Dev Admin", "DEV-ADMIN", "Admin123!");
+            await EnsureDevelopmentAdminAsync(db, passwordHasher, "parceiro-admin@adimin", "Parceiro Admin", "PARCEIRO-ADMIN", "Admin123!");
 
-            var parent = new AppUser
+            if (!await db.Users.AnyAsync(x => x.Email == "parent@newschool.local"))
             {
-                FullName = "Juliana Demo",
-                Email = "parent@newschool.local",
-                ReferralCode = "PARENT-DEMO",
-                Role = UserRole.Parent,
-                SubscriptionStatus = "inactive",
-                TrialStartedAt = DateTime.UtcNow.Date,
-                TrialEndsAt = DateTime.UtcNow.Date.AddDays(7),
-                LastActiveAt = DateTime.UtcNow,
-                CreatedAt = DateTime.UtcNow
-            };
-            parent.PasswordHash = passwordHasher.HashPassword(parent, "Parent123!");
+                var parent = new AppUser
+                {
+                    FullName = "Juliana Demo",
+                    Email = "parent@newschool.local",
+                    ReferralCode = "PARENT-DEMO",
+                    Role = UserRole.Parent,
+                    SubscriptionStatus = "inactive",
+                    TrialStartedAt = DateTime.UtcNow.Date,
+                    TrialEndsAt = DateTime.UtcNow.Date.AddDays(7),
+                    LastActiveAt = DateTime.UtcNow,
+                    CreatedAt = DateTime.UtcNow
+                };
+                parent.PasswordHash = passwordHasher.HashPassword(parent, "Parent123!");
 
-            var child = new ChildProfile
-            {
-                Parent = parent,
-                FullName = "Mateus Demo",
-                BirthDate = DateTime.UtcNow.Date.AddYears(-5).AddMonths(-3),
-                DailyStudyMinutes = 45,
-                Notes = "Curioso, gosta de dinossauros e desenhar.",
-                SupportProfile = SupportProfile.General,
-                TeachingMethodology = "eclectic",
-                LearningProfile = "hands_on",
-                GuidanceStyle = "guided",
-                CreatedAt = DateTime.UtcNow
-            };
+                var child = new ChildProfile
+                {
+                    Parent = parent,
+                    FullName = "Mateus Demo",
+                    BirthDate = DateTime.UtcNow.Date.AddYears(-5).AddMonths(-3),
+                    DailyStudyMinutes = 45,
+                    Notes = "Curioso, gosta de dinossauros e desenhar.",
+                    SupportProfile = SupportProfile.General,
+                    TeachingMethodology = "eclectic",
+                    LearningProfile = "hands_on",
+                    GuidanceStyle = "guided",
+                    CreatedAt = DateTime.UtcNow
+                };
 
-            db.Users.AddRange(admin, parent);
-            db.Children.Add(child);
+                db.Users.Add(parent);
+                db.Children.Add(child);
+            }
         }
 
         Console.WriteLine("[SeedData] Validando perfis pedagogicos...");
@@ -201,13 +195,93 @@ public static class SeedData
 
         Console.WriteLine("[SeedData] Persistindo seed...");
         await db.SaveChangesAsync();
-        Console.WriteLine("[SeedData] Sincronizando biblioteca da família...");
-        await familyLibrarySyncService.SyncAsync();
-        db.ChangeTracker.Clear();
-        Console.WriteLine("[SeedData] Garantindo coleção autoral NewSchool...");
-        await EnsureProprietaryFamilyLibraryAsync(db);
+        if (runStartupContentSync)
+        {
+            Console.WriteLine("[SeedData] Sincronizando biblioteca da família...");
+            await familyLibrarySyncService.SyncAsync();
+            db.ChangeTracker.Clear();
+            Console.WriteLine("[SeedData] Garantindo coleção autoral NewSchool...");
+            await EnsureProprietaryFamilyLibraryAsync(db);
+        }
+        else
+        {
+            Console.WriteLine("[SeedData] Sync pesado de biblioteca desativado neste ambiente para preservar o boot.");
+        }
         Console.WriteLine("[SeedData] Seed concluido.");
     }
+
+    private static bool ShouldRunStartupContentSync(IWebHostEnvironment environment)
+    {
+        var skipValue = Environment.GetEnvironmentVariable("NEWSCHOOL_SKIP_STARTUP_CONTENT_SYNC");
+        if (IsTrue(skipValue))
+        {
+            return false;
+        }
+
+        var runValue =
+            Environment.GetEnvironmentVariable("NEWSCHOOL_RUN_STARTUP_CONTENT_SYNC")
+            ?? Environment.GetEnvironmentVariable("NEWSCHOOL_FORCE_STARTUP_SYNC");
+
+        if (IsTrue(runValue))
+        {
+            return true;
+        }
+
+        if (IsFalse(runValue))
+        {
+            return false;
+        }
+
+        if (environment.IsDevelopment())
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static async Task EnsureDevelopmentAdminAsync(
+        ApplicationDbContext db,
+        IPasswordHasher<AppUser> passwordHasher,
+        string email,
+        string fullName,
+        string referralCode,
+        string password)
+    {
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+        var admin = await db.Users.FirstOrDefaultAsync(x => x.Email == normalizedEmail);
+        if (admin is null)
+        {
+            admin = new AppUser
+            {
+                FullName = fullName,
+                Email = normalizedEmail,
+                ReferralCode = referralCode,
+                Role = UserRole.Admin,
+                SubscriptionStatus = "active",
+                CreatedAt = DateTime.UtcNow
+            };
+            admin.PasswordHash = passwordHasher.HashPassword(admin, password);
+            db.Users.Add(admin);
+            return;
+        }
+
+        admin.FullName = fullName;
+        admin.Role = UserRole.Admin;
+        admin.SubscriptionStatus = "active";
+        if (string.IsNullOrWhiteSpace(admin.ReferralCode))
+        {
+            admin.ReferralCode = referralCode;
+        }
+    }
+
+    private static bool IsTrue(string? value) =>
+        string.Equals(value, "true", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(value, "1", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsFalse(string? value) =>
+        string.Equals(value, "false", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(value, "0", StringComparison.OrdinalIgnoreCase);
 
     private static async Task EnsureProprietaryFamilyLibraryAsync(ApplicationDbContext db)
     {
@@ -217,6 +291,11 @@ public static class SeedData
         var existingAuthoredMaterials = await db.FamilyLibraryMaterials
             .Where(item => seedIds.Contains(item.Id) || item.SourceSyncToken.StartsWith("AUTHOR:"))
             .ToListAsync();
+        var existingPageCounts = await db.FamilyLibraryPages
+            .Where(page => seedIds.Contains(page.MaterialId))
+            .GroupBy(page => page.MaterialId)
+            .Select(group => new { group.Key, Count = group.Count() })
+            .ToDictionaryAsync(item => item.Key, item => item.Count);
 
         var authoredToRemove = existingAuthoredMaterials
             .Where(item => ProprietaryFamilyLibraryCatalog.IsAuthoredMaterial(item) && !seedIds.Contains(item.Id))
@@ -245,37 +324,250 @@ public static class SeedData
                 existingAuthoredMaterials.Add(material);
             }
 
-            material.Title = seed.Title;
-            material.Category = seed.Category;
-            material.EducationStage = seed.EducationStage;
-            material.RecommendedMinAge = seed.RecommendedMinAge;
-            material.RecommendedMaxAge = seed.RecommendedMaxAge;
-            material.SkillFocus = seed.SkillFocus;
-            material.Description = seed.Description;
-            material.CollectionLabel = seed.CollectionLabel;
-            material.IsPrintable = seed.IsPrintable;
-            material.PageCount = seed.Pages.Count;
-            material.HasIllustrations = seed.HasIllustrations;
-            material.CoverImageRelativePath = seed.CoverImageRelativePath;
-            material.SourceRelativePath = seed.SourceRelativePath;
-            material.SourceSyncToken = seed.SourceSyncToken;
-            material.SourceUpdatedAtUtc = seed.SourceUpdatedAtUtc;
-            material.SyncedAtUtc = DateTime.UtcNow;
+            var previousSyncToken = material.SourceSyncToken;
+            var isNewMaterial = string.IsNullOrWhiteSpace(material.SourceSyncToken);
+            var metadataChanged = isNewMaterial
+                || !string.Equals(material.Title, seed.Title, StringComparison.Ordinal)
+                || !string.Equals(material.Category, seed.Category, StringComparison.Ordinal)
+                || !string.Equals(material.EducationStage, seed.EducationStage, StringComparison.Ordinal)
+                || material.RecommendedMinAge != seed.RecommendedMinAge
+                || material.RecommendedMaxAge != seed.RecommendedMaxAge
+                || !string.Equals(material.SkillFocus, seed.SkillFocus, StringComparison.Ordinal)
+                || !string.Equals(material.Description, seed.Description, StringComparison.Ordinal)
+                || !string.Equals(material.CollectionLabel, seed.CollectionLabel, StringComparison.Ordinal)
+                || material.IsPrintable != seed.IsPrintable
+                || material.PageCount != seed.Pages.Count
+                || material.HasIllustrations != seed.HasIllustrations
+                || !string.Equals(material.CoverImageRelativePath, seed.CoverImageRelativePath, StringComparison.Ordinal)
+                || !string.Equals(material.SourceRelativePath, seed.SourceRelativePath, StringComparison.Ordinal)
+                || !string.Equals(material.SourceSyncToken, seed.SourceSyncToken, StringComparison.Ordinal)
+                || material.SourceUpdatedAtUtc != seed.SourceUpdatedAtUtc;
 
-            await db.FamilyLibraryPages
-                .Where(page => page.MaterialId == material.Id)
-                .ExecuteDeleteAsync();
-
-            foreach (var page in seed.Pages.OrderBy(page => page.PageNumber))
+            if (metadataChanged)
             {
-                db.FamilyLibraryPages.Add(new FamilyLibraryPage
-                {
-                    MaterialId = material.Id,
-                    PageNumber = page.PageNumber,
-                    TextContent = page.TextContent,
-                    ImageRelativePath = page.ImageRelativePath
-                });
+                material.Title = seed.Title;
+                material.Category = seed.Category;
+                material.EducationStage = seed.EducationStage;
+                material.RecommendedMinAge = seed.RecommendedMinAge;
+                material.RecommendedMaxAge = seed.RecommendedMaxAge;
+                material.SkillFocus = seed.SkillFocus;
+                material.Description = seed.Description;
+                material.CollectionLabel = seed.CollectionLabel;
+                material.IsPrintable = seed.IsPrintable;
+                material.PageCount = seed.Pages.Count;
+                material.HasIllustrations = seed.HasIllustrations;
+                material.CoverImageRelativePath = seed.CoverImageRelativePath;
+                material.SourceRelativePath = seed.SourceRelativePath;
+                material.SourceSyncToken = seed.SourceSyncToken;
+                material.SourceUpdatedAtUtc = seed.SourceUpdatedAtUtc;
+                material.SyncedAtUtc = DateTime.UtcNow;
             }
+
+            var storedPageCount = existingPageCounts.GetValueOrDefault(material.Id);
+            var needsPageRefresh = isNewMaterial
+                || !string.Equals(previousSyncToken, seed.SourceSyncToken, StringComparison.Ordinal)
+                || storedPageCount != seed.Pages.Count;
+
+            if (needsPageRefresh)
+            {
+                await db.FamilyLibraryPages
+                    .Where(page => page.MaterialId == material.Id)
+                    .ExecuteDeleteAsync();
+
+                foreach (var page in seed.Pages.OrderBy(page => page.PageNumber))
+                {
+                    db.FamilyLibraryPages.Add(new FamilyLibraryPage
+                    {
+                        MaterialId = material.Id,
+                        PageNumber = page.PageNumber,
+                        TextContent = page.TextContent,
+                        ImageRelativePath = page.ImageRelativePath
+                    });
+                }
+
+                existingPageCounts[material.Id] = seed.Pages.Count;
+                material.SyncedAtUtc = DateTime.UtcNow;
+            }
+        }
+
+        await db.SaveChangesAsync();
+    }
+
+    private static async Task SyncCurriculumTemplatesAsync(ApplicationDbContext db, IReadOnlyList<CurriculumTemplate> seeds)
+    {
+        var existingTemplates = await db.CurriculumTemplates.ToListAsync();
+        var existingBySkillCode = existingTemplates
+            .Where(template => !string.IsNullOrWhiteSpace(template.SkillCode))
+            .GroupBy(template => template.SkillCode, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+
+        foreach (var seed in seeds)
+        {
+            if (!string.IsNullOrWhiteSpace(seed.SkillCode) &&
+                existingBySkillCode.TryGetValue(seed.SkillCode, out var existing))
+            {
+                existing.Age = seed.Age;
+                existing.Domain = seed.Domain;
+                existing.SupportScope = seed.SupportScope;
+                existing.FunctionalTrack = seed.FunctionalTrack;
+                existing.GoalTrack = seed.GoalTrack;
+                existing.PrerequisiteSkillCode = seed.PrerequisiteSkillCode;
+                existing.SkillName = seed.SkillName;
+                existing.Title = seed.Title;
+                existing.Goal = seed.Goal;
+                existing.Materials = seed.Materials;
+                existing.ParentGuide = seed.ParentGuide;
+                existing.ChildMission = seed.ChildMission;
+                existing.EvidencePrompt = seed.EvidencePrompt;
+                existing.ReviewAfterDays = seed.ReviewAfterDays;
+                existing.SortOrder = seed.SortOrder;
+                continue;
+            }
+
+            db.CurriculumTemplates.Add(new CurriculumTemplate
+            {
+                Id = seed.Id,
+                Age = seed.Age,
+                Domain = seed.Domain,
+                SupportScope = seed.SupportScope,
+                FunctionalTrack = seed.FunctionalTrack,
+                GoalTrack = seed.GoalTrack,
+                SkillCode = seed.SkillCode,
+                PrerequisiteSkillCode = seed.PrerequisiteSkillCode,
+                SkillName = seed.SkillName,
+                Title = seed.Title,
+                Goal = seed.Goal,
+                Materials = seed.Materials,
+                ParentGuide = seed.ParentGuide,
+                ChildMission = seed.ChildMission,
+                EvidencePrompt = seed.EvidencePrompt,
+                ReviewAfterDays = seed.ReviewAfterDays,
+                SortOrder = seed.SortOrder
+            });
+        }
+
+        await db.SaveChangesAsync();
+    }
+
+    private static async Task SyncCuratedLearningResourcesAsync(ApplicationDbContext db, IReadOnlyList<CuratedLearningResource> seeds)
+    {
+        var existingResources = await db.CuratedLearningResources.ToListAsync();
+        var existingBySlug = existingResources
+            .Where(resource => !string.IsNullOrWhiteSpace(resource.Slug))
+            .GroupBy(resource => resource.Slug, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+
+        foreach (var seed in seeds)
+        {
+            if (!string.IsNullOrWhiteSpace(seed.Slug) &&
+                existingBySlug.TryGetValue(seed.Slug, out var existing))
+            {
+                existing.Title = seed.Title;
+                existing.Summary = seed.Summary;
+                existing.UseNote = seed.UseNote;
+                existing.Domain = seed.Domain;
+                existing.AgeMin = seed.AgeMin;
+                existing.AgeMax = seed.AgeMax;
+                existing.FormatLabel = seed.FormatLabel;
+                existing.ResourceKind = seed.ResourceKind;
+                existing.SourceName = seed.SourceName;
+                existing.SourceUrl = seed.SourceUrl;
+                existing.AccessUrl = seed.AccessUrl;
+                existing.IsHostedLocally = seed.IsHostedLocally;
+                existing.LicenseLabel = seed.LicenseLabel;
+                existing.Attribution = seed.Attribution;
+                existing.LanguageCode = seed.LanguageCode;
+                existing.SortOrder = seed.SortOrder;
+                continue;
+            }
+
+            db.CuratedLearningResources.Add(new CuratedLearningResource
+            {
+                Id = seed.Id,
+                Slug = seed.Slug,
+                Title = seed.Title,
+                Summary = seed.Summary,
+                UseNote = seed.UseNote,
+                Domain = seed.Domain,
+                AgeMin = seed.AgeMin,
+                AgeMax = seed.AgeMax,
+                FormatLabel = seed.FormatLabel,
+                ResourceKind = seed.ResourceKind,
+                SourceName = seed.SourceName,
+                SourceUrl = seed.SourceUrl,
+                AccessUrl = seed.AccessUrl,
+                IsHostedLocally = seed.IsHostedLocally,
+                LicenseLabel = seed.LicenseLabel,
+                Attribution = seed.Attribution,
+                LanguageCode = seed.LanguageCode,
+                SortOrder = seed.SortOrder
+            });
+        }
+
+        await db.SaveChangesAsync();
+    }
+
+    private static async Task SyncCuratedTaskTemplatesAsync(ApplicationDbContext db, IReadOnlyList<CuratedTaskTemplate> seeds)
+    {
+        var existingTasks = await db.CuratedTaskTemplates.ToListAsync();
+        var existingBySlug = existingTasks
+            .Where(task => !string.IsNullOrWhiteSpace(task.Slug))
+            .GroupBy(task => task.Slug, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+
+        foreach (var seed in seeds)
+        {
+            if (!string.IsNullOrWhiteSpace(seed.Slug) &&
+                existingBySlug.TryGetValue(seed.Slug, out var existing))
+            {
+                existing.Title = seed.Title;
+                existing.Domain = seed.Domain;
+                existing.FunctionalTrack = seed.FunctionalTrack;
+                existing.AgeMin = seed.AgeMin;
+                existing.AgeMax = seed.AgeMax;
+                existing.GoalTrack = seed.GoalTrack;
+                existing.MatchKeywords = seed.MatchKeywords;
+                existing.Goal = seed.Goal;
+                existing.ParentGuide = seed.ParentGuide;
+                existing.ChildPrompt = seed.ChildPrompt;
+                existing.TaskSteps = seed.TaskSteps;
+                existing.MaterialsSummary = seed.MaterialsSummary;
+                existing.EvidencePrompt = seed.EvidencePrompt;
+                existing.ExpectedOutcome = seed.ExpectedOutcome;
+                existing.SuggestedMinutes = seed.SuggestedMinutes;
+                existing.PrimaryResourceId = seed.PrimaryResourceId;
+                existing.SupportLinkLabel = seed.SupportLinkLabel;
+                existing.SupportLinkUrl = seed.SupportLinkUrl;
+                existing.SupportLinkSource = seed.SupportLinkSource;
+                existing.SortOrder = seed.SortOrder;
+                continue;
+            }
+
+            db.CuratedTaskTemplates.Add(new CuratedTaskTemplate
+            {
+                Id = seed.Id,
+                Slug = seed.Slug,
+                Title = seed.Title,
+                Domain = seed.Domain,
+                FunctionalTrack = seed.FunctionalTrack,
+                AgeMin = seed.AgeMin,
+                AgeMax = seed.AgeMax,
+                GoalTrack = seed.GoalTrack,
+                MatchKeywords = seed.MatchKeywords,
+                Goal = seed.Goal,
+                ParentGuide = seed.ParentGuide,
+                ChildPrompt = seed.ChildPrompt,
+                TaskSteps = seed.TaskSteps,
+                MaterialsSummary = seed.MaterialsSummary,
+                EvidencePrompt = seed.EvidencePrompt,
+                ExpectedOutcome = seed.ExpectedOutcome,
+                SuggestedMinutes = seed.SuggestedMinutes,
+                PrimaryResourceId = seed.PrimaryResourceId,
+                SupportLinkLabel = seed.SupportLinkLabel,
+                SupportLinkUrl = seed.SupportLinkUrl,
+                SupportLinkSource = seed.SupportLinkSource,
+                SortOrder = seed.SortOrder
+            });
         }
 
         await db.SaveChangesAsync();

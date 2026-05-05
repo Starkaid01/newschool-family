@@ -1,0 +1,80 @@
+@model NewSchool.Web.Models.FundamentalAssessmentCorrectionViewModel
+@{
+    ViewData["Title"] = "Corrigir teste";
+}
+
+<section class="child-app-shell child-app-shell-simple">
+    <div class="child-topbar-row">
+        <a class="back-inline-link" href="@Model.ChildUrl">Voltar para hoje</a>
+        <span class="app-status neutral">Corrigir</span>
+    </div>
+
+    <section class="child-hero-card child-hero-card-simple">
+        <div class="child-identity-row">
+            <div class="child-identity-copy">
+                <span class="app-kicker">@Model.SchoolPlacementLabel</span>
+                <h1>@Model.AssessmentTitle</h1>
+                <p>@Model.Summary</p>
+            </div>
+            <span class="app-status @(Model.IsCompleted ? "success" : "warning")">
+                @(Model.IsCompleted ? Model.ScoreLabel : "correção pendente")
+            </span>
+        </div>
+
+        <article class="lesson-hero-card lesson-hero-card-simple">
+            <div class="lesson-hero-copy">
+                <span class="app-kicker">@Model.SubjectLabel</span>
+                <h2>@Model.LessonTitle</h2>
+                <p>Marque cada resposta como acertou ou errou. No final, o sistema calcula a nota automaticamente.</p>
+            </div>
+
+            <div class="hero-action-row">
+                <a class="btn-secondary" href="@Model.PrintableUrl">Abrir teste</a>
+            </div>
+        </article>
+    </section>
+
+    <form method="post" action="@Model.SaveUrl" class="assessment-correction-form">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="AssessmentId" value="@Model.AssessmentId" />
+        <input type="hidden" name="ChildId" value="@Model.ChildId" />
+        <input type="hidden" name="DailyPlanBlockId" value="@Model.DailyPlanBlockId" />
+
+        <section class="app-card">
+            <div class="section-heading-row">
+                <div>
+                    <span class="app-kicker">Correção</span>
+                    <h2>Marque uma por uma</h2>
+                </div>
+                <span class="app-status neutral">@Model.Questions.Count pergunta(s)</span>
+            </div>
+
+            <div class="simple-steps-list">
+                @for (var i = 0; i < Model.Questions.Count; i++)
+                {
+                    var question = Model.Questions[i];
+                    <article class="simple-step-item">
+                        <input type="hidden" name="Items[@i].ItemId" value="@question.ItemId" />
+                        <strong>@question.SortOrder. @question.Prompt</strong>
+                        <p><strong>Resposta esperada:</strong> @question.ExpectedAnswer</p>
+                        <p>@question.TeacherNote</p>
+                        <div class="assessment-choice-row">
+                            <label class="assessment-choice">
+                                <input type="radio" name="Items[@i].IsCorrect" value="true" @(question.IsCorrect == true ? "checked" : null) />
+                                <span>Acertou</span>
+                            </label>
+                            <label class="assessment-choice">
+                                <input type="radio" name="Items[@i].IsCorrect" value="false" @(question.IsCorrect == false ? "checked" : null) />
+                                <span>Errou</span>
+                            </label>
+                        </div>
+                    </article>
+                }
+            </div>
+
+            <div class="hero-action-row">
+                <button class="btn-primary" type="submit">Salvar</button>
+            </div>
+        </section>
+    </form>
+</section>

@@ -4,23 +4,34 @@
 }
 
 <section class="family-library-shell family-library-print-shell">
-    <section class="family-library-reader-top family-library-print-toolbar">
-        <a class="btn-secondary" href="@Model.BackPrintablesUrl">Voltar aos imprimíveis</a>
-        <button class="btn-primary" type="button" onclick="window.print()">Imprimir agora</button>
-    </section>
+    <div class="child-topbar-row">
+        <a class="back-inline-link" href="@Model.BackPrintablesUrl">Voltar aos imprimíveis</a>
+        <span class="app-status neutral">Atividade</span>
+    </div>
 
-    <section class="family-library-reader-header">
-        <div>
-            <span class="app-kicker">@Model.EducationStage</span>
-            <h1>@Model.Title</h1>
-            <p>@Model.Description</p>
-            <div class="family-library-book-meta">
-                <span>@Model.Category</span>
-                <span>@Model.CollectionLabel</span>
-                <span>@Model.PageCount página(s)</span>
+    <section class="child-hero-card child-hero-card-simple">
+        <div class="child-identity-row">
+            <div class="child-identity-copy">
+                <span class="app-kicker">@Model.EducationStage</span>
+                <h1>@Model.Title</h1>
+                <p>@Model.Description</p>
             </div>
+            <span class="app-status neutral">@Model.PageCount página(s)</span>
+        </div>
+
+        <div class="hero-chip-row">
+            <span class="app-soft-pill">@Model.Category</span>
+            <span class="app-soft-pill">@Model.CollectionLabel</span>
         </div>
     </section>
+
+    <article class="child-card-note">
+        <strong>Use no papel</strong>
+        <p>Imprima e aplique uma página por vez. Se bastar uma página hoje, pare nela e guarde a evidência depois.</p>
+        <div class="hero-action-row">
+            <button class="btn-primary" type="button" onclick="window.print()">Imprimir agora</button>
+        </div>
+    </article>
 
     <section class="family-library-print-pages">
         @foreach (var pageItem in Model.Pages)

@@ -69,6 +69,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     });
 
 builder.Services.AddAuthorization();
+builder.Services.AddDataProtection();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders =
@@ -95,8 +96,11 @@ builder.Services.Configure<StripeSettings>(options =>
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Email"));
 builder.Services.Configure<OpenRouterSettings>(builder.Configuration.GetSection("OpenRouter"));
 builder.Services.Configure<AdvertisingOptions>(builder.Configuration.GetSection(AdvertisingOptions.SectionName));
+builder.Services.Configure<EvidenceStorageOptions>(builder.Configuration.GetSection(EvidenceStorageOptions.SectionName));
 builder.Services.Configure<FamilyLibraryOptions>(builder.Configuration.GetSection(FamilyLibraryOptions.SectionName));
+builder.Services.Configure<AzureOperationsSettings>(builder.Configuration.GetSection(AzureOperationsSettings.SectionName));
 builder.Services.AddOptions();
+builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient();
 builder.Services.AddHttpClient<ResendClient>();
 builder.Services.Configure<ResendClientOptions>(options =>
@@ -106,6 +110,9 @@ builder.Services.Configure<ResendClientOptions>(options =>
 builder.Services.AddTransient<IResend, ResendClient>();
 builder.Services.AddScoped<IPasswordHasher<AppUser>, PasswordHasher<AppUser>>();
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<UserNotificationService>();
+builder.Services.AddScoped<StripeBillingService>();
+builder.Services.AddScoped<AzureOperationsInsightsService>();
 builder.Services.AddScoped<LearningPlanService>();
 builder.Services.AddScoped<AdaptiveRoutineService>();
 builder.Services.AddScoped<SkillProgressionService>();
@@ -115,18 +122,23 @@ builder.Services.AddScoped<SkillCheckupService>();
 builder.Services.AddScoped<SkillReadinessService>();
 builder.Services.AddScoped<ChildGoalCycleService>();
 builder.Services.AddScoped<ChildEvolutionService>();
+builder.Services.AddScoped<PhaseClosureService>();
+builder.Services.AddScoped<SchoolReportService>();
+builder.Services.AddScoped<FundamentalAssessmentService>();
 builder.Services.AddScoped<ChildRecoveryPlanService>();
 builder.Services.AddScoped<ChildAchievementService>();
 builder.Services.AddScoped<ConsistencyService>();
 builder.Services.AddScoped<ReferralService>();
 builder.Services.AddScoped<TrackAnalyticsService>();
 builder.Services.AddScoped<EmailAutomationService>();
+builder.Services.AddScoped<ProprietaryCurriculumBlueprintService>();
 builder.Services.AddScoped<ProprietaryLessonPacketService>();
 builder.Services.AddScoped<CuratedLearningLibraryService>();
 builder.Services.AddScoped<DailyTrailComposerService>();
 builder.Services.AddScoped<GuidedLessonExperienceService>();
 builder.Services.AddScoped<EvidenceAutomationService>();
 builder.Services.AddScoped<EvidenceStoragePlanService>();
+builder.Services.AddScoped<EvidenceMediaStorageService>();
 builder.Services.AddScoped<WeeklyRoadmapService>();
 builder.Services.AddScoped<AnnualCurriculumPlannerService>();
 builder.Services.AddScoped<SystemCurriculumLibraryService>();
@@ -136,15 +148,24 @@ builder.Services.AddScoped<PortuguesePlanningService>();
 builder.Services.AddScoped<TeachingGuideService>();
 builder.Services.AddScoped<FamilyLibrarySyncService>();
 builder.Services.AddScoped<FamilyLibraryService>();
+builder.Services.AddSingleton<DailyPlanWarmupQueue>();
+builder.Services.AddHostedService(serviceProvider => serviceProvider.GetRequiredService<DailyPlanWarmupQueue>());
 builder.Services.AddHostedService<RevenueRecoveryHostedService>();
 builder.Services.AddControllersWithViews();
 
 var app = builder.Build();
+var evidenceStorageOptions = app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<EvidenceStorageOptions>>().Value;
 
 app.Logger.LogInformation(
     "Banco online do NewSchool: {DataSource} / {Database}",
     sqlConnectionStringBuilder.DataSource,
     sqlConnectionStringBuilder.InitialCatalog);
+app.Logger.LogInformation(
+    "Evidence storage config => Enabled: {Enabled}, DirectUpload: {DirectUpload}, Container: {Container}, HasConnectionString: {HasConnectionString}",
+    evidenceStorageOptions.Enabled,
+    evidenceStorageOptions.UseDirectUpload,
+    evidenceStorageOptions.AzureContainerName,
+    !string.IsNullOrWhiteSpace(evidenceStorageOptions.AzureConnectionString));
 
 if (!app.Environment.IsDevelopment())
 {

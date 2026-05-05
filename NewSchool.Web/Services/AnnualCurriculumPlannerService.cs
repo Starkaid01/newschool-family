@@ -11,7 +11,7 @@ public class AnnualCurriculumPlannerService(ApplicationDbContext db)
         ChildProfile child,
         IReadOnlyCollection<SkillProgressViewModel> skillProgress,
         IReadOnlyCollection<CurriculumEntryViewModel> entries,
-        WeeklyRoadmapViewModel weeklyRoadmap)
+        int weeklyTotalMinutes)
     {
         var today = DateTime.Today;
         var age = CalculateAge(child.BirthDate, today);
@@ -38,13 +38,13 @@ public class AnnualCurriculumPlannerService(ApplicationDbContext db)
         {
             SchoolYearLabel = $"Ano letivo {today.Year}",
             Headline = BuildHeadline(age, child.FamilyGoalTrack),
-            Summary = BuildSummary(age, child.FamilyGoalTrack, weeklyRoadmap),
-            CurriculumBandLabel = BuildCurriculumBandLabel(age),
+            Summary = BuildSummary(age, child.FamilyGoalTrack, weeklyTotalMinutes),
+            CurriculumBandLabel = CurriculumStructure.GetCurriculumBandLabel(age),
             TotalProprietaryLessons = annualTemplates.Count,
             CurrentPhaseLabel = currentPhase.PhaseLabel,
             CurrentPhaseTitle = currentPhase.Title,
             CurrentPhaseSummary = currentPhase.Summary,
-            FamilyRoutineNote = BuildRoutineNote(weeklyRoadmap),
+            FamilyRoutineNote = BuildRoutineNote(weeklyTotalMinutes),
             Phases = phases,
             Subjects = subjects
         };
@@ -91,17 +91,11 @@ public class AnnualCurriculumPlannerService(ApplicationDbContext db)
         IReadOnlyList<IReadOnlyList<CurriculumTemplate>> chunks)
     {
         var subjects = new List<AnnualCurriculumSubjectViewModel>();
-        foreach (var domain in new[]
-                 {
-                     LearningDomain.Language,
-                     LearningDomain.Math,
-                     LearningDomain.World,
-                     LearningDomain.ExecutiveFunction
-                 })
+        foreach (var domain in CurriculumStructure.AnnualSubjectOrder)
         {
-            var domainLabel = FormatDomain(domain);
+            var domainLabel = CurriculumStructure.FormatDomainLabel(domain);
             var progressItems = skillProgress
-                .Where(x => string.Equals(x.DomainLabel, domainLabel, StringComparison.OrdinalIgnoreCase))
+                .Where(x => CurriculumStructure.DomainMatches(ParseDomain(x.DomainLabel), domain))
                 .ToList();
             var progressPercent = progressItems.Count > 0
                 ? (int)Math.Round(progressItems.Average(x => x.ProgressPercent))
@@ -157,43 +151,26 @@ public class AnnualCurriculumPlannerService(ApplicationDbContext db)
 
     private static string BuildHeadline(int age, string goalTrack)
     {
-        var ageBand = age <= 5
-            ? "infantil"
-            : age <= 8
-                ? "fundamental inicial"
-                : age <= 10
-                    ? "fundamental em crescimento"
-                    : "fundamental final";
-        return $"{ageBand} organizado por etapas, matérias e rotina real de casa";
+        return $"{CurriculumStructure.GetSchoolPlacementLabel(age).ToLowerInvariant()} organizado por etapas, matérias e rotina real de casa";
     }
 
-    private static string BuildCurriculumBandLabel(int age) => age switch
-    {
-        <= 4 => "Curriculo proprietario de 3 a 4 anos",
-        <= 6 => "Curriculo proprietario de 5 a 6 anos",
-        <= 8 => "Curriculo proprietario de 7 a 8 anos",
-        <= 10 => "Curriculo proprietario de 9 a 10 anos",
-        <= 12 => "Curriculo proprietario de 11 a 12 anos",
-        _ => "Curriculo proprietario de 13 a 14 anos"
-    };
-
-    private static string BuildSummary(int age, string goalTrack, WeeklyRoadmapViewModel weeklyRoadmap)
+    private static string BuildSummary(int age, string goalTrack, int weeklyTotalMinutes)
     {
         var emphasis = goalTrack switch
         {
             "literacy" => "alfabetização, leitura e produção oral",
             "math_foundations" => "número, cálculo mental e raciocínio",
             "autonomy" => "autonomia, rotina e autorregulação",
-            "science_discovery" => "natureza, ciência e observação do mundo",
-            _ => "linguagem, matemática, mundo real e autonomia"
+            "science_discovery" => "ciências, história, geografia e investigação guiada",
+            _ => "linguagem, matemática, ciências, história, geografia e autonomia"
         };
 
-        return $"O ano foi dividido em quatro etapas para a família saber o que ensinar agora, o que vem depois e como avançar sem improviso. Nesta fase o foco maior está em {emphasis}, mantendo uma semana leve de {weeklyRoadmap.TotalMinutes} minutos no total.";
+        return $"O ano foi dividido em quatro etapas para a família saber o que ensinar agora, o que vem depois e como avançar sem improviso. Nesta fase o foco maior está em {emphasis}, mantendo uma semana leve de {weeklyTotalMinutes} minutos no total.";
     }
 
-    private static string BuildRoutineNote(WeeklyRoadmapViewModel weeklyRoadmap)
+    private static string BuildRoutineNote(int weeklyTotalMinutes)
     {
-        return weeklyRoadmap.Days.Count == 0
+        return weeklyTotalMinutes <= 0
             ? "Abra a aula do dia e siga uma lição por vez. O sistema organiza o resto."
             : $"Sua semana já nasce pronta em blocos curtos. Hoje basta abrir a aula, seguir as etapas e marcar como concluído.";
     }
@@ -206,7 +183,7 @@ public class AnnualCurriculumPlannerService(ApplicationDbContext db)
             "literacy" => "com reforço maior em linguagem e leitura diária",
             "math_foundations" => "com reforço maior em matemática concreta e prática",
             "autonomy" => "com reforço maior em autonomia, atenção e rotina",
-            "science_discovery" => "com reforço maior em ciência, natureza e mundo real",
+            "science_discovery" => "com reforço maior em ciências, história, geografia e investigação",
             _ => "com equilíbrio entre matérias e rotina"
         };
 
@@ -252,7 +229,7 @@ public class AnnualCurriculumPlannerService(ApplicationDbContext db)
                 "Entrar no hábito de abrir, concluir e revisar o que foi estudado.",
                 "A criança passa a estudar com menos resistência e mais previsibilidade."),
             new AnnualPhaseBlueprint(1, "Ampliação por matéria", "abr • mai • jun",
-                "Aprofundar linguagem, matemática, Brasil/mundo e produção guiada.",
+                "Aprofundar linguagem, matemática, ciências, história e geografia com mais intenção.",
                 "Variar leitura, exercícios concretos e registro curto sem sobrecarregar.",
                 "Ler melhor, resolver mais passos e sustentar explicações curtas.",
                 "Já existe avanço visível nas matérias centrais do ano."),
@@ -274,13 +251,7 @@ public class AnnualCurriculumPlannerService(ApplicationDbContext db)
         string familyGoalTrack)
     {
         var result = new List<CurriculumTemplate>();
-        foreach (var domain in new[]
-                 {
-                     LearningDomain.Language,
-                     LearningDomain.Math,
-                     LearningDomain.World,
-                     LearningDomain.ExecutiveFunction
-                 })
+        foreach (var domain in CurriculumStructure.AnnualSubjectOrder)
         {
             var domainTemplates = templates
                 .Where(x => x.Domain == domain)
@@ -354,8 +325,12 @@ public class AnnualCurriculumPlannerService(ApplicationDbContext db)
             LearningDomain.Language => "Fortalecer leitura, escrita guiada, compreensão e expressão oral com clareza.",
             LearningDomain.Math when age <= 5 => "Construir noção de quantidade, comparação, contagem e padrões do cotidiano.",
             LearningDomain.Math => "Consolidar cálculo, resolução de problemas e uso prático da matemática em casa.",
-            LearningDomain.World when age <= 5 => "Explorar Brasil, natureza, histórias, observação e repertório cultural com curiosidade.",
-            LearningDomain.World => "Organizar repertório de Brasil, ciências, história e mundo real de forma conectada.",
+            LearningDomain.Science when age <= 5 => "Explorar natureza, observação, corpo, animais e pequenas descobertas do cotidiano.",
+            LearningDomain.Science => "Construir investigação, hipótese, experimento e conclusão com linguagem simples e rigor crescente.",
+            LearningDomain.History when age <= 5 => "Perceber tempo, memória, família e mudanças do dia a dia com histórias e sequências.",
+            LearningDomain.History => "Organizar linha do tempo, causa, consequência, fontes e leitura histórica em escala adequada à série.",
+            LearningDomain.Geography when age <= 5 => "Explorar casa, bairro, clima, mapa simples e referências do mundo próximo.",
+            LearningDomain.Geography => "Ler território, mapas, regiões, recursos e relações entre lugar, sociedade e ambiente.",
             LearningDomain.ExecutiveFunction when age <= 5 => "Criar rotina, atenção compartilhada, autonomia básica e perseverança.",
             LearningDomain.ExecutiveFunction => "Ganhar autonomia para iniciar, concluir, revisar e registrar o próprio estudo.",
             _ => "Avançar com constância durante o ano."
@@ -370,8 +345,12 @@ public class AnnualCurriculumPlannerService(ApplicationDbContext db)
             LearningDomain.Language => "leitura, compreensão e escrita curta",
             LearningDomain.Math when age <= 5 => "contagem concreta e comparação",
             LearningDomain.Math => "problemas simples e cálculo com material real",
-            LearningDomain.World when age <= 5 => "Brasil, natureza e observação",
-            LearningDomain.World => "história, geografia e ciência do cotidiano",
+            LearningDomain.Science when age <= 5 => "natureza, corpo e observação",
+            LearningDomain.Science => "investigação, fenômenos e experiências",
+            LearningDomain.History when age <= 5 => "sequência, memória e família",
+            LearningDomain.History => "tempo, fontes e acontecimentos",
+            LearningDomain.Geography when age <= 5 => "casa, bairro e orientação",
+            LearningDomain.Geography => "mapa, território e regiões",
             LearningDomain.ExecutiveFunction when age <= 5 => "rotina, atenção e pequenas responsabilidades",
             LearningDomain.ExecutiveFunction => "organização, início de tarefa e revisão",
             _ => "avanço equilibrado"
@@ -400,13 +379,19 @@ public class AnnualCurriculumPlannerService(ApplicationDbContext db)
         };
     }
 
-    private static string FormatDomain(LearningDomain domain) => domain switch
+    private static LearningDomain ParseDomain(string domainLabel) => domainLabel switch
     {
-        LearningDomain.Language => "Linguagem",
-        LearningDomain.Math => "Matemática",
-        LearningDomain.World => "Brasil e mundo",
-        LearningDomain.ExecutiveFunction => "Autonomia",
-        _ => "Geral"
+        "Linguagem" => LearningDomain.Language,
+        "Matemática" => LearningDomain.Math,
+        "Matematica" => LearningDomain.Math,
+        "Ciências" => LearningDomain.Science,
+        "Ciencias" => LearningDomain.Science,
+        "História" => LearningDomain.History,
+        "Historia" => LearningDomain.History,
+        "Geografia" => LearningDomain.Geography,
+        "Brasil e mundo" => LearningDomain.World,
+        "Mundo real" => LearningDomain.World,
+        _ => LearningDomain.ExecutiveFunction
     };
 
     private static int GetCurrentPhaseIndex(int month)

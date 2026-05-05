@@ -17,7 +17,8 @@ namespace NewSchool.Web.Controllers;
 public class BillingController(
     ApplicationDbContext db,
     IOptions<StripeSettings> stripeOptions,
-    EvidenceStoragePlanService evidenceStoragePlanService) : ControllerBase
+    EvidenceStoragePlanService evidenceStoragePlanService,
+    StripeBillingService stripeBillingService) : ControllerBase
 {
     private readonly StripeSettings _stripe = stripeOptions.Value;
 
@@ -42,12 +43,24 @@ public class BillingController(
             var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var user = await db.Users.FirstAsync(x => x.Id == userId);
             var returnUrl = NormalizeLocalReturnUrl(request.ReturnUrl);
+            var requestedExtraBlocks = request.ExtraBlocks;
+
+            if (string.Equals(planCode, EvidenceStoragePlanService.Extra100FilesAddonCode, StringComparison.OrdinalIgnoreCase))
+            {
+                if (!evidenceStoragePlanService.CanPurchaseExtraStorage(user))
+                {
+                    return BadRequest(new { error = "O extra de 100 arquivos aparece para famílias que já estão no plano 5.000 arquivos." });
+                }
+
+                planCode = EvidenceStoragePlanService.Files5000PlanCode;
+                requestedExtraBlocks = evidenceStoragePlanService.GetCurrentExtraBlocks(user) + 1;
+            }
 
             if (HasManagedSubscription(user))
             {
                 try
                 {
-                    await evidenceStoragePlanService.UpdateSubscriptionPlanAsync(user, planCode, request.ExtraBlocks);
+                    await evidenceStoragePlanService.UpdateSubscriptionPlanAsync(user, planCode, requestedExtraBlocks);
                     var updatedUrl = BuildRelativeUrl(returnUrl, new Dictionary<string, string?>
                     {
                         ["billing"] = "updated"
@@ -65,7 +78,7 @@ public class BillingController(
                 }
             }
 
-            var lineItems = await evidenceStoragePlanService.BuildCheckoutLineItemsAsync(planCode, request.ExtraBlocks);
+            var lineItems = await evidenceStoragePlanService.BuildCheckoutLineItemsAsync(planCode, requestedExtraBlocks);
             var domain = $"{Request.Scheme}://{Request.Host}";
             var successUrl = BuildAbsoluteUrl(domain, returnUrl, new Dictionary<string, string?>
             {
@@ -112,41 +125,19 @@ public class BillingController(
     [HttpPost("/billing/cancel-subscription")]
     public async Task<IActionResult> CancelSubscription()
     {
-        try
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var result = await stripeBillingService.CancelSubscriptionAsync(userId, notifyUser: true);
+        if (!result.Success)
         {
-            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            var user = await db.Users.FirstAsync(x => x.Id == userId);
-
-            if (string.IsNullOrWhiteSpace(user.StripeSubscriptionId))
-            {
-                return BadRequest(new { error = "Nenhuma assinatura ativa foi encontrada para cancelar." });
-            }
-
-            var service = new SubscriptionService();
-            var subscription = await service.CancelAsync(user.StripeSubscriptionId, null);
-
-            user.SubscriptionStatus = subscription.Status ?? "canceled";
-            user.SubscriptionCurrentPeriodEnd = subscription.Items?.Data?.Any() == true
-                ? subscription.Items.Data.Max(item => item.CurrentPeriodEnd)
-                : subscription.CanceledAt;
-            user.StripeSubscriptionId = null;
-            evidenceStoragePlanService.DowngradeToFree(user);
-            await db.SaveChangesAsync();
-
-            return Ok(new
-            {
-                status = user.SubscriptionStatus,
-                currentPeriodEnd = user.SubscriptionCurrentPeriodEnd
-            });
+            return BadRequest(new { error = result.Error ?? "Não foi possível cancelar a assinatura." });
         }
-        catch (StripeException ex)
+
+        var user = await db.Users.FirstAsync(x => x.Id == userId);
+        return Ok(new
         {
-            return StatusCode(500, new { error = ex.StripeError?.Message ?? ex.Message });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { error = ex.Message });
-        }
+            status = user.SubscriptionStatus,
+            currentPeriodEnd = user.SubscriptionCurrentPeriodEnd
+        });
     }
 
     [Authorize(Roles = "Parent")]
@@ -154,38 +145,20 @@ public class BillingController(
     [HttpPost("/billing/create-portal-session")]
     public async Task<IActionResult> CreatePortalSession([FromBody] CreateBillingPortalRequest? request)
     {
-        try
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var returnUrl = NormalizeLocalReturnUrl(request?.ReturnUrl);
+        var domain = $"{Request.Scheme}://{Request.Host}";
+        var fullReturnUrl = BuildRelativeUrl(returnUrl, new Dictionary<string, string?>
         {
-            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            var user = await db.Users.FirstAsync(x => x.Id == userId);
-
-            if (string.IsNullOrWhiteSpace(user.StripeCustomerId))
-            {
-                return BadRequest(new { error = "Nao encontramos um cliente Stripe para este usuario." });
-            }
-
-            var returnUrl = NormalizeLocalReturnUrl(request?.ReturnUrl);
-            var domain = $"{Request.Scheme}://{Request.Host}";
-            var service = new Stripe.BillingPortal.SessionService();
-            var session = await service.CreateAsync(new Stripe.BillingPortal.SessionCreateOptions
-            {
-                Customer = user.StripeCustomerId,
-                ReturnUrl = BuildAbsoluteUrl(domain, returnUrl, new Dictionary<string, string?>
-                {
-                    ["billing"] = "return"
-                })
-            });
-
-            return Ok(new { url = session.Url });
-        }
-        catch (StripeException ex)
+            ["billing"] = "return"
+        });
+        var sessionUrl = await stripeBillingService.CreatePortalSessionUrlAsync(userId, domain, fullReturnUrl);
+        if (string.IsNullOrWhiteSpace(sessionUrl))
         {
-            return StatusCode(500, new { error = ex.StripeError?.Message ?? ex.Message });
+            return BadRequest(new { error = "Nao encontramos um cliente Stripe para este usuario." });
         }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { error = ex.Message });
-        }
+
+        return Ok(new { url = sessionUrl });
     }
 
     [AllowAnonymous]
